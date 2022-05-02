@@ -1,0 +1,9 @@
+[workspace]
+members = [
+    "libvirt-remote",
+    "virsh",
+]
+
+[profile.release]
+strip = "symbols"
+lto = true

@@ -1,0 +1,24 @@
+[package]
+name = "libvirt_remote"
+version = "0.1.0"
+authors = ["9506hqwy"]
+edition = "2021"
+rust-version = "1.60"
+repository = "https://github.com/9506hqwy/libvirt-remote-rs"
+license = "MIT OR Apache-2.0"
+keywords = ["libvirt"]
+categories = ["api-bindings"]
+
+[dependencies]
+log = "0.4.17"
+serde = { version="1.0.137", features=["derive"] }
+serde_xdr = { git="https://github.com/9506hqwy/xdr-rs", tag="0.1.0" }
+
+[dev-dependencies]
+proc-macro2 = "*"
+quote = "*"
+syn = { version="*", features=["full"] }
+
+[[example]]
+name = "libvirt-remote-gen"
+path = "tools/gen.rs"

@@ -1,0 +1,18 @@
+[package]
+name = "virsh"
+version = "0.1.0"
+authors = ["9506hqwy"]
+edition = "2021"
+rust-version = "1.60"
+repository = "https://github.com/9506hqwy/libvirt-remote-rs"
+license = "MIT OR Apache-2.0"
+keywords = ["libvirt"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+clap = "3.1.15"
+env_logger = "0.9.0"
+libvirt_remote = { path="../libvirt-remote" }
+log = "0.4.17"
+unicode-width = "0.1.9"
+url = "2.2.2"
