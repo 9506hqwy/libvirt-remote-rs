@@ -3,8 +3,14 @@ use fluent::{FluentArgs, FluentBundle, FluentResource};
 use fluent_langneg::{convert_vec_str_to_langids_lossy, negotiate_languages, NegotiationStrategy};
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
+#[cfg(target_family = "unix")]
 use std::env;
 use unic_langid::{langid, langids, LanguageIdentifier};
+#[cfg(target_family = "windows")]
+use windows::{
+    core::PWSTR,
+    Win32::Globalization::{GetUserPreferredUILanguages, MUI_LANGUAGE_NAME},
+};
 
 static RESOURCES: Lazy<HashMap<LanguageIdentifier, &str>> = Lazy::new(|| {
     let mut r = HashMap::new();
@@ -88,6 +94,40 @@ fn get_available_locales() -> Result<Vec<LanguageIdentifier>, Error> {
     Ok(RESOURCES.keys().cloned().collect())
 }
 
+#[cfg(target_family = "windows")]
+fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
+    // https://docs.microsoft.com/ja-jp/windows/win32/intl/user-interface-language-management
+
+    let mut count: u32 = 0;
+    let langs = PWSTR::default();
+    let mut langs_len: u32 = 0;
+    unsafe {
+        GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, langs, &mut langs_len)
+            .ok()
+            .map_err(|_| Error::Locale)
+    }?;
+
+    if count == 0 {
+        return Ok(langids!("en-us"));
+    }
+
+    let mut buffer = vec![0u16; langs_len as usize];
+    let langs = PWSTR(buffer.as_mut_ptr());
+    unsafe {
+        GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, langs, &mut langs_len)
+            .ok()
+            .map_err(|_| Error::Locale)
+    }?;
+
+    let results: Vec<String> = buffer
+        .split(|&v| v == 0)
+        .take(count as usize)
+        .map(String::from_utf16_lossy)
+        .collect();
+    Ok(convert_vec_str_to_langids_lossy(results.as_slice()))
+}
+
+#[cfg(target_family = "unix")]
 fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
     if let Ok(lang) = env::var("LANG") {
         let lang = lang.split('.').next().unwrap();
