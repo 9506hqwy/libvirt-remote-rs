@@ -36,7 +36,7 @@ fn main() -> Result<(), Error> {
 
 fn cmd() -> Command<'static> {
     Command::new("Libvirt Client")
-        .version("0.1.0")
+        .version("0.2.0")
         .arg(
             Arg::new("connect")
                 .short('c')
