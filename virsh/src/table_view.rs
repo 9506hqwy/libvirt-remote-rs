@@ -1,5 +1,4 @@
-use std::iter::repeat;
-use unicode_width::UnicodeWidthStr;
+use super::util;
 
 const TABLE_PADDING: u16 = 3;
 
@@ -12,7 +11,7 @@ impl TableColumn {
     fn new(header: &str) -> Self {
         TableColumn {
             header: header.to_string(),
-            width: (char_width(header) as u16) + TABLE_PADDING,
+            width: (util::char_width(header) as u16) + TABLE_PADDING,
         }
     }
 
@@ -21,7 +20,7 @@ impl TableColumn {
     }
 
     fn print_border(&self) {
-        print!("{}", padding('-', self.width))
+        print!("{}", util::padding('-', self.width))
     }
 }
 
@@ -59,7 +58,7 @@ impl TableView {
 
             row.cells.push(cell.to_string());
 
-            let len = (char_width(cell) as u16) + TABLE_PADDING;
+            let len = (util::char_width(cell) as u16) + TABLE_PADDING;
             if column.width < len {
                 column.width = len;
             }
@@ -90,16 +89,8 @@ impl TableView {
     }
 }
 
-fn char_width(value: &str) -> usize {
-    UnicodeWidthStr::width_cjk(value)
-}
-
-fn padding(ch: char, len: u16) -> String {
-    repeat(ch).take(len as usize).collect::<String>()
-}
-
 fn print_cell(value: &str, width: u16) {
-    let count = char_width(value) as u16;
+    let count = util::char_width(value) as u16;
     let right_padding = width - count - TABLE_PADDING;
-    print!(" {}{}  ", value, padding(' ', right_padding))
+    print!(" {}{}  ", value, util::padding(' ', right_padding))
 }

@@ -1,4 +1,5 @@
 use super::error::Error;
+use super::kv_view::KeyValueView;
 use super::locale::Locale;
 use clap::Command;
 use libvirt_remote::client::Libvirt;
@@ -10,35 +11,27 @@ pub fn cmd() -> Command<'static> {
 pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale) -> Result<(), Error> {
     let info = client.node_get_info()?;
 
-    println!(
-        "{}  {}",
-        locale.get_message("LabelCpuModel"),
-        to_utf8_str(&info.model)?
+    let mut view = KeyValueView::default();
+
+    view.add_row(
+        &locale.get_message("LabelCpuModel"),
+        &to_utf8_str(&info.model)?,
     );
-    println!("{}  {}", locale.get_message("LabelCpuNum"), info.cpus);
-    println!("{}  {} MHz", locale.get_message("LabelCpuFreq"), info.mhz);
-    println!(
-        "{}  {}",
-        locale.get_message("LabelCpuSocketNum"),
-        info.sockets
+    view.add_row(&locale.get_message("LabelCpuNum"), info.cpus);
+    view.add_row(
+        &locale.get_message("LabelCpuFreq"),
+        format!("{} Mhz", info.mhz),
     );
-    println!("{}  {}", locale.get_message("LabelCpuCoreNum"), info.cores);
-    println!(
-        "{}  {}",
-        locale.get_message("LabelCpuThreadNum"),
-        info.threads
+    view.add_row(&locale.get_message("LabelCpuSocketNum"), info.sockets);
+    view.add_row(&locale.get_message("LabelCpuCoreNum"), info.cores);
+    view.add_row(&locale.get_message("LabelCpuThreadNum"), info.threads);
+    view.add_row(&locale.get_message("LabelMemoryNumaCellNum"), info.nodes);
+    view.add_row(
+        &locale.get_message("LabelMemorySize"),
+        format!("{} KiB", info.memory),
     );
-    println!(
-        "{}  {}",
-        locale.get_message("LabelMemoryNumaCellNum"),
-        info.nodes
-    );
-    println!(
-        "{}  {} KiB",
-        locale.get_message("LabelMemorySize"),
-        info.memory
-    );
-    println!();
+
+    view.print_kv();
 
     Ok(())
 }

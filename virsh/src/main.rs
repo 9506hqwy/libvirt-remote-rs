@@ -1,8 +1,10 @@
 mod error;
 mod iface_list;
+mod kv_view;
 mod locale;
 mod nodeinfo;
 mod table_view;
+mod util;
 mod version;
 
 use clap::{Arg, Command};
