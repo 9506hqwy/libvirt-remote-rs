@@ -6,6 +6,7 @@ pub enum Error {
     Encoding(string::FromUtf8Error),
     Io(io::Error),
     Libvirt(Box<libvirt_remote::error::Error>),
+    Locale,
     NotSupported,
     Uri(url::ParseError),
 }

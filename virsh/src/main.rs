@@ -1,5 +1,6 @@
 mod error;
 mod iface_list;
+mod locale;
 mod nodeinfo;
 mod table_view;
 mod version;
@@ -16,6 +17,7 @@ use url::Url;
 
 fn main() -> Result<(), Error> {
     env_logger::init();
+    let locale = locale::setup()?;
 
     let gargs = cmd().get_matches();
 
@@ -23,9 +25,9 @@ fn main() -> Result<(), Error> {
     let mut client = connect(uri, gargs.is_present("readonly"))?;
 
     let ret = match gargs.subcommand() {
-        Some(("iface-list", args)) => iface_list::run(&mut client, args),
-        Some(("nodeinfo", _)) => nodeinfo::run(&mut client),
-        Some(("version", _)) => version::run(&mut client),
+        Some(("iface-list", args)) => iface_list::run(&mut client, &locale, args),
+        Some(("nodeinfo", _)) => nodeinfo::run(&mut client, &locale),
+        Some(("version", _)) => version::run(&mut client, &locale),
         _ => cmd().print_long_help().map_err(Error::from),
     };
 

@@ -1,0 +1,17 @@
+Active = active
+FormatCompiledLibrary = Compiled against library: libvirt { $version }
+FormatRunningHypervisor = Running hypervisor: { $type } { $version }
+FormatUsingAPI = Using API: { $type } { $version }
+FormatUsingLibrary = Using library: libvirt { $version }
+Inactive = inactive
+LabelCpuCoreNum = Core(s) per socket:
+LabelCpuFreq = CPU frequency:
+LabelCpuModel = CPU model:
+LabelCpuNum = CPU(s):
+LabelCpuSocketNum = CPU socket(s):
+LabelCpuThreadNum = Thread(s) per core:
+LabelMemoryNumaCellNum = NUMA cell(s):
+LabelMemorySize = Memory size:
+Name = Name
+MacAddress = MAC Address
+State = State

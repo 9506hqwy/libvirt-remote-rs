@@ -1,4 +1,5 @@
 use super::error::Error;
+use super::locale::Locale;
 use clap::Command;
 use libvirt_remote::client::Libvirt;
 use log::error;
@@ -7,7 +8,7 @@ pub fn cmd() -> Command<'static> {
     Command::new("version")
 }
 
-pub fn run(client: &mut Box<dyn Libvirt>) -> Result<(), Error> {
+pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale) -> Result<(), Error> {
     let hv_type = match client.connect_get_type() {
         Ok(ret) => Some(ret.r#type),
         Err(e) => {
@@ -34,28 +35,47 @@ pub fn run(client: &mut Box<dyn Libvirt>) -> Result<(), Error> {
 
     if lib_ver.is_some() {
         println!(
-            "Compiled against library: libvirt {}",
-            lib_ver.as_ref().unwrap()
+            "{}",
+            locale.format_message(
+                "FormatCompiledLibrary",
+                vec![("version", lib_ver.as_ref().unwrap())]
+            ),
         );
     }
 
     if lib_ver.is_some() {
-        println!("Using library: libvirt {}", lib_ver.as_ref().unwrap());
+        println!(
+            "{}",
+            locale.format_message(
+                "FormatUsingLibrary",
+                vec![("version", lib_ver.as_ref().unwrap())]
+            )
+        );
     }
 
     if hv_type.is_some() && lib_ver.is_some() {
         println!(
-            "Using API: {} {}",
-            hv_type.as_ref().unwrap(),
-            lib_ver.as_ref().unwrap()
+            "{}",
+            locale.format_message(
+                "FormatUsingAPI",
+                vec![
+                    ("type", hv_type.as_ref().unwrap()),
+                    ("version", lib_ver.as_ref().unwrap())
+                ]
+            ),
         );
     }
 
     if hv_type.is_some() && hv_ver.is_some() {
         println!(
-            "Running hypervisor: {} {}",
-            hv_type.as_ref().unwrap(),
-            hv_ver.as_ref().unwrap()
+            "{}",
+            locale.format_message(
+                "FormatRunningHypervisor",
+                vec![
+                    ("type", hv_type.as_ref().unwrap()),
+                    ("version", hv_ver.as_ref().unwrap())
+                ]
+            ),
         );
     }
 

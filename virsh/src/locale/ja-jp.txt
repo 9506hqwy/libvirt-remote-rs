@@ -1,0 +1,17 @@
+Active = 動作中
+FormatCompiledLibrary = コンパイル時に使用したライブラリ: libvirt { $version }
+FormatRunningHypervisor = 実行中のハイパーバイザー: { $type } { $version }
+FormatUsingAPI = 使用中の API: { $type } { $version }
+FormatUsingLibrary = 使用中のライブラリ: libvirt { $version }
+Inactive = 停止状態
+LabelCpuCoreNum = ソケットあたりのコア数:
+LabelCpuFreq = CPU 周波数:
+LabelCpuModel = CPU モデル:
+LabelCpuNum = CPU:
+LabelCpuSocketNum = CPU ソケット数:
+LabelCpuThreadNum = コアあたりのスレッド数:
+LabelMemoryNumaCellNum = NUMA セル数:
+LabelMemorySize = メモリー容量:
+Name = 名前
+MacAddress = MAC アドレス
+State = 状態
