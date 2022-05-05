@@ -84,22 +84,26 @@ pub const VIR_TYPED_PARAM_STRING: u32 = 7u32;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteNonnullDomain {
     pub name: String,
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
     pub id: i32,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteNonnullNetwork {
     pub name: String,
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteNonnullNetworkPort {
     pub net: RemoteNonnullNetwork,
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteNonnullNwfilter {
     pub name: String,
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -115,6 +119,7 @@ pub struct RemoteNonnullInterface {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteNonnullStoragePool {
     pub name: String,
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -129,6 +134,7 @@ pub struct RemoteNonnullNodeDevice {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteNonnullSecret {
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
     pub usage_type: i32,
     pub usage_id: String,
@@ -510,6 +516,7 @@ pub struct RemoteDomainBlockPeekArgs {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainBlockPeekRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub buffer: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -521,6 +528,7 @@ pub struct RemoteDomainMemoryPeekArgs {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMemoryPeekRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub buffer: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -575,6 +583,7 @@ pub struct RemoteDomainLookupByIdRet {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainLookupByUuidArgs {
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -760,12 +769,14 @@ pub struct RemoteDomainMigratePrepareArgs {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie: Vec<u8>,
     pub uri_out: Option<String>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePerformArgs {
     pub dom: RemoteNonnullDomain,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie: Vec<u8>,
     pub uri: String,
     pub flags: u64,
@@ -775,6 +786,7 @@ pub struct RemoteDomainMigratePerformArgs {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinishArgs {
     pub dname: String,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie: Vec<u8>,
     pub uri: String,
     pub flags: u64,
@@ -793,12 +805,14 @@ pub struct RemoteDomainMigratePrepare2Args {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare2Ret {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie: Vec<u8>,
     pub uri_out: Option<String>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish2Args {
     pub dname: String,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie: Vec<u8>,
     pub uri: String,
     pub flags: u64,
@@ -912,12 +926,14 @@ pub struct RemoteDomainGetVcpusFlagsRet {
 pub struct RemoteDomainPinVcpuArgs {
     pub dom: RemoteNonnullDomain,
     pub vcpu: u32,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumap: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainPinVcpuFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub vcpu: u32,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumap: Vec<u8>,
     pub flags: u32,
 }
@@ -930,12 +946,14 @@ pub struct RemoteDomainGetVcpuPinInfoArgs {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainGetVcpuPinInfoRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumaps: Vec<u8>,
     pub num: i32,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainPinEmulatorArgs {
     pub dom: RemoteNonnullDomain,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumap: Vec<u8>,
     pub flags: u32,
 }
@@ -947,6 +965,7 @@ pub struct RemoteDomainGetEmulatorPinInfoArgs {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainGetEmulatorPinInfoRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumaps: Vec<u8>,
     pub ret: i32,
 }
@@ -959,6 +978,7 @@ pub struct RemoteDomainGetVcpusArgs {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainGetVcpusRet {
     pub info: Vec<RemoteVcpuInfo>,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumaps: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -972,6 +992,7 @@ pub struct RemoteDomainGetMaxVcpusRet {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainIothreadInfo {
     pub iothread_id: u32,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumap: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -988,6 +1009,7 @@ pub struct RemoteDomainGetIothreadInfoRet {
 pub struct RemoteDomainPinIothreadArgs {
     pub dom: RemoteNonnullDomain,
     pub iothreads_id: u32,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumap: Vec<u8>,
     pub flags: u32,
 }
@@ -1226,6 +1248,7 @@ pub struct RemoteConnectListDefinedNetworksRet {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteNetworkLookupByUuidArgs {
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1339,6 +1362,7 @@ pub struct RemoteConnectListNwfiltersRet {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteNwfilterLookupByUuidArgs {
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1538,6 +1562,7 @@ pub struct RemoteConnectFindStoragePoolSourcesRet {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteStoragePoolLookupByUuidArgs {
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1973,6 +1998,7 @@ pub struct RemoteConnectListSecretsRet {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteSecretLookupByUuidArgs {
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2000,6 +2026,7 @@ pub struct RemoteSecretGetXmlDescRet {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteSecretSetValueArgs {
     pub secret: RemoteNonnullSecret,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub value: Vec<u8>,
     pub flags: u32,
 }
@@ -2010,6 +2037,7 @@ pub struct RemoteSecretGetValueArgs {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteSecretGetValueRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub value: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2596,11 +2624,13 @@ pub struct RemoteDomainMigrateBegin3Args {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateBegin3Ret {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
     pub xml: String,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare3Args {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub uri_in: Option<String>,
     pub flags: u64,
@@ -2610,11 +2640,13 @@ pub struct RemoteDomainMigratePrepare3Args {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare3Ret {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
     pub uri_out: Option<String>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareTunnel3Args {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub flags: u64,
     pub dname: Option<String>,
@@ -2623,12 +2655,14 @@ pub struct RemoteDomainMigratePrepareTunnel3Args {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareTunnel3Ret {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePerform3Args {
     pub dom: RemoteNonnullDomain,
     pub xmlin: Option<String>,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub dconnuri: Option<String>,
     pub uri: Option<String>,
@@ -2638,11 +2672,13 @@ pub struct RemoteDomainMigratePerform3Args {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePerform3Ret {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish3Args {
     pub dname: String,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub dconnuri: Option<String>,
     pub uri: Option<String>,
@@ -2652,11 +2688,13 @@ pub struct RemoteDomainMigrateFinish3Args {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish3Ret {
     pub dom: RemoteNonnullDomain,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateConfirm3Args {
     pub dom: RemoteNonnullDomain,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub flags: u64,
     pub cancelled: i32,
@@ -2819,6 +2857,7 @@ pub struct RemoteNodeGetCpuMapArgs {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteNodeGetCpuMapRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumap: Vec<u8>,
     pub online: u32,
     pub ret: i32,
@@ -2855,28 +2894,33 @@ pub struct RemoteDomainMigrateBegin3ParamsArgs {
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateBegin3ParamsRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
     pub xml: String,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare3ParamsArgs {
     pub params: Vec<RemoteTypedParam>,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub flags: u32,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare3ParamsRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
     pub uri_out: Option<String>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareTunnel3ParamsArgs {
     pub params: Vec<RemoteTypedParam>,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub flags: u32,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareTunnel3ParamsRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2884,16 +2928,19 @@ pub struct RemoteDomainMigratePerform3ParamsArgs {
     pub dom: RemoteNonnullDomain,
     pub dconnuri: Option<String>,
     pub params: Vec<RemoteTypedParam>,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub flags: u32,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePerform3ParamsRet {
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish3ParamsArgs {
     pub params: Vec<RemoteTypedParam>,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub flags: u32,
     pub cancelled: i32,
@@ -2901,12 +2948,14 @@ pub struct RemoteDomainMigrateFinish3ParamsArgs {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish3ParamsRet {
     pub dom: RemoteNonnullDomain,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateConfirm3ParamsArgs {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
+    #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub flags: u32,
     pub cancelled: i32,
@@ -3393,6 +3442,7 @@ pub struct RemoteNetworkListAllPortsRet {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RemoteNetworkPortLookupByUuidArgs {
     pub network: RemoteNonnullNetwork,
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]

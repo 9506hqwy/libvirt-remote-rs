@@ -12,7 +12,7 @@ categories = ["api-bindings"]
 [dependencies]
 log = "0.4.17"
 serde = { version="1.0.137", features=["derive"] }
-serde_xdr = { git="https://github.com/9506hqwy/xdr-rs", tag="0.1.0" }
+serde_xdr = { git="https://github.com/9506hqwy/xdr-rs", tag="0.1.1" }
 
 [dev-dependencies]
 proc-macro2 = "*"

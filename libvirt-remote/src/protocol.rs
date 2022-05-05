@@ -39,12 +39,14 @@ pub struct Virnetmessageheader {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Virnetmessagenonnulldomain {
     pub name: String,
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
     pub id: i32,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Virnetmessagenonnullnetwork {
     pub name: String,
+    #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
