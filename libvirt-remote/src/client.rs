@@ -5328,6 +5328,365 @@ pub trait Libvirt {
         )?;
         Ok(())
     }
+    fn domain_event_lifecycle_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventLifecycleMsg, Error> {
+        trace!("{}", stringify!(domain_event_lifecycle_msg));
+        let res: Option<binding::RemoteDomainEventLifecycleMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_lifecycle_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackLifecycleMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_lifecycle_msg));
+        let res: Option<binding::RemoteDomainEventCallbackLifecycleMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_reboot_msg(&mut self) -> Result<binding::RemoteDomainEventRebootMsg, Error> {
+        trace!("{}", stringify!(domain_event_reboot_msg));
+        let res: Option<binding::RemoteDomainEventRebootMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_reboot_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackRebootMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_reboot_msg));
+        let res: Option<binding::RemoteDomainEventCallbackRebootMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_rtc_change_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventRtcChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_rtc_change_msg));
+        let res: Option<binding::RemoteDomainEventRtcChangeMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_rtc_change_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackRtcChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_rtc_change_msg));
+        let res: Option<binding::RemoteDomainEventCallbackRtcChangeMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_watchdog_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventWatchdogMsg, Error> {
+        trace!("{}", stringify!(domain_event_watchdog_msg));
+        let res: Option<binding::RemoteDomainEventWatchdogMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_watchdog_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackWatchdogMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_watchdog_msg));
+        let res: Option<binding::RemoteDomainEventCallbackWatchdogMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_io_error_msg(&mut self) -> Result<binding::RemoteDomainEventIoErrorMsg, Error> {
+        trace!("{}", stringify!(domain_event_io_error_msg));
+        let res: Option<binding::RemoteDomainEventIoErrorMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_io_error_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackIoErrorMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_io_error_msg));
+        let res: Option<binding::RemoteDomainEventCallbackIoErrorMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_io_error_reason_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventIoErrorReasonMsg, Error> {
+        trace!("{}", stringify!(domain_event_io_error_reason_msg));
+        let res: Option<binding::RemoteDomainEventIoErrorReasonMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_io_error_reason_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackIoErrorReasonMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_io_error_reason_msg));
+        let res: Option<binding::RemoteDomainEventCallbackIoErrorReasonMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_graphics_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventGraphicsMsg, Error> {
+        trace!("{}", stringify!(domain_event_graphics_msg));
+        let res: Option<binding::RemoteDomainEventGraphicsMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_graphics_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackGraphicsMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_graphics_msg));
+        let res: Option<binding::RemoteDomainEventCallbackGraphicsMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_block_job_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventBlockJobMsg, Error> {
+        trace!("{}", stringify!(domain_event_block_job_msg));
+        let res: Option<binding::RemoteDomainEventBlockJobMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_block_job_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackBlockJobMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_block_job_msg));
+        let res: Option<binding::RemoteDomainEventCallbackBlockJobMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_disk_change_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventDiskChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_disk_change_msg));
+        let res: Option<binding::RemoteDomainEventDiskChangeMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_disk_change_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackDiskChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_disk_change_msg));
+        let res: Option<binding::RemoteDomainEventCallbackDiskChangeMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_tray_change_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventTrayChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_tray_change_msg));
+        let res: Option<binding::RemoteDomainEventTrayChangeMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_tray_change_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackTrayChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_tray_change_msg));
+        let res: Option<binding::RemoteDomainEventCallbackTrayChangeMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_pmwakeup_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventPmwakeupMsg, Error> {
+        trace!("{}", stringify!(domain_event_pmwakeup_msg));
+        let res: Option<binding::RemoteDomainEventPmwakeupMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_pmwakeup_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackPmwakeupMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_pmwakeup_msg));
+        let res: Option<binding::RemoteDomainEventCallbackPmwakeupMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_pmsuspend_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventPmsuspendMsg, Error> {
+        trace!("{}", stringify!(domain_event_pmsuspend_msg));
+        let res: Option<binding::RemoteDomainEventPmsuspendMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_pmsuspend_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackPmsuspendMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_pmsuspend_msg));
+        let res: Option<binding::RemoteDomainEventCallbackPmsuspendMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_balloon_change_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventBalloonChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_balloon_change_msg));
+        let res: Option<binding::RemoteDomainEventBalloonChangeMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_balloon_change_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackBalloonChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_balloon_change_msg));
+        let res: Option<binding::RemoteDomainEventCallbackBalloonChangeMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_pmsuspend_disk_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventPmsuspendDiskMsg, Error> {
+        trace!("{}", stringify!(domain_event_pmsuspend_disk_msg));
+        let res: Option<binding::RemoteDomainEventPmsuspendDiskMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_pmsuspend_disk_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackPmsuspendDiskMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_pmsuspend_disk_msg));
+        let res: Option<binding::RemoteDomainEventCallbackPmsuspendDiskMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_control_error_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventControlErrorMsg, Error> {
+        trace!("{}", stringify!(domain_event_control_error_msg));
+        let res: Option<binding::RemoteDomainEventControlErrorMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_control_error_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackControlErrorMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_control_error_msg));
+        let res: Option<binding::RemoteDomainEventCallbackControlErrorMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_device_removed_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventDeviceRemovedMsg, Error> {
+        trace!("{}", stringify!(domain_event_device_removed_msg));
+        let res: Option<binding::RemoteDomainEventDeviceRemovedMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_device_removed_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackDeviceRemovedMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_device_removed_msg));
+        let res: Option<binding::RemoteDomainEventCallbackDeviceRemovedMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_block_job2msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventBlockJob2Msg, Error> {
+        trace!("{}", stringify!(domain_event_block_job2msg));
+        let res: Option<binding::RemoteDomainEventBlockJob2Msg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_block_threshold_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventBlockThresholdMsg, Error> {
+        trace!("{}", stringify!(domain_event_block_threshold_msg));
+        let res: Option<binding::RemoteDomainEventBlockThresholdMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_tunable_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackTunableMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_tunable_msg));
+        let res: Option<binding::RemoteDomainEventCallbackTunableMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_device_added_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackDeviceAddedMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_device_added_msg));
+        let res: Option<binding::RemoteDomainEventCallbackDeviceAddedMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn connect_event_connection_closed_msg(
+        &mut self,
+    ) -> Result<binding::RemoteConnectEventConnectionClosedMsg, Error> {
+        trace!("{}", stringify!(connect_event_connection_closed_msg));
+        let res: Option<binding::RemoteConnectEventConnectionClosedMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn network_event_lifecycle_msg(
+        &mut self,
+    ) -> Result<binding::RemoteNetworkEventLifecycleMsg, Error> {
+        trace!("{}", stringify!(network_event_lifecycle_msg));
+        let res: Option<binding::RemoteNetworkEventLifecycleMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn storage_pool_event_lifecycle_msg(
+        &mut self,
+    ) -> Result<binding::RemoteStoragePoolEventLifecycleMsg, Error> {
+        trace!("{}", stringify!(storage_pool_event_lifecycle_msg));
+        let res: Option<binding::RemoteStoragePoolEventLifecycleMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn storage_pool_event_refresh_msg(
+        &mut self,
+    ) -> Result<binding::RemoteStoragePoolEventRefreshMsg, Error> {
+        trace!("{}", stringify!(storage_pool_event_refresh_msg));
+        let res: Option<binding::RemoteStoragePoolEventRefreshMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn node_device_event_lifecycle_msg(
+        &mut self,
+    ) -> Result<binding::RemoteNodeDeviceEventLifecycleMsg, Error> {
+        trace!("{}", stringify!(node_device_event_lifecycle_msg));
+        let res: Option<binding::RemoteNodeDeviceEventLifecycleMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn node_device_event_update_msg(
+        &mut self,
+    ) -> Result<binding::RemoteNodeDeviceEventUpdateMsg, Error> {
+        trace!("{}", stringify!(node_device_event_update_msg));
+        let res: Option<binding::RemoteNodeDeviceEventUpdateMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_agent_lifecycle_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackAgentLifecycleMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_agent_lifecycle_msg));
+        let res: Option<binding::RemoteDomainEventCallbackAgentLifecycleMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_migration_iteration_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackMigrationIterationMsg, Error> {
+        trace!(
+            "{}",
+            stringify!(domain_event_callback_migration_iteration_msg)
+        );
+        let res: Option<binding::RemoteDomainEventCallbackMigrationIterationMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_job_completed_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackJobCompletedMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_job_completed_msg));
+        let res: Option<binding::RemoteDomainEventCallbackJobCompletedMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_device_removal_failed_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackDeviceRemovalFailedMsg, Error> {
+        trace!(
+            "{}",
+            stringify!(domain_event_callback_device_removal_failed_msg)
+        );
+        let res: Option<binding::RemoteDomainEventCallbackDeviceRemovalFailedMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_callback_metadata_change_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventCallbackMetadataChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_callback_metadata_change_msg));
+        let res: Option<binding::RemoteDomainEventCallbackMetadataChangeMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_memory_failure_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventMemoryFailureMsg, Error> {
+        trace!("{}", stringify!(domain_event_memory_failure_msg));
+        let res: Option<binding::RemoteDomainEventMemoryFailureMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn secret_event_lifecycle_msg(
+        &mut self,
+    ) -> Result<binding::RemoteSecretEventLifecycleMsg, Error> {
+        trace!("{}", stringify!(secret_event_lifecycle_msg));
+        let res: Option<binding::RemoteSecretEventLifecycleMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn secret_event_value_changed_msg(
+        &mut self,
+    ) -> Result<binding::RemoteSecretEventValueChangedMsg, Error> {
+        trace!("{}", stringify!(secret_event_value_changed_msg));
+        let res: Option<binding::RemoteSecretEventValueChangedMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
+    fn domain_event_memory_device_size_change_msg(
+        &mut self,
+    ) -> Result<binding::RemoteDomainEventMemoryDeviceSizeChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_memory_device_size_change_msg));
+        let res: Option<binding::RemoteDomainEventMemoryDeviceSizeChangeMsg> = msg(self)?;
+        Ok(res.unwrap())
+    }
 }
 fn call<S, D>(
     client: &mut (impl Libvirt + ?Sized),
@@ -5370,6 +5729,40 @@ where
             .write_all(args_bytes)
             .map_err(Error::SendError)?;
     }
+    let mut res_len_bytes = [0; 4];
+    client
+        .inner()
+        .read_exact(&mut res_len_bytes)
+        .map_err(Error::ReceiveError)?;
+    let res_len = u32::from_be_bytes(res_len_bytes) as usize;
+    let mut res_header_bytes = [0; 24];
+    client
+        .inner()
+        .read_exact(&mut res_header_bytes)
+        .map_err(Error::ReceiveError)?;
+    let res_header = serde_xdr::from_bytes::<protocol::Virnetmessageheader>(&res_header_bytes)
+        .map_err(Error::DeserializeError)?;
+    if res_len == (4 + res_header_bytes.len()) {
+        return Ok(None);
+    }
+    let mut res_body_bytes = vec![0u8; res_len - 4 - res_header_bytes.len()];
+    client
+        .inner()
+        .read_exact(&mut res_body_bytes)
+        .map_err(Error::ReceiveError)?;
+    if res_header.status == protocol::Virnetmessagestatus::VirNetError {
+        let res = serde_xdr::from_bytes::<protocol::Virnetmessageerror>(&res_body_bytes)
+            .map_err(Error::DeserializeError)?;
+        Err(Error::ProtocolError(res))
+    } else {
+        let res = serde_xdr::from_bytes::<D>(&res_body_bytes).map_err(Error::DeserializeError)?;
+        Ok(Some(res))
+    }
+}
+fn msg<D>(client: &mut (impl Libvirt + ?Sized)) -> Result<Option<D>, Error>
+where
+    D: DeserializeOwned,
+{
     let mut res_len_bytes = [0; 4];
     client
         .inner()

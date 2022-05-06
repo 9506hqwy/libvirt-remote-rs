@@ -3,6 +3,7 @@ mod iface_list;
 mod kv_view;
 mod locale;
 mod nodeinfo;
+mod pool_event;
 mod table_view;
 mod util;
 mod version;
@@ -29,6 +30,7 @@ fn main() -> Result<(), Error> {
     let ret = match gargs.subcommand() {
         Some(("iface-list", args)) => iface_list::run(&mut client, &locale, args),
         Some(("nodeinfo", _)) => nodeinfo::run(&mut client, &locale),
+        Some(("pool-event", args)) => pool_event::run(&mut client, &locale, args),
         Some(("version", _)) => version::run(&mut client, &locale),
         _ => cmd().print_long_help().map_err(Error::from),
     };
@@ -63,6 +65,7 @@ fn cmd() -> Command<'static> {
         )
         .subcommand(iface_list::cmd())
         .subcommand(nodeinfo::cmd())
+        .subcommand(pool_event::cmd())
         .subcommand(version::cmd())
 }
 

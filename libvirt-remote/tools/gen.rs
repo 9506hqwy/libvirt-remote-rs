@@ -50,7 +50,7 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
         }
     }
 
-    let mut methods = vec![];
+    let mut calls = vec![];
     for proc in procs {
         let method_name = format_ident!("{}", snake_case(&proc.0));
         let flag = format_ident!("RemoteProc{}", proc.0);
@@ -96,10 +96,38 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
             }
         };
 
-        methods.push(quote! {
+        calls.push(quote! {
             fn #fn_stmt -> Result<#ret_stmt, Error> {
                 trace!("{}", stringify!(#method_name));
                 #req_stmt
+                #proc_stmt
+            }
+        });
+    }
+
+    let mut msgs = vec![];
+    for model in models {
+        if !model.ends_with("Msg") {
+            continue;
+        }
+
+        let method_name = format_ident!("{}", snake_case(&model.strip_prefix("Remote").unwrap()));
+
+        let fn_stmt = quote! {
+            #method_name(&mut self)
+        };
+
+        let ret_type = format_ident!("{}", model);
+        let ret_stmt = quote! { binding::#ret_type };
+
+        let proc_stmt = quote! {
+            let res: Option<#ret_stmt> = msg(self)?;
+            Ok(res.unwrap())
+        };
+
+        msgs.push(quote! {
+            fn #fn_stmt -> Result<#ret_stmt, Error> {
+                trace!("{}", stringify!(#method_name));
                 #proc_stmt
             }
         });
@@ -156,7 +184,9 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
 
             fn serial_add(&mut self, value: u32);
 
-            #(#methods)*
+            #(#calls)*
+
+            #(#msgs)*
         }
 
         fn call<S, D>(
@@ -205,6 +235,46 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
                     .map_err(Error::SendError)?;
             }
 
+            let mut res_len_bytes = [0; 4];
+            client
+                .inner()
+                .read_exact(&mut res_len_bytes)
+                .map_err(Error::ReceiveError)?;
+            let res_len = u32::from_be_bytes(res_len_bytes) as usize;
+
+            let mut res_header_bytes = [0; 24];
+            client
+                .inner()
+                .read_exact(&mut res_header_bytes)
+                .map_err(Error::ReceiveError)?;
+            let res_header = serde_xdr::from_bytes::<protocol::Virnetmessageheader>(&res_header_bytes)
+                .map_err(Error::DeserializeError)?;
+
+            if res_len == (4 + res_header_bytes.len()) {
+                return Ok(None);
+            }
+
+            let mut res_body_bytes = vec![0u8; res_len - 4 - res_header_bytes.len()];
+            client
+                .inner()
+                .read_exact(&mut res_body_bytes)
+                .map_err(Error::ReceiveError)?;
+            if res_header.status == protocol::Virnetmessagestatus::VirNetError {
+                let res = serde_xdr::from_bytes::<protocol::Virnetmessageerror>(&res_body_bytes)
+                    .map_err(Error::DeserializeError)?;
+                Err(Error::ProtocolError(res))
+            } else {
+                let res = serde_xdr::from_bytes::<D>(&res_body_bytes).map_err(Error::DeserializeError)?;
+                Ok(Some(res))
+            }
+        }
+
+        fn msg<D>(
+            client: &mut (impl Libvirt + ?Sized),
+        ) -> Result<Option<D>, Error>
+        where
+            D: DeserializeOwned,
+        {
             let mut res_len_bytes = [0; 4];
             client
                 .inner()
