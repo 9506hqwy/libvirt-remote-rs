@@ -22,6 +22,9 @@ unic-langid = { version="0.9.0", features=["macros"] }
 unicode-width = "0.1.9"
 url = "2.2.2"
 
+[target.'cfg(unix)'.dependencies.libc]
+version = "0.2.125"
+
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.36.1"
 features = [

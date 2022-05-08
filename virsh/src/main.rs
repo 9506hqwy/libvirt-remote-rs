@@ -7,6 +7,8 @@ mod pool_event;
 mod table_view;
 mod util;
 mod version;
+mod vol_download;
+mod vol_upload;
 
 use clap::{Arg, Command};
 use error::Error;
@@ -31,6 +33,8 @@ fn main() -> Result<(), Error> {
         Some(("nodeinfo", _)) => nodeinfo::run(&mut client, &locale),
         Some(("pool-event", args)) => pool_event::run(&mut client, &locale, args),
         Some(("version", _)) => version::run(&mut client, &locale),
+        Some(("vol-download", args)) => vol_download::run(&mut client, &locale, args),
+        Some(("vol-upload", args)) => vol_upload::run(&mut client, &locale, args),
         _ => cmd().print_long_help().map_err(Error::from),
     };
 
@@ -66,6 +70,8 @@ fn cmd() -> Command<'static> {
         .subcommand(nodeinfo::cmd())
         .subcommand(pool_event::cmd())
         .subcommand(version::cmd())
+        .subcommand(vol_download::cmd())
+        .subcommand(vol_upload::cmd())
 }
 
 fn connect(uri: Url, readonly: bool) -> Result<Box<dyn Libvirt>, Error> {
