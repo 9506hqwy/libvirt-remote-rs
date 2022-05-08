@@ -81,75 +81,75 @@ pub const VIR_TYPED_PARAM_ULLONG: u32 = 4u32;
 pub const VIR_TYPED_PARAM_DOUBLE: u32 = 5u32;
 pub const VIR_TYPED_PARAM_BOOLEAN: u32 = 6u32;
 pub const VIR_TYPED_PARAM_STRING: u32 = 7u32;
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullDomain {
     pub name: String,
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
     pub id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullNetwork {
     pub name: String,
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullNetworkPort {
     pub net: RemoteNonnullNetwork,
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullNwfilter {
     pub name: String,
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullNwfilterBinding {
     pub portdev: String,
     pub filtername: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullInterface {
     pub name: String,
     pub mac: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullStoragePool {
     pub name: String,
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullStorageVol {
     pub pool: String,
     pub name: String,
     pub key: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullNodeDevice {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullSecret {
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
     pub usage_type: i32,
     pub usage_id: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullDomainCheckpoint {
     pub name: String,
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullDomainSnapshot {
     pub name: String,
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteError {
     pub code: i32,
     pub domain: i32,
@@ -170,7 +170,12 @@ pub enum RemoteAuthType {
     RemoteAuthSasl = 1i32,
     RemoteAuthPolkit = 2i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+impl Default for RemoteAuthType {
+    fn default() -> Self {
+        RemoteAuthType::RemoteAuthNone
+    }
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteVcpuInfo {
     pub number: u32,
     pub state: i32,
@@ -188,76 +193,81 @@ pub enum RemoteTypedParamValue {
     VirTypedParamBoolean(i32),
     VirTypedParamString(String),
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+impl Default for RemoteTypedParamValue {
+    fn default() -> Self {
+        RemoteTypedParamValue::VirTypedParamInt(i32::default())
+    }
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteTypedParam {
     pub field: String,
     pub value: RemoteTypedParamValue,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetCpuStats {
     pub field: String,
     pub value: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetMemoryStats {
     pub field: String,
     pub value: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDiskError {
     pub disk: String,
     pub error: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectOpenArgs {
     pub name: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectSupportsFeatureArgs {
     pub feature: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectSupportsFeatureRet {
     pub supported: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetTypeRet {
     pub r#type: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetVersionRet {
     pub hv_ver: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetLibVersionRet {
     pub lib_ver: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetHostnameRet {
     pub hostname: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetSysinfoArgs {
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetSysinfoRet {
     pub sysinfo: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetUriRet {
     pub uri: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetMaxVcpusArgs {
     pub r#type: Option<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetMaxVcpusRet {
     pub max_vcpus: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetInfoRet {
     pub model: [i8; 32usize],
     pub memory: u64,
@@ -268,11 +278,11 @@ pub struct RemoteNodeGetInfoRet {
     pub cores: i32,
     pub threads: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetCapabilitiesRet {
     pub capabilities: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetDomainCapabilitiesArgs {
     pub emulatorbin: Option<String>,
     pub arch: Option<String>,
@@ -280,163 +290,163 @@ pub struct RemoteConnectGetDomainCapabilitiesArgs {
     pub virttype: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetDomainCapabilitiesRet {
     pub capabilities: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetCpuStatsArgs {
     pub cpu_num: i32,
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetCpuStatsRet {
     pub params: Vec<RemoteNodeGetCpuStats>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetMemoryStatsArgs {
     pub nparams: i32,
     pub cell_num: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetMemoryStatsRet {
     pub params: Vec<RemoteNodeGetMemoryStats>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetCellsFreeMemoryArgs {
     pub start_cell: i32,
     pub maxcells: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetCellsFreeMemoryRet {
     pub cells: Vec<u64>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetFreeMemoryRet {
     pub free_mem: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetSchedulerTypeArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetSchedulerTypeRet {
     pub r#type: String,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetSchedulerParametersArgs {
     pub dom: RemoteNonnullDomain,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetSchedulerParametersRet {
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetSchedulerParametersFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetSchedulerParametersFlagsRet {
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetSchedulerParametersArgs {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetSchedulerParametersFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetBlkioParametersArgs {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetBlkioParametersArgs {
     pub dom: RemoteNonnullDomain,
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetBlkioParametersRet {
     pub params: Vec<RemoteTypedParam>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetMemoryParametersArgs {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetMemoryParametersArgs {
     pub dom: RemoteNonnullDomain,
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetMemoryParametersRet {
     pub params: Vec<RemoteTypedParam>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockResizeArgs {
     pub dom: RemoteNonnullDomain,
     pub disk: String,
     pub size: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetNumaParametersArgs {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetNumaParametersArgs {
     pub dom: RemoteNonnullDomain,
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetNumaParametersRet {
     pub params: Vec<RemoteTypedParam>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetPerfEventsArgs {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetPerfEventsArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetPerfEventsRet {
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockStatsArgs {
     pub dom: RemoteNonnullDomain,
     pub path: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockStatsRet {
     pub rd_req: i64,
     pub rd_bytes: i64,
@@ -444,24 +454,24 @@ pub struct RemoteDomainBlockStatsRet {
     pub wr_bytes: i64,
     pub errs: i64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockStatsFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub path: String,
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockStatsFlagsRet {
     pub params: Vec<RemoteTypedParam>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainInterfaceStatsArgs {
     pub dom: RemoteNonnullDomain,
     pub device: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainInterfaceStatsRet {
     pub rx_bytes: i64,
     pub rx_packets: i64,
@@ -472,41 +482,41 @@ pub struct RemoteDomainInterfaceStatsRet {
     pub tx_errs: i64,
     pub tx_drop: i64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetInterfaceParametersArgs {
     pub dom: RemoteNonnullDomain,
     pub device: String,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetInterfaceParametersArgs {
     pub dom: RemoteNonnullDomain,
     pub device: String,
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetInterfaceParametersRet {
     pub params: Vec<RemoteTypedParam>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMemoryStatsArgs {
     pub dom: RemoteNonnullDomain,
     pub max_stats: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMemoryStat {
     pub tag: i32,
     pub val: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMemoryStatsRet {
     pub stats: Vec<RemoteDomainMemoryStat>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockPeekArgs {
     pub dom: RemoteNonnullDomain,
     pub path: String,
@@ -514,176 +524,176 @@ pub struct RemoteDomainBlockPeekArgs {
     pub size: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockPeekRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub buffer: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMemoryPeekArgs {
     pub dom: RemoteNonnullDomain,
     pub offset: u64,
     pub size: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMemoryPeekRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub buffer: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetBlockInfoArgs {
     pub dom: RemoteNonnullDomain,
     pub path: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetBlockInfoRet {
     pub allocation: u64,
     pub capacity: u64,
     pub physical: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListDomainsArgs {
     pub maxids: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListDomainsRet {
     pub ids: Vec<i32>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNumOfDomainsRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCreateXmlArgs {
     pub xml_desc: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCreateXmlRet {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCreateXmlWithFilesArgs {
     pub xml_desc: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCreateXmlWithFilesRet {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainLookupByIdArgs {
     pub id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainLookupByIdRet {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainLookupByUuidArgs {
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainLookupByUuidRet {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainLookupByNameArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainLookupByNameRet {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSuspendArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainResumeArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainPmSuspendForDurationArgs {
     pub dom: RemoteNonnullDomain,
     pub target: u32,
     pub duration: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainPmWakeupArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainShutdownArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainRebootArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainResetArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDestroyArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDestroyFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetOsTypeArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetOsTypeRet {
     pub r#type: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetMaxMemoryArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetMaxMemoryRet {
     pub memory: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetMaxMemoryArgs {
     pub dom: RemoteNonnullDomain,
     pub memory: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetMemoryArgs {
     pub dom: RemoteNonnullDomain,
     pub memory: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetMemoryFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub memory: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetMemoryStatsPeriodArgs {
     pub dom: RemoteNonnullDomain,
     pub period: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetInfoArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetInfoRet {
     pub state: u8,
     pub max_mem: u64,
@@ -691,89 +701,89 @@ pub struct RemoteDomainGetInfoRet {
     pub nr_virt_cpu: u16,
     pub cpu_time: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSaveArgs {
     pub dom: RemoteNonnullDomain,
     pub to: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSaveFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub to: String,
     pub dxml: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainRestoreArgs {
     pub from: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainRestoreFlagsArgs {
     pub from: String,
     pub dxml: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSaveImageGetXmlDescArgs {
     pub file: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSaveImageGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSaveImageDefineXmlArgs {
     pub file: String,
     pub dxml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCoreDumpArgs {
     pub dom: RemoteNonnullDomain,
     pub to: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCoreDumpWithFormatArgs {
     pub dom: RemoteNonnullDomain,
     pub to: String,
     pub dumpformat: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainScreenshotArgs {
     pub dom: RemoteNonnullDomain,
     pub screen: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainScreenshotRet {
     pub mime: Option<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetXmlDescArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareArgs {
     pub uri_in: Option<String>,
     pub flags: u64,
     pub dname: Option<String>,
     pub resource: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie: Vec<u8>,
     pub uri_out: Option<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePerformArgs {
     pub dom: RemoteNonnullDomain,
     #[serde(with = "serde_xdr::opaque::variable")]
@@ -783,7 +793,7 @@ pub struct RemoteDomainMigratePerformArgs {
     pub dname: Option<String>,
     pub resource: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinishArgs {
     pub dname: String,
     #[serde(with = "serde_xdr::opaque::variable")]
@@ -791,11 +801,11 @@ pub struct RemoteDomainMigrateFinishArgs {
     pub uri: String,
     pub flags: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinishRet {
     pub ddom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare2Args {
     pub uri_in: Option<String>,
     pub flags: u64,
@@ -803,13 +813,13 @@ pub struct RemoteDomainMigratePrepare2Args {
     pub resource: u64,
     pub dom_xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare2Ret {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie: Vec<u8>,
     pub uri_out: Option<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish2Args {
     pub dname: String,
     #[serde(with = "serde_xdr::opaque::variable")]
@@ -818,76 +828,76 @@ pub struct RemoteDomainMigrateFinish2Args {
     pub flags: u64,
     pub retcode: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish2Ret {
     pub ddom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListDefinedDomainsArgs {
     pub maxnames: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListDefinedDomainsRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNumOfDefinedDomainsRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCreateArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCreateWithFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCreateWithFlagsRet {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCreateWithFilesArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCreateWithFilesRet {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDefineXmlArgs {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDefineXmlRet {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDefineXmlFlagsArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDefineXmlFlagsRet {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainUndefineArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainUndefineFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainInjectNmiArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSendKeyArgs {
     pub dom: RemoteNonnullDomain,
     pub codeset: u32,
@@ -895,41 +905,41 @@ pub struct RemoteDomainSendKeyArgs {
     pub keycodes: Vec<u32>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSendProcessSignalArgs {
     pub dom: RemoteNonnullDomain,
     pub pid_value: i64,
     pub signum: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetVcpusArgs {
     pub dom: RemoteNonnullDomain,
     pub nvcpus: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetVcpusFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub nvcpus: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetVcpusFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetVcpusFlagsRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainPinVcpuArgs {
     pub dom: RemoteNonnullDomain,
     pub vcpu: u32,
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumap: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainPinVcpuFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub vcpu: u32,
@@ -937,75 +947,75 @@ pub struct RemoteDomainPinVcpuFlagsArgs {
     pub cpumap: Vec<u8>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetVcpuPinInfoArgs {
     pub dom: RemoteNonnullDomain,
     pub ncpumaps: i32,
     pub maplen: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetVcpuPinInfoRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumaps: Vec<u8>,
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainPinEmulatorArgs {
     pub dom: RemoteNonnullDomain,
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumap: Vec<u8>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetEmulatorPinInfoArgs {
     pub dom: RemoteNonnullDomain,
     pub maplen: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetEmulatorPinInfoRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumaps: Vec<u8>,
     pub ret: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetVcpusArgs {
     pub dom: RemoteNonnullDomain,
     pub maxinfo: i32,
     pub maplen: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetVcpusRet {
     pub info: Vec<RemoteVcpuInfo>,
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumaps: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetMaxVcpusArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetMaxVcpusRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainIothreadInfo {
     pub iothread_id: u32,
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumap: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetIothreadInfoArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetIothreadInfoRet {
     pub info: Vec<RemoteDomainIothreadInfo>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainPinIothreadArgs {
     pub dom: RemoteNonnullDomain,
     pub iothreads_id: u32,
@@ -1013,96 +1023,96 @@ pub struct RemoteDomainPinIothreadArgs {
     pub cpumap: Vec<u8>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainAddIothreadArgs {
     pub dom: RemoteNonnullDomain,
     pub iothread_id: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDelIothreadArgs {
     pub dom: RemoteNonnullDomain,
     pub iothread_id: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetIothreadParamsArgs {
     pub dom: RemoteNonnullDomain,
     pub iothread_id: u32,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetSecurityLabelArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetSecurityLabelRet {
     pub label: Vec<i8>,
     pub enforcing: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetSecurityLabelListArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetSecurityLabelListRet {
     pub labels: Vec<RemoteDomainGetSecurityLabelRet>,
     pub ret: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetSecurityModelRet {
     pub model: Vec<i8>,
     pub doi: Vec<i8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainAttachDeviceArgs {
     pub dom: RemoteNonnullDomain,
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainAttachDeviceFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDetachDeviceArgs {
     pub dom: RemoteNonnullDomain,
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDetachDeviceFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainUpdateDeviceFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainDetachDeviceAliasArgs {
     pub dom: RemoteNonnullDomain,
     pub alias: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetAutostartArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetAutostartRet {
     pub autostart: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetAutostartArgs {
     pub dom: RemoteNonnullDomain,
     pub autostart: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetMetadataArgs {
     pub dom: RemoteNonnullDomain,
     pub r#type: i32,
@@ -1111,30 +1121,30 @@ pub struct RemoteDomainSetMetadataArgs {
     pub uri: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetMetadataArgs {
     pub dom: RemoteNonnullDomain,
     pub r#type: i32,
     pub uri: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetMetadataRet {
     pub metadata: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockJobAbortArgs {
     pub dom: RemoteNonnullDomain,
     pub path: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetBlockJobInfoArgs {
     pub dom: RemoteNonnullDomain,
     pub path: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetBlockJobInfoRet {
     pub found: i32,
     pub r#type: i32,
@@ -1142,21 +1152,21 @@ pub struct RemoteDomainGetBlockJobInfoRet {
     pub cur: u64,
     pub end: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockJobSetSpeedArgs {
     pub dom: RemoteNonnullDomain,
     pub path: String,
     pub bandwidth: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockPullArgs {
     pub dom: RemoteNonnullDomain,
     pub path: String,
     pub bandwidth: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockRebaseArgs {
     pub dom: RemoteNonnullDomain,
     pub path: String,
@@ -1164,7 +1174,7 @@ pub struct RemoteDomainBlockRebaseArgs {
     pub bandwidth: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockCopyArgs {
     pub dom: RemoteNonnullDomain,
     pub path: String,
@@ -1172,7 +1182,7 @@ pub struct RemoteDomainBlockCopyArgs {
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBlockCommitArgs {
     pub dom: RemoteNonnullDomain,
     pub disk: String,
@@ -1181,26 +1191,26 @@ pub struct RemoteDomainBlockCommitArgs {
     pub bandwidth: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetBlockIoTuneArgs {
     pub dom: RemoteNonnullDomain,
     pub disk: String,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetBlockIoTuneArgs {
     pub dom: RemoteNonnullDomain,
     pub disk: Option<String>,
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetBlockIoTuneRet {
     pub params: Vec<RemoteTypedParam>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetCpuStatsArgs {
     pub dom: RemoteNonnullDomain,
     pub nparams: u32,
@@ -1208,100 +1218,100 @@ pub struct RemoteDomainGetCpuStatsArgs {
     pub ncpus: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetCpuStatsRet {
     pub params: Vec<RemoteTypedParam>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetHostnameArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetHostnameRet {
     pub hostname: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNumOfNetworksRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListNetworksArgs {
     pub maxnames: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListNetworksRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNumOfDefinedNetworksRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListDefinedNetworksArgs {
     pub maxnames: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListDefinedNetworksRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkLookupByUuidArgs {
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkLookupByUuidRet {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkLookupByNameArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkLookupByNameRet {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkCreateXmlArgs {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkCreateXmlRet {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkCreateXmlFlagsArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkCreateXmlFlagsRet {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkDefineXmlArgs {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkDefineXmlRet {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkDefineXmlFlagsArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkDefineXmlFlagsRet {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkUndefineArgs {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkUpdateArgs {
     pub net: RemoteNonnullNetwork,
     pub command: u32,
@@ -1310,847 +1320,847 @@ pub struct RemoteNetworkUpdateArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkCreateArgs {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkDestroyArgs {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkGetXmlDescArgs {
     pub net: RemoteNonnullNetwork,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkGetBridgeNameArgs {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkGetBridgeNameRet {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkGetAutostartArgs {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkGetAutostartRet {
     pub autostart: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkSetAutostartArgs {
     pub net: RemoteNonnullNetwork,
     pub autostart: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNumOfNwfiltersRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListNwfiltersArgs {
     pub maxnames: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListNwfiltersRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterLookupByUuidArgs {
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterLookupByUuidRet {
     pub nwfilter: RemoteNonnullNwfilter,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterLookupByNameArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterLookupByNameRet {
     pub nwfilter: RemoteNonnullNwfilter,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterDefineXmlArgs {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterDefineXmlRet {
     pub nwfilter: RemoteNonnullNwfilter,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterDefineXmlFlagsArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterDefineXmlFlagsRet {
     pub nwfilter: RemoteNonnullNwfilter,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterUndefineArgs {
     pub nwfilter: RemoteNonnullNwfilter,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterGetXmlDescArgs {
     pub nwfilter: RemoteNonnullNwfilter,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNumOfInterfacesRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListInterfacesArgs {
     pub maxnames: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListInterfacesRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNumOfDefinedInterfacesRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListDefinedInterfacesArgs {
     pub maxnames: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListDefinedInterfacesRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceLookupByNameArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceLookupByNameRet {
     pub iface: RemoteNonnullInterface,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceLookupByMacStringArgs {
     pub mac: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceLookupByMacStringRet {
     pub iface: RemoteNonnullInterface,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceGetXmlDescArgs {
     pub iface: RemoteNonnullInterface,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceDefineXmlArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceDefineXmlRet {
     pub iface: RemoteNonnullInterface,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceUndefineArgs {
     pub iface: RemoteNonnullInterface,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceCreateArgs {
     pub iface: RemoteNonnullInterface,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceDestroyArgs {
     pub iface: RemoteNonnullInterface,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceChangeBeginArgs {
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceChangeCommitArgs {
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceChangeRollbackArgs {
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteAuthListRet {
     pub types: Vec<RemoteAuthType>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteAuthSaslInitRet {
     pub mechlist: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteAuthSaslStartArgs {
     pub mech: String,
     pub nil: i32,
     pub data: Vec<i8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteAuthSaslStartRet {
     pub complete: i32,
     pub nil: i32,
     pub data: Vec<i8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteAuthSaslStepArgs {
     pub nil: i32,
     pub data: Vec<i8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteAuthSaslStepRet {
     pub complete: i32,
     pub nil: i32,
     pub data: Vec<i8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteAuthPolkitRet {
     pub complete: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNumOfStoragePoolsRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListStoragePoolsArgs {
     pub maxnames: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListStoragePoolsRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNumOfDefinedStoragePoolsRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListDefinedStoragePoolsArgs {
     pub maxnames: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListDefinedStoragePoolsRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectFindStoragePoolSourcesArgs {
     pub r#type: String,
     pub src_spec: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectFindStoragePoolSourcesRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolLookupByUuidArgs {
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolLookupByUuidRet {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolLookupByNameArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolLookupByNameRet {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolLookupByVolumeArgs {
     pub vol: RemoteNonnullStorageVol,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolLookupByVolumeRet {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolLookupByTargetPathArgs {
     pub path: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolLookupByTargetPathRet {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolCreateXmlArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolCreateXmlRet {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolDefineXmlArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolDefineXmlRet {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolBuildArgs {
     pub pool: RemoteNonnullStoragePool,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolUndefineArgs {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolCreateArgs {
     pub pool: RemoteNonnullStoragePool,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolDestroyArgs {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolDeleteArgs {
     pub pool: RemoteNonnullStoragePool,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolRefreshArgs {
     pub pool: RemoteNonnullStoragePool,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolGetXmlDescArgs {
     pub pool: RemoteNonnullStoragePool,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolGetInfoArgs {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolGetInfoRet {
     pub state: u8,
     pub capacity: u64,
     pub allocation: u64,
     pub available: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolGetAutostartArgs {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolGetAutostartRet {
     pub autostart: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolSetAutostartArgs {
     pub pool: RemoteNonnullStoragePool,
     pub autostart: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolNumOfVolumesArgs {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolNumOfVolumesRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolListVolumesArgs {
     pub pool: RemoteNonnullStoragePool,
     pub maxnames: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolListVolumesRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolLookupByNameArgs {
     pub pool: RemoteNonnullStoragePool,
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolLookupByNameRet {
     pub vol: RemoteNonnullStorageVol,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolLookupByKeyArgs {
     pub key: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolLookupByKeyRet {
     pub vol: RemoteNonnullStorageVol,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolLookupByPathArgs {
     pub path: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolLookupByPathRet {
     pub vol: RemoteNonnullStorageVol,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolCreateXmlArgs {
     pub pool: RemoteNonnullStoragePool,
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolCreateXmlRet {
     pub vol: RemoteNonnullStorageVol,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolCreateXmlFromArgs {
     pub pool: RemoteNonnullStoragePool,
     pub xml: String,
     pub clonevol: RemoteNonnullStorageVol,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolCreateXmlFromRet {
     pub vol: RemoteNonnullStorageVol,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolDeleteArgs {
     pub vol: RemoteNonnullStorageVol,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolWipeArgs {
     pub vol: RemoteNonnullStorageVol,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolWipePatternArgs {
     pub vol: RemoteNonnullStorageVol,
     pub algorithm: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolGetXmlDescArgs {
     pub vol: RemoteNonnullStorageVol,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolGetInfoArgs {
     pub vol: RemoteNonnullStorageVol,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolGetInfoRet {
     pub r#type: i8,
     pub capacity: u64,
     pub allocation: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolGetInfoFlagsArgs {
     pub vol: RemoteNonnullStorageVol,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolGetInfoFlagsRet {
     pub r#type: i8,
     pub capacity: u64,
     pub allocation: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolGetPathArgs {
     pub vol: RemoteNonnullStorageVol,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolGetPathRet {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolResizeArgs {
     pub vol: RemoteNonnullStorageVol,
     pub capacity: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeNumOfDevicesArgs {
     pub cap: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeNumOfDevicesRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeListDevicesArgs {
     pub cap: Option<String>,
     pub maxnames: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeListDevicesRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceLookupByNameArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceLookupByNameRet {
     pub dev: RemoteNonnullNodeDevice,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceLookupScsiHostByWwnArgs {
     pub wwnn: String,
     pub wwpn: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceLookupScsiHostByWwnRet {
     pub dev: RemoteNonnullNodeDevice,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceGetXmlDescArgs {
     pub name: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceGetParentArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceGetParentRet {
     pub parent_name: Option<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceNumOfCapsArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceNumOfCapsRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceListCapsArgs {
     pub name: String,
     pub maxnames: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceListCapsRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceDettachArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceDetachFlagsArgs {
     pub name: String,
     pub driver_name: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceReAttachArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceResetArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceCreateXmlArgs {
     pub xml_desc: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceCreateXmlRet {
     pub dev: RemoteNonnullNodeDevice,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceDestroyArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceDefineXmlArgs {
     pub xml_desc: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceDefineXmlRet {
     pub dev: RemoteNonnullNodeDevice,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceUndefineArgs {
     pub name: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceCreateArgs {
     pub name: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceGetAutostartArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceGetAutostartRet {
     pub autostart: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceSetAutostartArgs {
     pub name: String,
     pub autostart: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceIsPersistentArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceIsPersistentRet {
     pub persistent: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceIsActiveArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceIsActiveRet {
     pub active: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainEventRegisterRet {
     pub cb_registered: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainEventDeregisterRet {
     pub cb_registered: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventLifecycleMsg {
     pub dom: RemoteNonnullDomain,
     pub event: i32,
     pub detail: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackLifecycleMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventLifecycleMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainXmlFromNativeArgs {
     pub native_format: String,
     pub native_config: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainXmlFromNativeRet {
     pub domain_xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainXmlToNativeArgs {
     pub native_format: String,
     pub domain_xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainXmlToNativeRet {
     pub native_config: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNumOfSecretsRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListSecretsArgs {
     pub maxuuids: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListSecretsRet {
     pub uuids: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretLookupByUuidArgs {
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretLookupByUuidRet {
     pub secret: RemoteNonnullSecret,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretDefineXmlArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretDefineXmlRet {
     pub secret: RemoteNonnullSecret,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretGetXmlDescArgs {
     pub secret: RemoteNonnullSecret,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretSetValueArgs {
     pub secret: RemoteNonnullSecret,
     #[serde(with = "serde_xdr::opaque::variable")]
     pub value: Vec<u8>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretGetValueArgs {
     pub secret: RemoteNonnullSecret,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretGetValueRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub value: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretUndefineArgs {
     pub secret: RemoteNonnullSecret,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretLookupByUsageArgs {
     pub usage_type: i32,
     pub usage_id: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretLookupByUsageRet {
     pub secret: RemoteNonnullSecret,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareTunnelArgs {
     pub flags: u64,
     pub dname: Option<String>,
     pub resource: u64,
     pub dom_xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectIsSecureRet {
     pub secure: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainIsActiveArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainIsActiveRet {
     pub active: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainIsPersistentArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainIsPersistentRet {
     pub persistent: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainIsUpdatedArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainIsUpdatedRet {
     pub updated: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkIsActiveArgs {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkIsActiveRet {
     pub active: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkIsPersistentArgs {
     pub net: RemoteNonnullNetwork,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkIsPersistentRet {
     pub persistent: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolIsActiveArgs {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolIsActiveRet {
     pub active: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolIsPersistentArgs {
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolIsPersistentRet {
     pub persistent: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceIsActiveArgs {
     pub iface: RemoteNonnullInterface,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteInterfaceIsActiveRet {
     pub active: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectCompareCpuArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectCompareCpuRet {
     pub result: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectBaselineCpuArgs {
     pub xml_cpus: Vec<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectBaselineCpuRet {
     pub cpu: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetJobInfoArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetJobInfoRet {
     pub r#type: i32,
     pub time_elapsed: u64,
@@ -2165,128 +2175,128 @@ pub struct RemoteDomainGetJobInfoRet {
     pub file_processed: u64,
     pub file_remaining: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetJobStatsArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetJobStatsRet {
     pub r#type: i32,
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainAbortJobArgs {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateGetMaxDowntimeArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateGetMaxDowntimeRet {
     pub downtime: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateSetMaxDowntimeArgs {
     pub dom: RemoteNonnullDomain,
     pub downtime: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateGetCompressionCacheArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateGetCompressionCacheRet {
     pub cache_size: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateSetCompressionCacheArgs {
     pub dom: RemoteNonnullDomain,
     pub cache_size: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateSetMaxSpeedArgs {
     pub dom: RemoteNonnullDomain,
     pub bandwidth: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateGetMaxSpeedArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateGetMaxSpeedRet {
     pub bandwidth: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainEventRegisterAnyArgs {
     pub event_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainEventDeregisterAnyArgs {
     pub event_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainEventCallbackRegisterAnyArgs {
     pub event_id: i32,
     pub dom: Option<RemoteNonnullDomain>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainEventCallbackRegisterAnyRet {
     pub callback_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainEventCallbackDeregisterAnyArgs {
     pub callback_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventRebootMsg {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackRebootMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventRebootMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventRtcChangeMsg {
     pub dom: RemoteNonnullDomain,
     pub offset: i64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackRtcChangeMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventRtcChangeMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventWatchdogMsg {
     pub dom: RemoteNonnullDomain,
     pub action: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackWatchdogMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventWatchdogMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventIoErrorMsg {
     pub dom: RemoteNonnullDomain,
     pub src_path: String,
     pub dev_alias: String,
     pub action: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackIoErrorMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventIoErrorMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventIoErrorReasonMsg {
     pub dom: RemoteNonnullDomain,
     pub src_path: String,
@@ -2294,23 +2304,23 @@ pub struct RemoteDomainEventIoErrorReasonMsg {
     pub action: i32,
     pub reason: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackIoErrorReasonMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventIoErrorReasonMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventGraphicsAddress {
     pub family: i32,
     pub node: String,
     pub service: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventGraphicsIdentity {
     pub r#type: String,
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventGraphicsMsg {
     pub dom: RemoteNonnullDomain,
     pub phase: i32,
@@ -2319,24 +2329,24 @@ pub struct RemoteDomainEventGraphicsMsg {
     pub auth_scheme: String,
     pub subject: Vec<RemoteDomainEventGraphicsIdentity>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackGraphicsMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventGraphicsMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventBlockJobMsg {
     pub dom: RemoteNonnullDomain,
     pub path: String,
     pub r#type: i32,
     pub status: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackBlockJobMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventBlockJobMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventDiskChangeMsg {
     pub dom: RemoteNonnullDomain,
     pub old_src_path: Option<String>,
@@ -2344,277 +2354,277 @@ pub struct RemoteDomainEventDiskChangeMsg {
     pub dev_alias: String,
     pub reason: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackDiskChangeMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventDiskChangeMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventTrayChangeMsg {
     pub dom: RemoteNonnullDomain,
     pub dev_alias: String,
     pub reason: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackTrayChangeMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventTrayChangeMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventPmwakeupMsg {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackPmwakeupMsg {
     pub callback_id: i32,
     pub reason: i32,
     pub msg: RemoteDomainEventPmwakeupMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventPmsuspendMsg {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackPmsuspendMsg {
     pub callback_id: i32,
     pub reason: i32,
     pub msg: RemoteDomainEventPmsuspendMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventBalloonChangeMsg {
     pub dom: RemoteNonnullDomain,
     pub actual: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackBalloonChangeMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventBalloonChangeMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventPmsuspendDiskMsg {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackPmsuspendDiskMsg {
     pub callback_id: i32,
     pub reason: i32,
     pub msg: RemoteDomainEventPmsuspendDiskMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainManagedSaveArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainHasManagedSaveImageArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainHasManagedSaveImageRet {
     pub result: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainManagedSaveRemoveArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainManagedSaveGetXmlDescArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainManagedSaveGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainManagedSaveDefineXmlArgs {
     pub dom: RemoteNonnullDomain,
     pub dxml: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotCreateXmlArgs {
     pub dom: RemoteNonnullDomain,
     pub xml_desc: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotCreateXmlRet {
     pub snap: RemoteNonnullDomainSnapshot,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotGetXmlDescArgs {
     pub snap: RemoteNonnullDomainSnapshot,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotNumArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotNumRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotListNamesArgs {
     pub dom: RemoteNonnullDomain,
     pub maxnames: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotListNamesRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainListAllSnapshotsArgs {
     pub dom: RemoteNonnullDomain,
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainListAllSnapshotsRet {
     pub snapshots: Vec<RemoteNonnullDomainSnapshot>,
     pub ret: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotNumChildrenArgs {
     pub snap: RemoteNonnullDomainSnapshot,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotNumChildrenRet {
     pub num: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotListChildrenNamesArgs {
     pub snap: RemoteNonnullDomainSnapshot,
     pub maxnames: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotListChildrenNamesRet {
     pub names: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotListAllChildrenArgs {
     pub snapshot: RemoteNonnullDomainSnapshot,
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotListAllChildrenRet {
     pub snapshots: Vec<RemoteNonnullDomainSnapshot>,
     pub ret: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotLookupByNameArgs {
     pub dom: RemoteNonnullDomain,
     pub name: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotLookupByNameRet {
     pub snap: RemoteNonnullDomainSnapshot,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainHasCurrentSnapshotArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainHasCurrentSnapshotRet {
     pub result: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotGetParentArgs {
     pub snap: RemoteNonnullDomainSnapshot,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotGetParentRet {
     pub snap: RemoteNonnullDomainSnapshot,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotCurrentArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotCurrentRet {
     pub snap: RemoteNonnullDomainSnapshot,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotIsCurrentArgs {
     pub snap: RemoteNonnullDomainSnapshot,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotIsCurrentRet {
     pub current: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotHasMetadataArgs {
     pub snap: RemoteNonnullDomainSnapshot,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotHasMetadataRet {
     pub metadata: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainRevertToSnapshotArgs {
     pub snap: RemoteNonnullDomainSnapshot,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSnapshotDeleteArgs {
     pub snap: RemoteNonnullDomainSnapshot,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainOpenConsoleArgs {
     pub dom: RemoteNonnullDomain,
     pub dev_name: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainOpenChannelArgs {
     pub dom: RemoteNonnullDomain,
     pub name: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolUploadArgs {
     pub vol: RemoteNonnullStorageVol,
     pub offset: u64,
     pub length: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStorageVolDownloadArgs {
     pub vol: RemoteNonnullStorageVol,
     pub offset: u64,
     pub length: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetStateArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetStateRet {
     pub state: i32,
     pub reason: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateBegin3Args {
     pub dom: RemoteNonnullDomain,
     pub xmlin: Option<String>,
@@ -2622,13 +2632,13 @@ pub struct RemoteDomainMigrateBegin3Args {
     pub dname: Option<String>,
     pub resource: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateBegin3Ret {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare3Args {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
@@ -2638,13 +2648,13 @@ pub struct RemoteDomainMigratePrepare3Args {
     pub resource: u64,
     pub dom_xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare3Ret {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
     pub uri_out: Option<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareTunnel3Args {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
@@ -2653,12 +2663,12 @@ pub struct RemoteDomainMigratePrepareTunnel3Args {
     pub resource: u64,
     pub dom_xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareTunnel3Ret {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePerform3Args {
     pub dom: RemoteNonnullDomain,
     pub xmlin: Option<String>,
@@ -2670,12 +2680,12 @@ pub struct RemoteDomainMigratePerform3Args {
     pub dname: Option<String>,
     pub resource: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePerform3Ret {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish3Args {
     pub dname: String,
     #[serde(with = "serde_xdr::opaque::variable")]
@@ -2685,13 +2695,13 @@ pub struct RemoteDomainMigrateFinish3Args {
     pub flags: u64,
     pub cancelled: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish3Ret {
     pub dom: RemoteNonnullDomain,
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateConfirm3Args {
     pub dom: RemoteNonnullDomain,
     #[serde(with = "serde_xdr::opaque::variable")]
@@ -2699,231 +2709,231 @@ pub struct RemoteDomainMigrateConfirm3Args {
     pub flags: u64,
     pub cancelled: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventControlErrorMsg {
     pub dom: RemoteNonnullDomain,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackControlErrorMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventControlErrorMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetControlInfoArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetControlInfoRet {
     pub state: u32,
     pub details: u32,
     pub state_time: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainOpenGraphicsArgs {
     pub dom: RemoteNonnullDomain,
     pub idx: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainOpenGraphicsFdArgs {
     pub dom: RemoteNonnullDomain,
     pub idx: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeSuspendForDurationArgs {
     pub target: u32,
     pub duration: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainShutdownFlagsArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetDiskErrorsArgs {
     pub dom: RemoteNonnullDomain,
     pub maxerrors: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetDiskErrorsRet {
     pub errors: Vec<RemoteDomainDiskError>,
     pub nerrors: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllDomainsArgs {
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllDomainsRet {
     pub domains: Vec<RemoteNonnullDomain>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllStoragePoolsArgs {
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllStoragePoolsRet {
     pub pools: Vec<RemoteNonnullStoragePool>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolListAllVolumesArgs {
     pub pool: RemoteNonnullStoragePool,
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolListAllVolumesRet {
     pub vols: Vec<RemoteNonnullStorageVol>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllNetworksArgs {
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllNetworksRet {
     pub nets: Vec<RemoteNonnullNetwork>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllInterfacesArgs {
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllInterfacesRet {
     pub ifaces: Vec<RemoteNonnullInterface>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllNodeDevicesArgs {
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllNodeDevicesRet {
     pub devices: Vec<RemoteNonnullNodeDevice>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllNwfiltersArgs {
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllNwfiltersRet {
     pub filters: Vec<RemoteNonnullNwfilter>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllSecretsArgs {
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllSecretsRet {
     pub secrets: Vec<RemoteNonnullSecret>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeSetMemoryParametersArgs {
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetMemoryParametersArgs {
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetMemoryParametersRet {
     pub params: Vec<RemoteTypedParam>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetCpuMapArgs {
     pub need_map: i32,
     pub need_online: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetCpuMapRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cpumap: Vec<u8>,
     pub online: u32,
     pub ret: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainFstrimArgs {
     pub dom: RemoteNonnullDomain,
     pub mount_point: Option<String>,
     pub minimum: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetTimeArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetTimeRet {
     pub seconds: i64,
     pub nseconds: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetTimeArgs {
     pub dom: RemoteNonnullDomain,
     pub seconds: i64,
     pub nseconds: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateBegin3ParamsArgs {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateBegin3ParamsRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare3ParamsArgs {
     pub params: Vec<RemoteTypedParam>,
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepare3ParamsRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
     pub uri_out: Option<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareTunnel3ParamsArgs {
     pub params: Vec<RemoteTypedParam>,
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_in: Vec<u8>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareTunnel3ParamsRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePerform3ParamsArgs {
     pub dom: RemoteNonnullDomain,
     pub dconnuri: Option<String>,
@@ -2932,12 +2942,12 @@ pub struct RemoteDomainMigratePerform3ParamsArgs {
     pub cookie_in: Vec<u8>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePerform3ParamsRet {
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish3ParamsArgs {
     pub params: Vec<RemoteTypedParam>,
     #[serde(with = "serde_xdr::opaque::variable")]
@@ -2945,13 +2955,13 @@ pub struct RemoteDomainMigrateFinish3ParamsArgs {
     pub flags: u32,
     pub cancelled: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinish3ParamsRet {
     pub dom: RemoteNonnullDomain,
     #[serde(with = "serde_xdr::opaque::variable")]
     pub cookie_out: Vec<u8>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateConfirm3ParamsArgs {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
@@ -2960,17 +2970,17 @@ pub struct RemoteDomainMigrateConfirm3ParamsArgs {
     pub flags: u32,
     pub cancelled: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventDeviceRemovedMsg {
     pub dom: RemoteNonnullDomain,
     pub dev_alias: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackDeviceRemovedMsg {
     pub callback_id: i32,
     pub msg: RemoteDomainEventDeviceRemovedMsg,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventBlockJob2Msg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
@@ -2978,7 +2988,7 @@ pub struct RemoteDomainEventBlockJob2Msg {
     pub r#type: i32,
     pub status: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventBlockThresholdMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
@@ -2987,135 +2997,135 @@ pub struct RemoteDomainEventBlockThresholdMsg {
     pub threshold: u64,
     pub excess: u64,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackTunableMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackDeviceAddedMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
     pub dev_alias: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectEventConnectionClosedMsg {
     pub reason: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetCpuModelNamesArgs {
     pub arch: String,
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetCpuModelNamesRet {
     pub models: Vec<String>,
     pub ret: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNetworkEventRegisterAnyArgs {
     pub event_id: i32,
     pub net: Option<RemoteNonnullNetwork>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNetworkEventRegisterAnyRet {
     pub callback_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNetworkEventDeregisterAnyArgs {
     pub callback_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkEventLifecycleMsg {
     pub callback_id: i32,
     pub net: RemoteNonnullNetwork,
     pub event: i32,
     pub detail: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectStoragePoolEventRegisterAnyArgs {
     pub event_id: i32,
     pub pool: Option<RemoteNonnullStoragePool>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectStoragePoolEventRegisterAnyRet {
     pub callback_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectStoragePoolEventDeregisterAnyArgs {
     pub callback_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolEventLifecycleMsg {
     pub callback_id: i32,
     pub pool: RemoteNonnullStoragePool,
     pub event: i32,
     pub detail: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteStoragePoolEventRefreshMsg {
     pub callback_id: i32,
     pub pool: RemoteNonnullStoragePool,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNodeDeviceEventRegisterAnyArgs {
     pub event_id: i32,
     pub dev: Option<RemoteNonnullNodeDevice>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNodeDeviceEventRegisterAnyRet {
     pub callback_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectNodeDeviceEventDeregisterAnyArgs {
     pub callback_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceEventLifecycleMsg {
     pub callback_id: i32,
     pub dev: RemoteNonnullNodeDevice,
     pub event: i32,
     pub detail: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeDeviceEventUpdateMsg {
     pub callback_id: i32,
     pub dev: RemoteNonnullNodeDevice,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainFsfreezeArgs {
     pub dom: RemoteNonnullDomain,
     pub mountpoints: Vec<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainFsfreezeRet {
     pub filesystems: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainFsthawArgs {
     pub dom: RemoteNonnullDomain,
     pub mountpoints: Vec<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainFsthawRet {
     pub filesystems: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetFreePagesArgs {
     pub pages: Vec<u32>,
     pub start_cell: i32,
     pub cell_count: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetFreePagesRet {
     pub counts: Vec<u64>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeAllocPagesArgs {
     pub page_sizes: Vec<u32>,
     pub page_counts: Vec<u64>,
@@ -3123,11 +3133,11 @@ pub struct RemoteNodeAllocPagesArgs {
     pub cell_count: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeAllocPagesRet {
     pub ret: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkDhcpLease {
     pub iface: String,
     pub expirytime: i64,
@@ -3139,150 +3149,150 @@ pub struct RemoteNetworkDhcpLease {
     pub hostname: Option<String>,
     pub clientid: Option<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkGetDhcpLeasesArgs {
     pub net: RemoteNonnullNetwork,
     pub mac: Option<String>,
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkGetDhcpLeasesRet {
     pub leases: Vec<RemoteNetworkDhcpLease>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainStatsRecord {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetAllDomainStatsArgs {
     pub doms: Vec<RemoteNonnullDomain>,
     pub stats: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackAgentLifecycleMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
     pub state: i32,
     pub reason: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetAllDomainStatsRet {
     pub ret_stats: Vec<RemoteDomainStatsRecord>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainFsinfo {
     pub mountpoint: String,
     pub name: String,
     pub fstype: String,
     pub dev_aliases: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetFsinfoArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetFsinfoRet {
     pub info: Vec<RemoteDomainFsinfo>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainIpAddr {
     pub r#type: i32,
     pub addr: String,
     pub prefix: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainInterface {
     pub name: String,
     pub hwaddr: Option<String>,
     pub addrs: Vec<RemoteDomainIpAddr>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainInterfaceAddressesArgs {
     pub dom: RemoteNonnullDomain,
     pub source: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainInterfaceAddressesRet {
     pub ifaces: Vec<RemoteDomainInterface>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetUserPasswordArgs {
     pub dom: RemoteNonnullDomain,
     pub user: Option<String>,
     pub password: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainRenameArgs {
     pub dom: RemoteNonnullDomain,
     pub new_name: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainRenameRet {
     pub retcode: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackMigrationIterationMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
     pub iteration: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackJobCompletedMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateStartPostCopyArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackDeviceRemovalFailedMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
     pub dev_alias: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetGuestVcpusArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetGuestVcpusRet {
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetGuestVcpusArgs {
     pub dom: RemoteNonnullDomain,
     pub cpumap: String,
     pub state: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetVcpuArgs {
     pub dom: RemoteNonnullDomain,
     pub cpumap: String,
     pub state: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventCallbackMetadataChangeMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
     pub r#type: i32,
     pub nsuri: Option<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventMemoryFailureMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
@@ -3290,46 +3300,46 @@ pub struct RemoteDomainEventMemoryFailureMsg {
     pub action: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectSecretEventRegisterAnyArgs {
     pub event_id: i32,
     pub secret: Option<RemoteNonnullSecret>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectSecretEventRegisterAnyRet {
     pub callback_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectSecretEventDeregisterAnyArgs {
     pub callback_id: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretEventLifecycleMsg {
     pub callback_id: i32,
     pub secret: RemoteNonnullSecret,
     pub event: i32,
     pub detail: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteSecretEventValueChangedMsg {
     pub callback_id: i32,
     pub secret: RemoteNonnullSecret,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetBlockThresholdArgs {
     pub dom: RemoteNonnullDomain,
     pub dev: String,
     pub threshold: u64,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetLifecycleActionArgs {
     pub dom: RemoteNonnullDomain,
     pub r#type: u32,
     pub action: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectCompareHypervisorCpuArgs {
     pub emulator: Option<String>,
     pub arch: Option<String>,
@@ -3338,11 +3348,11 @@ pub struct RemoteConnectCompareHypervisorCpuArgs {
     pub xml_cpu: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectCompareHypervisorCpuRet {
     pub result: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectBaselineHypervisorCpuArgs {
     pub emulator: Option<String>,
     pub arch: Option<String>,
@@ -3351,284 +3361,284 @@ pub struct RemoteConnectBaselineHypervisorCpuArgs {
     pub xml_cpus: Vec<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectBaselineHypervisorCpuRet {
     pub cpu: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetSevInfoArgs {
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNodeGetSevInfoRet {
     pub params: Vec<RemoteTypedParam>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetLaunchSecurityInfoArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetLaunchSecurityInfoRet {
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainSetLaunchSecurityStateArgs {
     pub dom: RemoteNonnullDomain,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterBindingLookupByPortDevArgs {
     pub name: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterBindingLookupByPortDevRet {
     pub nwfilter: RemoteNonnullNwfilterBinding,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterBindingCreateXmlArgs {
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterBindingCreateXmlRet {
     pub nwfilter: RemoteNonnullNwfilterBinding,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterBindingDeleteArgs {
     pub nwfilter: RemoteNonnullNwfilterBinding,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterBindingGetXmlDescArgs {
     pub nwfilter: RemoteNonnullNwfilterBinding,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNwfilterBindingGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllNwfilterBindingsArgs {
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectListAllNwfilterBindingsRet {
     pub bindings: Vec<RemoteNonnullNwfilterBinding>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetStoragePoolCapabilitiesArgs {
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectGetStoragePoolCapabilitiesRet {
     pub capabilities: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkListAllPortsArgs {
     pub network: RemoteNonnullNetwork,
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkListAllPortsRet {
     pub ports: Vec<RemoteNonnullNetworkPort>,
     pub ret: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkPortLookupByUuidArgs {
     pub network: RemoteNonnullNetwork,
     #[serde(with = "serde_xdr::opaque::fixed")]
     pub uuid: [u8; VIR_UUID_BUFLEN as usize],
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkPortLookupByUuidRet {
     pub port: RemoteNonnullNetworkPort,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkPortCreateXmlArgs {
     pub network: RemoteNonnullNetwork,
     pub xml: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkPortCreateXmlRet {
     pub port: RemoteNonnullNetworkPort,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkPortSetParametersArgs {
     pub port: RemoteNonnullNetworkPort,
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkPortGetParametersArgs {
     pub port: RemoteNonnullNetworkPort,
     pub nparams: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkPortGetParametersRet {
     pub params: Vec<RemoteTypedParam>,
     pub nparams: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkPortGetXmlDescArgs {
     pub port: RemoteNonnullNetworkPort,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkPortGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkPortDeleteArgs {
     pub port: RemoteNonnullNetworkPort,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointCreateXmlArgs {
     pub dom: RemoteNonnullDomain,
     pub xml_desc: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointCreateXmlRet {
     pub checkpoint: RemoteNonnullDomainCheckpoint,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointGetXmlDescArgs {
     pub checkpoint: RemoteNonnullDomainCheckpoint,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainListAllCheckpointsArgs {
     pub dom: RemoteNonnullDomain,
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainListAllCheckpointsRet {
     pub checkpoints: Vec<RemoteNonnullDomainCheckpoint>,
     pub ret: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointListAllChildrenArgs {
     pub checkpoint: RemoteNonnullDomainCheckpoint,
     pub need_results: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointListAllChildrenRet {
     pub checkpoints: Vec<RemoteNonnullDomainCheckpoint>,
     pub ret: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointLookupByNameArgs {
     pub dom: RemoteNonnullDomain,
     pub name: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointLookupByNameRet {
     pub checkpoint: RemoteNonnullDomainCheckpoint,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointGetParentArgs {
     pub checkpoint: RemoteNonnullDomainCheckpoint,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointGetParentRet {
     pub parent: RemoteNonnullDomainCheckpoint,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainCheckpointDeleteArgs {
     pub checkpoint: RemoteNonnullDomainCheckpoint,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetGuestInfoArgs {
     pub dom: RemoteNonnullDomain,
     pub types: u32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetGuestInfoRet {
     pub params: Vec<RemoteTypedParam>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectSetIdentityArgs {
     pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainAgentSetResponseTimeoutArgs {
     pub dom: RemoteNonnullDomain,
     pub timeout: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainAgentSetResponseTimeoutRet {
     pub result: i32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBackupBeginArgs {
     pub dom: RemoteNonnullDomain,
     pub backup_xml: String,
     pub checkpoint_xml: Option<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBackupGetXmlDescArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainBackupGetXmlDescRet {
     pub xml: String,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainAuthorizedSshKeysGetArgs {
     pub dom: RemoteNonnullDomain,
     pub user: String,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainAuthorizedSshKeysGetRet {
     pub keys: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainAuthorizedSshKeysSetArgs {
     pub dom: RemoteNonnullDomain,
     pub user: String,
     pub keys: Vec<String>,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetMessagesArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetMessagesRet {
     pub msgs: Vec<String>,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainStartDirtyRateCalcArgs {
     pub dom: RemoteNonnullDomain,
     pub seconds: i32,
     pub flags: u32,
 }
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventMemoryDeviceSizeChangeMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
@@ -4078,4 +4088,9 @@ pub enum RemoteProcedure {
     RemoteProcNetworkCreateXmlFlags = 437i32,
     RemoteProcDomainEventMemoryDeviceSizeChange = 438i32,
     RemoteProcDomainSetLaunchSecurityState = 439i32,
+}
+impl Default for RemoteProcedure {
+    fn default() -> Self {
+        RemoteProcedure::RemoteProcConnectOpen
+    }
 }

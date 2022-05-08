@@ -3668,11 +3668,11 @@ pub trait Libvirt {
         )?;
         Ok(())
     }
-    fn domain_migrate_begin3params(
+    fn domain_migrate_begin3_params(
         &mut self,
         args: binding::RemoteDomainMigrateBegin3ParamsArgs,
     ) -> Result<binding::RemoteDomainMigrateBegin3ParamsRet, Error> {
-        trace!("{}", stringify!(domain_migrate_begin3params));
+        trace!("{}", stringify!(domain_migrate_begin3_params));
         let req: Option<binding::RemoteDomainMigrateBegin3ParamsArgs> = Some(args);
         let res: Option<binding::RemoteDomainMigrateBegin3ParamsRet> = call(
             self,
@@ -3681,11 +3681,11 @@ pub trait Libvirt {
         )?;
         Ok(res.unwrap())
     }
-    fn domain_migrate_prepare3params(
+    fn domain_migrate_prepare3_params(
         &mut self,
         args: binding::RemoteDomainMigratePrepare3ParamsArgs,
     ) -> Result<binding::RemoteDomainMigratePrepare3ParamsRet, Error> {
-        trace!("{}", stringify!(domain_migrate_prepare3params));
+        trace!("{}", stringify!(domain_migrate_prepare3_params));
         let req: Option<binding::RemoteDomainMigratePrepare3ParamsArgs> = Some(args);
         let res: Option<binding::RemoteDomainMigratePrepare3ParamsRet> = call(
             self,
@@ -3694,11 +3694,11 @@ pub trait Libvirt {
         )?;
         Ok(res.unwrap())
     }
-    fn domain_migrate_prepare_tunnel3params(
+    fn domain_migrate_prepare_tunnel3_params(
         &mut self,
         args: binding::RemoteDomainMigratePrepareTunnel3ParamsArgs,
     ) -> Result<binding::RemoteDomainMigratePrepareTunnel3ParamsRet, Error> {
-        trace!("{}", stringify!(domain_migrate_prepare_tunnel3params));
+        trace!("{}", stringify!(domain_migrate_prepare_tunnel3_params));
         let req: Option<binding::RemoteDomainMigratePrepareTunnel3ParamsArgs> = Some(args);
         let res: Option<binding::RemoteDomainMigratePrepareTunnel3ParamsRet> = call(
             self,
@@ -3707,11 +3707,11 @@ pub trait Libvirt {
         )?;
         Ok(res.unwrap())
     }
-    fn domain_migrate_perform3params(
+    fn domain_migrate_perform3_params(
         &mut self,
         args: binding::RemoteDomainMigratePerform3ParamsArgs,
     ) -> Result<binding::RemoteDomainMigratePerform3ParamsRet, Error> {
-        trace!("{}", stringify!(domain_migrate_perform3params));
+        trace!("{}", stringify!(domain_migrate_perform3_params));
         let req: Option<binding::RemoteDomainMigratePerform3ParamsArgs> = Some(args);
         let res: Option<binding::RemoteDomainMigratePerform3ParamsRet> = call(
             self,
@@ -3720,11 +3720,11 @@ pub trait Libvirt {
         )?;
         Ok(res.unwrap())
     }
-    fn domain_migrate_finish3params(
+    fn domain_migrate_finish3_params(
         &mut self,
         args: binding::RemoteDomainMigrateFinish3ParamsArgs,
     ) -> Result<binding::RemoteDomainMigrateFinish3ParamsRet, Error> {
-        trace!("{}", stringify!(domain_migrate_finish3params));
+        trace!("{}", stringify!(domain_migrate_finish3_params));
         let req: Option<binding::RemoteDomainMigrateFinish3ParamsArgs> = Some(args);
         let res: Option<binding::RemoteDomainMigrateFinish3ParamsRet> = call(
             self,
@@ -3733,11 +3733,11 @@ pub trait Libvirt {
         )?;
         Ok(res.unwrap())
     }
-    fn domain_migrate_confirm3params(
+    fn domain_migrate_confirm3_params(
         &mut self,
         args: binding::RemoteDomainMigrateConfirm3ParamsArgs,
     ) -> Result<(), Error> {
-        trace!("{}", stringify!(domain_migrate_confirm3params));
+        trace!("{}", stringify!(domain_migrate_confirm3_params));
         let req: Option<binding::RemoteDomainMigrateConfirm3ParamsArgs> = Some(args);
         let _res: Option<()> = call(
             self,
@@ -5548,10 +5548,10 @@ pub trait Libvirt {
         let res: Option<binding::RemoteDomainEventCallbackDeviceRemovedMsg> = msg(self)?;
         Ok(res.unwrap())
     }
-    fn domain_event_block_job2msg(
+    fn domain_event_block_job2_msg(
         &mut self,
     ) -> Result<binding::RemoteDomainEventBlockJob2Msg, Error> {
-        trace!("{}", stringify!(domain_event_block_job2msg));
+        trace!("{}", stringify!(domain_event_block_job2_msg));
         let res: Option<binding::RemoteDomainEventBlockJob2Msg> = msg(self)?;
         Ok(res.unwrap())
     }
@@ -5699,13 +5699,13 @@ where
 {
     client.serial_add(1);
     let mut req_len: u32 = 4;
-    let req_header = protocol::Virnetmessageheader {
+    let req_header = protocol::VirNetMessageHeader {
         prog: binding::REMOTE_PROGRAM,
         vers: binding::REMOTE_PROTOCOL_VERSION,
         proc: procedure as i32,
-        r#type: protocol::Virnetmessagetype::VirNetCall,
+        r#type: protocol::VirNetMessageType::VirNetCall,
         serial: client.serial(),
-        status: protocol::Virnetmessagestatus::VirNetOk,
+        status: protocol::VirNetMessageStatus::VirNetOk,
     };
     let req_header_bytes = serde_xdr::to_bytes(&req_header).map_err(Error::SerializeError)?;
     req_len += req_header_bytes.len() as u32;
@@ -5740,7 +5740,7 @@ where
         .inner()
         .read_exact(&mut res_header_bytes)
         .map_err(Error::ReceiveError)?;
-    let res_header = serde_xdr::from_bytes::<protocol::Virnetmessageheader>(&res_header_bytes)
+    let res_header = serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
         .map_err(Error::DeserializeError)?;
     if res_len == (4 + res_header_bytes.len()) {
         return Ok(None);
@@ -5750,8 +5750,8 @@ where
         .inner()
         .read_exact(&mut res_body_bytes)
         .map_err(Error::ReceiveError)?;
-    if res_header.status == protocol::Virnetmessagestatus::VirNetError {
-        let res = serde_xdr::from_bytes::<protocol::Virnetmessageerror>(&res_body_bytes)
+    if res_header.status == protocol::VirNetMessageStatus::VirNetError {
+        let res = serde_xdr::from_bytes::<protocol::VirNetMessageError>(&res_body_bytes)
             .map_err(Error::DeserializeError)?;
         Err(Error::ProtocolError(res))
     } else {
@@ -5774,7 +5774,7 @@ where
         .inner()
         .read_exact(&mut res_header_bytes)
         .map_err(Error::ReceiveError)?;
-    let res_header = serde_xdr::from_bytes::<protocol::Virnetmessageheader>(&res_header_bytes)
+    let res_header = serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
         .map_err(Error::DeserializeError)?;
     if res_len == (4 + res_header_bytes.len()) {
         return Ok(None);
@@ -5784,8 +5784,8 @@ where
         .inner()
         .read_exact(&mut res_body_bytes)
         .map_err(Error::ReceiveError)?;
-    if res_header.status == protocol::Virnetmessagestatus::VirNetError {
-        let res = serde_xdr::from_bytes::<protocol::Virnetmessageerror>(&res_body_bytes)
+    if res_header.status == protocol::VirNetMessageStatus::VirNetError {
+        let res = serde_xdr::from_bytes::<protocol::VirNetMessageError>(&res_body_bytes)
             .map_err(Error::DeserializeError)?;
         Err(Error::ProtocolError(res))
     } else {

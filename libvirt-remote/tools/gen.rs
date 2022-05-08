@@ -202,13 +202,13 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
 
             let mut req_len: u32 = 4;
 
-            let req_header = protocol::Virnetmessageheader {
+            let req_header = protocol::VirNetMessageHeader {
                 prog: binding::REMOTE_PROGRAM,
                 vers: binding::REMOTE_PROTOCOL_VERSION,
                 proc: procedure as i32,
-                r#type: protocol::Virnetmessagetype::VirNetCall,
+                r#type: protocol::VirNetMessageType::VirNetCall,
                 serial: client.serial(),
-                status: protocol::Virnetmessagestatus::VirNetOk,
+                status: protocol::VirNetMessageStatus::VirNetOk,
             };
             let req_header_bytes = serde_xdr::to_bytes(&req_header).map_err(Error::SerializeError)?;
             req_len += req_header_bytes.len() as u32;
@@ -247,7 +247,7 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
                 .inner()
                 .read_exact(&mut res_header_bytes)
                 .map_err(Error::ReceiveError)?;
-            let res_header = serde_xdr::from_bytes::<protocol::Virnetmessageheader>(&res_header_bytes)
+            let res_header = serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
                 .map_err(Error::DeserializeError)?;
 
             if res_len == (4 + res_header_bytes.len()) {
@@ -259,8 +259,8 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
                 .inner()
                 .read_exact(&mut res_body_bytes)
                 .map_err(Error::ReceiveError)?;
-            if res_header.status == protocol::Virnetmessagestatus::VirNetError {
-                let res = serde_xdr::from_bytes::<protocol::Virnetmessageerror>(&res_body_bytes)
+            if res_header.status == protocol::VirNetMessageStatus::VirNetError {
+                let res = serde_xdr::from_bytes::<protocol::VirNetMessageError>(&res_body_bytes)
                     .map_err(Error::DeserializeError)?;
                 Err(Error::ProtocolError(res))
             } else {
@@ -287,7 +287,7 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
                 .inner()
                 .read_exact(&mut res_header_bytes)
                 .map_err(Error::ReceiveError)?;
-            let res_header = serde_xdr::from_bytes::<protocol::Virnetmessageheader>(&res_header_bytes)
+            let res_header = serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
                 .map_err(Error::DeserializeError)?;
 
             if res_len == (4 + res_header_bytes.len()) {
@@ -299,8 +299,8 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
                 .inner()
                 .read_exact(&mut res_body_bytes)
                 .map_err(Error::ReceiveError)?;
-            if res_header.status == protocol::Virnetmessagestatus::VirNetError {
-                let res = serde_xdr::from_bytes::<protocol::Virnetmessageerror>(&res_body_bytes)
+            if res_header.status == protocol::VirNetMessageStatus::VirNetError {
+                let res = serde_xdr::from_bytes::<protocol::VirNetMessageError>(&res_body_bytes)
                     .map_err(Error::DeserializeError)?;
                 Err(Error::ProtocolError(res))
             } else {
@@ -326,7 +326,7 @@ fn capitalize(value: &str) -> String {
 
 fn snake_case(value: &str) -> String {
     let capitalized = value
-        .split_inclusive(char::is_lowercase)
+        .split_inclusive(|c| char::is_lowercase(c) || char::is_numeric(c))
         .map(|c| {
             match c.len() {
                 1 => c.to_string(),

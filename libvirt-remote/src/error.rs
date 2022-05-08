@@ -6,7 +6,7 @@ use std::io;
 #[derive(Debug)]
 pub enum Error {
     DeserializeError(serde_xdr::error::Error),
-    ProtocolError(protocol::Virnetmessageerror),
+    ProtocolError(protocol::VirNetMessageError),
     ReceiveError(io::Error),
     SendError(io::Error),
     SerializeError(serde_xdr::error::Error),
