@@ -1,4 +1,4 @@
-use crate::binding;
+use crate::binding::*;
 use crate::error::Error;
 use crate::protocol;
 use log::trace;
@@ -38,1989 +38,1957 @@ pub trait Libvirt {
     fn inner(&mut self) -> &mut Box<dyn ReadWrite>;
     fn serial(&self) -> u32;
     fn serial_add(&mut self, value: u32);
-    fn connect_open(&mut self, args: binding::RemoteConnectOpenArgs) -> Result<(), Error> {
+    fn connect_open(&mut self, name: Option<String>, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(connect_open));
-        let req: Option<binding::RemoteConnectOpenArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcConnectOpen, req)?;
+        let req: Option<RemoteConnectOpenArgs> = Some(RemoteConnectOpenArgs { name, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcConnectOpen, req)?;
         Ok(())
     }
     fn connect_close(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(connect_close));
         let req: Option<()> = None;
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcConnectClose, req)?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcConnectClose, req)?;
         Ok(())
     }
-    fn connect_get_type(&mut self) -> Result<binding::RemoteConnectGetTypeRet, Error> {
+    fn connect_get_type(&mut self) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_type));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectGetTypeRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectGetType,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectGetTypeRet> =
+            call(self, RemoteProcedure::RemoteProcConnectGetType, req)?;
+        let res = res.unwrap();
+        let RemoteConnectGetTypeRet { r#type } = res;
+        Ok(r#type)
     }
-    fn connect_get_version(&mut self) -> Result<binding::RemoteConnectGetVersionRet, Error> {
+    fn connect_get_version(&mut self) -> Result<u64, Error> {
         trace!("{}", stringify!(connect_get_version));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectGetVersionRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectGetVersion,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectGetVersionRet> =
+            call(self, RemoteProcedure::RemoteProcConnectGetVersion, req)?;
+        let res = res.unwrap();
+        let RemoteConnectGetVersionRet { hv_ver } = res;
+        Ok(hv_ver)
     }
-    fn connect_get_max_vcpus(
-        &mut self,
-        args: binding::RemoteConnectGetMaxVcpusArgs,
-    ) -> Result<binding::RemoteConnectGetMaxVcpusRet, Error> {
+    fn connect_get_max_vcpus(&mut self, r#type: Option<String>) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_get_max_vcpus));
-        let req: Option<binding::RemoteConnectGetMaxVcpusArgs> = Some(args);
-        let res: Option<binding::RemoteConnectGetMaxVcpusRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectGetMaxVcpus,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectGetMaxVcpusArgs> =
+            Some(RemoteConnectGetMaxVcpusArgs { r#type });
+        let res: Option<RemoteConnectGetMaxVcpusRet> =
+            call(self, RemoteProcedure::RemoteProcConnectGetMaxVcpus, req)?;
+        let res = res.unwrap();
+        let RemoteConnectGetMaxVcpusRet { max_vcpus } = res;
+        Ok(max_vcpus)
     }
-    fn node_get_info(&mut self) -> Result<binding::RemoteNodeGetInfoRet, Error> {
+    fn node_get_info(&mut self) -> Result<RemoteNodeGetInfoRet, Error> {
         trace!("{}", stringify!(node_get_info));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteNodeGetInfoRet> =
-            call(self, binding::RemoteProcedure::RemoteProcNodeGetInfo, req)?;
+        let res: Option<RemoteNodeGetInfoRet> =
+            call(self, RemoteProcedure::RemoteProcNodeGetInfo, req)?;
         Ok(res.unwrap())
     }
-    fn connect_get_capabilities(
-        &mut self,
-    ) -> Result<binding::RemoteConnectGetCapabilitiesRet, Error> {
+    fn connect_get_capabilities(&mut self) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_capabilities));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectGetCapabilitiesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectGetCapabilities,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectGetCapabilitiesRet> =
+            call(self, RemoteProcedure::RemoteProcConnectGetCapabilities, req)?;
+        let res = res.unwrap();
+        let RemoteConnectGetCapabilitiesRet { capabilities } = res;
+        Ok(capabilities)
     }
-    fn domain_attach_device(
-        &mut self,
-        args: binding::RemoteDomainAttachDeviceArgs,
-    ) -> Result<(), Error> {
+    fn domain_attach_device(&mut self, dom: RemoteNonnullDomain, xml: String) -> Result<(), Error> {
         trace!("{}", stringify!(domain_attach_device));
-        let req: Option<binding::RemoteDomainAttachDeviceArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainAttachDevice,
-            req,
-        )?;
+        let req: Option<RemoteDomainAttachDeviceArgs> =
+            Some(RemoteDomainAttachDeviceArgs { dom, xml });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainAttachDevice, req)?;
         Ok(())
     }
-    fn domain_create(&mut self, args: binding::RemoteDomainCreateArgs) -> Result<(), Error> {
+    fn domain_create(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_create));
-        let req: Option<binding::RemoteDomainCreateArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainCreate, req)?;
+        let req: Option<RemoteDomainCreateArgs> = Some(RemoteDomainCreateArgs { dom });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainCreate, req)?;
         Ok(())
     }
     fn domain_create_xml(
         &mut self,
-        args: binding::RemoteDomainCreateXmlArgs,
-    ) -> Result<binding::RemoteDomainCreateXmlRet, Error> {
+        xml_desc: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_create_xml));
-        let req: Option<binding::RemoteDomainCreateXmlArgs> = Some(args);
-        let res: Option<binding::RemoteDomainCreateXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainCreateXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainCreateXmlArgs> =
+            Some(RemoteDomainCreateXmlArgs { xml_desc, flags });
+        let res: Option<RemoteDomainCreateXmlRet> =
+            call(self, RemoteProcedure::RemoteProcDomainCreateXml, req)?;
+        let res = res.unwrap();
+        let RemoteDomainCreateXmlRet { dom } = res;
+        Ok(dom)
     }
-    fn domain_define_xml(
-        &mut self,
-        args: binding::RemoteDomainDefineXmlArgs,
-    ) -> Result<binding::RemoteDomainDefineXmlRet, Error> {
+    fn domain_define_xml(&mut self, xml: String) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_define_xml));
-        let req: Option<binding::RemoteDomainDefineXmlArgs> = Some(args);
-        let res: Option<binding::RemoteDomainDefineXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainDefineXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainDefineXmlArgs> = Some(RemoteDomainDefineXmlArgs { xml });
+        let res: Option<RemoteDomainDefineXmlRet> =
+            call(self, RemoteProcedure::RemoteProcDomainDefineXml, req)?;
+        let res = res.unwrap();
+        let RemoteDomainDefineXmlRet { dom } = res;
+        Ok(dom)
     }
-    fn domain_destroy(&mut self, args: binding::RemoteDomainDestroyArgs) -> Result<(), Error> {
+    fn domain_destroy(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_destroy));
-        let req: Option<binding::RemoteDomainDestroyArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainDestroy, req)?;
+        let req: Option<RemoteDomainDestroyArgs> = Some(RemoteDomainDestroyArgs { dom });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainDestroy, req)?;
         Ok(())
     }
-    fn domain_detach_device(
-        &mut self,
-        args: binding::RemoteDomainDetachDeviceArgs,
-    ) -> Result<(), Error> {
+    fn domain_detach_device(&mut self, dom: RemoteNonnullDomain, xml: String) -> Result<(), Error> {
         trace!("{}", stringify!(domain_detach_device));
-        let req: Option<binding::RemoteDomainDetachDeviceArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainDetachDevice,
-            req,
-        )?;
+        let req: Option<RemoteDomainDetachDeviceArgs> =
+            Some(RemoteDomainDetachDeviceArgs { dom, xml });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainDetachDevice, req)?;
         Ok(())
     }
     fn domain_get_xml_desc(
         &mut self,
-        args: binding::RemoteDomainGetXmlDescArgs,
-    ) -> Result<binding::RemoteDomainGetXmlDescRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(domain_get_xml_desc));
-        let req: Option<binding::RemoteDomainGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetXmlDescRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetXmlDesc,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetXmlDescArgs> =
+            Some(RemoteDomainGetXmlDescArgs { dom, flags });
+        let res: Option<RemoteDomainGetXmlDescRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetXmlDesc, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
-    fn domain_get_autostart(
-        &mut self,
-        args: binding::RemoteDomainGetAutostartArgs,
-    ) -> Result<binding::RemoteDomainGetAutostartRet, Error> {
+    fn domain_get_autostart(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_get_autostart));
-        let req: Option<binding::RemoteDomainGetAutostartArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetAutostartRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetAutostart,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetAutostartArgs> = Some(RemoteDomainGetAutostartArgs { dom });
+        let res: Option<RemoteDomainGetAutostartRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetAutostart, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetAutostartRet { autostart } = res;
+        Ok(autostart)
     }
     fn domain_get_info(
         &mut self,
-        args: binding::RemoteDomainGetInfoArgs,
-    ) -> Result<binding::RemoteDomainGetInfoRet, Error> {
+        dom: RemoteNonnullDomain,
+    ) -> Result<(u8, u64, u64, u16, u64), Error> {
         trace!("{}", stringify!(domain_get_info));
-        let req: Option<binding::RemoteDomainGetInfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetInfoRet> =
-            call(self, binding::RemoteProcedure::RemoteProcDomainGetInfo, req)?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetInfoArgs> = Some(RemoteDomainGetInfoArgs { dom });
+        let res: Option<RemoteDomainGetInfoRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetInfo, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetInfoRet {
+            state,
+            max_mem,
+            memory,
+            nr_virt_cpu,
+            cpu_time,
+        } = res;
+        Ok((state, max_mem, memory, nr_virt_cpu, cpu_time))
     }
-    fn domain_get_max_memory(
-        &mut self,
-        args: binding::RemoteDomainGetMaxMemoryArgs,
-    ) -> Result<binding::RemoteDomainGetMaxMemoryRet, Error> {
+    fn domain_get_max_memory(&mut self, dom: RemoteNonnullDomain) -> Result<u64, Error> {
         trace!("{}", stringify!(domain_get_max_memory));
-        let req: Option<binding::RemoteDomainGetMaxMemoryArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetMaxMemoryRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetMaxMemory,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetMaxMemoryArgs> = Some(RemoteDomainGetMaxMemoryArgs { dom });
+        let res: Option<RemoteDomainGetMaxMemoryRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetMaxMemory, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetMaxMemoryRet { memory } = res;
+        Ok(memory)
     }
-    fn domain_get_max_vcpus(
-        &mut self,
-        args: binding::RemoteDomainGetMaxVcpusArgs,
-    ) -> Result<binding::RemoteDomainGetMaxVcpusRet, Error> {
+    fn domain_get_max_vcpus(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_get_max_vcpus));
-        let req: Option<binding::RemoteDomainGetMaxVcpusArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetMaxVcpusRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetMaxVcpus,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetMaxVcpusArgs> = Some(RemoteDomainGetMaxVcpusArgs { dom });
+        let res: Option<RemoteDomainGetMaxVcpusRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetMaxVcpus, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetMaxVcpusRet { num } = res;
+        Ok(num)
     }
-    fn domain_get_os_type(
-        &mut self,
-        args: binding::RemoteDomainGetOsTypeArgs,
-    ) -> Result<binding::RemoteDomainGetOsTypeRet, Error> {
+    fn domain_get_os_type(&mut self, dom: RemoteNonnullDomain) -> Result<String, Error> {
         trace!("{}", stringify!(domain_get_os_type));
-        let req: Option<binding::RemoteDomainGetOsTypeArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetOsTypeRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetOsType,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetOsTypeArgs> = Some(RemoteDomainGetOsTypeArgs { dom });
+        let res: Option<RemoteDomainGetOsTypeRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetOsType, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetOsTypeRet { r#type } = res;
+        Ok(r#type)
     }
     fn domain_get_vcpus(
         &mut self,
-        args: binding::RemoteDomainGetVcpusArgs,
-    ) -> Result<binding::RemoteDomainGetVcpusRet, Error> {
+        dom: RemoteNonnullDomain,
+        maxinfo: i32,
+        maplen: i32,
+    ) -> Result<(Vec<RemoteVcpuInfo>, Vec<u8>), Error> {
         trace!("{}", stringify!(domain_get_vcpus));
-        let req: Option<binding::RemoteDomainGetVcpusArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetVcpusRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetVcpus,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetVcpusArgs> = Some(RemoteDomainGetVcpusArgs {
+            dom,
+            maxinfo,
+            maplen,
+        });
+        let res: Option<RemoteDomainGetVcpusRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetVcpus, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetVcpusRet { info, cpumaps } = res;
+        Ok((info, cpumaps))
     }
-    fn connect_list_defined_domains(
-        &mut self,
-        args: binding::RemoteConnectListDefinedDomainsArgs,
-    ) -> Result<binding::RemoteConnectListDefinedDomainsRet, Error> {
+    fn connect_list_defined_domains(&mut self, maxnames: i32) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(connect_list_defined_domains));
-        let req: Option<binding::RemoteConnectListDefinedDomainsArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListDefinedDomainsRet> = call(
+        let req: Option<RemoteConnectListDefinedDomainsArgs> =
+            Some(RemoteConnectListDefinedDomainsArgs { maxnames });
+        let res: Option<RemoteConnectListDefinedDomainsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectListDefinedDomains,
+            RemoteProcedure::RemoteProcConnectListDefinedDomains,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectListDefinedDomainsRet { names } = res;
+        Ok(names)
     }
-    fn domain_lookup_by_id(
-        &mut self,
-        args: binding::RemoteDomainLookupByIdArgs,
-    ) -> Result<binding::RemoteDomainLookupByIdRet, Error> {
+    fn domain_lookup_by_id(&mut self, id: i32) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_lookup_by_id));
-        let req: Option<binding::RemoteDomainLookupByIdArgs> = Some(args);
-        let res: Option<binding::RemoteDomainLookupByIdRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainLookupById,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainLookupByIdArgs> = Some(RemoteDomainLookupByIdArgs { id });
+        let res: Option<RemoteDomainLookupByIdRet> =
+            call(self, RemoteProcedure::RemoteProcDomainLookupById, req)?;
+        let res = res.unwrap();
+        let RemoteDomainLookupByIdRet { dom } = res;
+        Ok(dom)
     }
-    fn domain_lookup_by_name(
-        &mut self,
-        args: binding::RemoteDomainLookupByNameArgs,
-    ) -> Result<binding::RemoteDomainLookupByNameRet, Error> {
+    fn domain_lookup_by_name(&mut self, name: String) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_lookup_by_name));
-        let req: Option<binding::RemoteDomainLookupByNameArgs> = Some(args);
-        let res: Option<binding::RemoteDomainLookupByNameRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainLookupByName,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainLookupByNameArgs> = Some(RemoteDomainLookupByNameArgs { name });
+        let res: Option<RemoteDomainLookupByNameRet> =
+            call(self, RemoteProcedure::RemoteProcDomainLookupByName, req)?;
+        let res = res.unwrap();
+        let RemoteDomainLookupByNameRet { dom } = res;
+        Ok(dom)
     }
     fn domain_lookup_by_uuid(
         &mut self,
-        args: binding::RemoteDomainLookupByUuidArgs,
-    ) -> Result<binding::RemoteDomainLookupByUuidRet, Error> {
+        uuid: [u8; VIR_UUID_BUFLEN as usize],
+    ) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_lookup_by_uuid));
-        let req: Option<binding::RemoteDomainLookupByUuidArgs> = Some(args);
-        let res: Option<binding::RemoteDomainLookupByUuidRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainLookupByUuid,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainLookupByUuidArgs> = Some(RemoteDomainLookupByUuidArgs { uuid });
+        let res: Option<RemoteDomainLookupByUuidRet> =
+            call(self, RemoteProcedure::RemoteProcDomainLookupByUuid, req)?;
+        let res = res.unwrap();
+        let RemoteDomainLookupByUuidRet { dom } = res;
+        Ok(dom)
     }
-    fn connect_num_of_defined_domains(
-        &mut self,
-    ) -> Result<binding::RemoteConnectNumOfDefinedDomainsRet, Error> {
+    fn connect_num_of_defined_domains(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_defined_domains));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectNumOfDefinedDomainsRet> = call(
+        let res: Option<RemoteConnectNumOfDefinedDomainsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectNumOfDefinedDomains,
+            RemoteProcedure::RemoteProcConnectNumOfDefinedDomains,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectNumOfDefinedDomainsRet { num } = res;
+        Ok(num)
     }
-    fn domain_pin_vcpu(&mut self, args: binding::RemoteDomainPinVcpuArgs) -> Result<(), Error> {
+    fn domain_pin_vcpu(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        vcpu: u32,
+        cpumap: Vec<u8>,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_pin_vcpu));
-        let req: Option<binding::RemoteDomainPinVcpuArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainPinVcpu, req)?;
+        let req: Option<RemoteDomainPinVcpuArgs> =
+            Some(RemoteDomainPinVcpuArgs { dom, vcpu, cpumap });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainPinVcpu, req)?;
         Ok(())
     }
-    fn domain_reboot(&mut self, args: binding::RemoteDomainRebootArgs) -> Result<(), Error> {
+    fn domain_reboot(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_reboot));
-        let req: Option<binding::RemoteDomainRebootArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainReboot, req)?;
+        let req: Option<RemoteDomainRebootArgs> = Some(RemoteDomainRebootArgs { dom, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainReboot, req)?;
         Ok(())
     }
-    fn domain_resume(&mut self, args: binding::RemoteDomainResumeArgs) -> Result<(), Error> {
+    fn domain_resume(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_resume));
-        let req: Option<binding::RemoteDomainResumeArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainResume, req)?;
+        let req: Option<RemoteDomainResumeArgs> = Some(RemoteDomainResumeArgs { dom });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainResume, req)?;
         Ok(())
     }
     fn domain_set_autostart(
         &mut self,
-        args: binding::RemoteDomainSetAutostartArgs,
+        dom: RemoteNonnullDomain,
+        autostart: i32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_autostart));
-        let req: Option<binding::RemoteDomainSetAutostartArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetAutostart,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetAutostartArgs> =
+            Some(RemoteDomainSetAutostartArgs { dom, autostart });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetAutostart, req)?;
         Ok(())
     }
     fn domain_set_max_memory(
         &mut self,
-        args: binding::RemoteDomainSetMaxMemoryArgs,
+        dom: RemoteNonnullDomain,
+        memory: u64,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_max_memory));
-        let req: Option<binding::RemoteDomainSetMaxMemoryArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetMaxMemory,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetMaxMemoryArgs> =
+            Some(RemoteDomainSetMaxMemoryArgs { dom, memory });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetMaxMemory, req)?;
         Ok(())
     }
-    fn domain_set_memory(&mut self, args: binding::RemoteDomainSetMemoryArgs) -> Result<(), Error> {
+    fn domain_set_memory(&mut self, dom: RemoteNonnullDomain, memory: u64) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_memory));
-        let req: Option<binding::RemoteDomainSetMemoryArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetMemory,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetMemoryArgs> =
+            Some(RemoteDomainSetMemoryArgs { dom, memory });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetMemory, req)?;
         Ok(())
     }
-    fn domain_set_vcpus(&mut self, args: binding::RemoteDomainSetVcpusArgs) -> Result<(), Error> {
+    fn domain_set_vcpus(&mut self, dom: RemoteNonnullDomain, nvcpus: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_vcpus));
-        let req: Option<binding::RemoteDomainSetVcpusArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetVcpus,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetVcpusArgs> = Some(RemoteDomainSetVcpusArgs { dom, nvcpus });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetVcpus, req)?;
         Ok(())
     }
-    fn domain_shutdown(&mut self, args: binding::RemoteDomainShutdownArgs) -> Result<(), Error> {
+    fn domain_shutdown(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_shutdown));
-        let req: Option<binding::RemoteDomainShutdownArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainShutdown,
-            req,
-        )?;
+        let req: Option<RemoteDomainShutdownArgs> = Some(RemoteDomainShutdownArgs { dom });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainShutdown, req)?;
         Ok(())
     }
-    fn domain_suspend(&mut self, args: binding::RemoteDomainSuspendArgs) -> Result<(), Error> {
+    fn domain_suspend(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_suspend));
-        let req: Option<binding::RemoteDomainSuspendArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainSuspend, req)?;
+        let req: Option<RemoteDomainSuspendArgs> = Some(RemoteDomainSuspendArgs { dom });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSuspend, req)?;
         Ok(())
     }
-    fn domain_undefine(&mut self, args: binding::RemoteDomainUndefineArgs) -> Result<(), Error> {
+    fn domain_undefine(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_undefine));
-        let req: Option<binding::RemoteDomainUndefineArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainUndefine,
-            req,
-        )?;
+        let req: Option<RemoteDomainUndefineArgs> = Some(RemoteDomainUndefineArgs { dom });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainUndefine, req)?;
         Ok(())
     }
-    fn connect_list_defined_networks(
-        &mut self,
-        args: binding::RemoteConnectListDefinedNetworksArgs,
-    ) -> Result<binding::RemoteConnectListDefinedNetworksRet, Error> {
+    fn connect_list_defined_networks(&mut self, maxnames: i32) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(connect_list_defined_networks));
-        let req: Option<binding::RemoteConnectListDefinedNetworksArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListDefinedNetworksRet> = call(
+        let req: Option<RemoteConnectListDefinedNetworksArgs> =
+            Some(RemoteConnectListDefinedNetworksArgs { maxnames });
+        let res: Option<RemoteConnectListDefinedNetworksRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectListDefinedNetworks,
+            RemoteProcedure::RemoteProcConnectListDefinedNetworks,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectListDefinedNetworksRet { names } = res;
+        Ok(names)
     }
-    fn connect_list_domains(
-        &mut self,
-        args: binding::RemoteConnectListDomainsArgs,
-    ) -> Result<binding::RemoteConnectListDomainsRet, Error> {
+    fn connect_list_domains(&mut self, maxids: i32) -> Result<Vec<i32>, Error> {
         trace!("{}", stringify!(connect_list_domains));
-        let req: Option<binding::RemoteConnectListDomainsArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListDomainsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectListDomains,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectListDomainsArgs> =
+            Some(RemoteConnectListDomainsArgs { maxids });
+        let res: Option<RemoteConnectListDomainsRet> =
+            call(self, RemoteProcedure::RemoteProcConnectListDomains, req)?;
+        let res = res.unwrap();
+        let RemoteConnectListDomainsRet { ids } = res;
+        Ok(ids)
     }
-    fn connect_list_networks(
-        &mut self,
-        args: binding::RemoteConnectListNetworksArgs,
-    ) -> Result<binding::RemoteConnectListNetworksRet, Error> {
+    fn connect_list_networks(&mut self, maxnames: i32) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(connect_list_networks));
-        let req: Option<binding::RemoteConnectListNetworksArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListNetworksRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectListNetworks,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectListNetworksArgs> =
+            Some(RemoteConnectListNetworksArgs { maxnames });
+        let res: Option<RemoteConnectListNetworksRet> =
+            call(self, RemoteProcedure::RemoteProcConnectListNetworks, req)?;
+        let res = res.unwrap();
+        let RemoteConnectListNetworksRet { names } = res;
+        Ok(names)
     }
-    fn network_create(&mut self, args: binding::RemoteNetworkCreateArgs) -> Result<(), Error> {
+    fn network_create(&mut self, net: RemoteNonnullNetwork) -> Result<(), Error> {
         trace!("{}", stringify!(network_create));
-        let req: Option<binding::RemoteNetworkCreateArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcNetworkCreate, req)?;
+        let req: Option<RemoteNetworkCreateArgs> = Some(RemoteNetworkCreateArgs { net });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNetworkCreate, req)?;
         Ok(())
     }
-    fn network_create_xml(
-        &mut self,
-        args: binding::RemoteNetworkCreateXmlArgs,
-    ) -> Result<binding::RemoteNetworkCreateXmlRet, Error> {
+    fn network_create_xml(&mut self, xml: String) -> Result<RemoteNonnullNetwork, Error> {
         trace!("{}", stringify!(network_create_xml));
-        let req: Option<binding::RemoteNetworkCreateXmlArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkCreateXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkCreateXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkCreateXmlArgs> = Some(RemoteNetworkCreateXmlArgs { xml });
+        let res: Option<RemoteNetworkCreateXmlRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkCreateXml, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkCreateXmlRet { net } = res;
+        Ok(net)
     }
-    fn network_define_xml(
-        &mut self,
-        args: binding::RemoteNetworkDefineXmlArgs,
-    ) -> Result<binding::RemoteNetworkDefineXmlRet, Error> {
+    fn network_define_xml(&mut self, xml: String) -> Result<RemoteNonnullNetwork, Error> {
         trace!("{}", stringify!(network_define_xml));
-        let req: Option<binding::RemoteNetworkDefineXmlArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkDefineXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkDefineXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkDefineXmlArgs> = Some(RemoteNetworkDefineXmlArgs { xml });
+        let res: Option<RemoteNetworkDefineXmlRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkDefineXml, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkDefineXmlRet { net } = res;
+        Ok(net)
     }
-    fn network_destroy(&mut self, args: binding::RemoteNetworkDestroyArgs) -> Result<(), Error> {
+    fn network_destroy(&mut self, net: RemoteNonnullNetwork) -> Result<(), Error> {
         trace!("{}", stringify!(network_destroy));
-        let req: Option<binding::RemoteNetworkDestroyArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkDestroy,
-            req,
-        )?;
+        let req: Option<RemoteNetworkDestroyArgs> = Some(RemoteNetworkDestroyArgs { net });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNetworkDestroy, req)?;
         Ok(())
     }
     fn network_get_xml_desc(
         &mut self,
-        args: binding::RemoteNetworkGetXmlDescArgs,
-    ) -> Result<binding::RemoteNetworkGetXmlDescRet, Error> {
+        net: RemoteNonnullNetwork,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(network_get_xml_desc));
-        let req: Option<binding::RemoteNetworkGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkGetXmlDescRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkGetXmlDesc,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkGetXmlDescArgs> =
+            Some(RemoteNetworkGetXmlDescArgs { net, flags });
+        let res: Option<RemoteNetworkGetXmlDescRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkGetXmlDesc, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
-    fn network_get_autostart(
-        &mut self,
-        args: binding::RemoteNetworkGetAutostartArgs,
-    ) -> Result<binding::RemoteNetworkGetAutostartRet, Error> {
+    fn network_get_autostart(&mut self, net: RemoteNonnullNetwork) -> Result<i32, Error> {
         trace!("{}", stringify!(network_get_autostart));
-        let req: Option<binding::RemoteNetworkGetAutostartArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkGetAutostartRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkGetAutostart,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkGetAutostartArgs> =
+            Some(RemoteNetworkGetAutostartArgs { net });
+        let res: Option<RemoteNetworkGetAutostartRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkGetAutostart, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkGetAutostartRet { autostart } = res;
+        Ok(autostart)
     }
-    fn network_get_bridge_name(
-        &mut self,
-        args: binding::RemoteNetworkGetBridgeNameArgs,
-    ) -> Result<binding::RemoteNetworkGetBridgeNameRet, Error> {
+    fn network_get_bridge_name(&mut self, net: RemoteNonnullNetwork) -> Result<String, Error> {
         trace!("{}", stringify!(network_get_bridge_name));
-        let req: Option<binding::RemoteNetworkGetBridgeNameArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkGetBridgeNameRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkGetBridgeName,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkGetBridgeNameArgs> =
+            Some(RemoteNetworkGetBridgeNameArgs { net });
+        let res: Option<RemoteNetworkGetBridgeNameRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkGetBridgeName, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkGetBridgeNameRet { name } = res;
+        Ok(name)
     }
-    fn network_lookup_by_name(
-        &mut self,
-        args: binding::RemoteNetworkLookupByNameArgs,
-    ) -> Result<binding::RemoteNetworkLookupByNameRet, Error> {
+    fn network_lookup_by_name(&mut self, name: String) -> Result<RemoteNonnullNetwork, Error> {
         trace!("{}", stringify!(network_lookup_by_name));
-        let req: Option<binding::RemoteNetworkLookupByNameArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkLookupByNameRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkLookupByName,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkLookupByNameArgs> =
+            Some(RemoteNetworkLookupByNameArgs { name });
+        let res: Option<RemoteNetworkLookupByNameRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkLookupByName, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkLookupByNameRet { net } = res;
+        Ok(net)
     }
     fn network_lookup_by_uuid(
         &mut self,
-        args: binding::RemoteNetworkLookupByUuidArgs,
-    ) -> Result<binding::RemoteNetworkLookupByUuidRet, Error> {
+        uuid: [u8; VIR_UUID_BUFLEN as usize],
+    ) -> Result<RemoteNonnullNetwork, Error> {
         trace!("{}", stringify!(network_lookup_by_uuid));
-        let req: Option<binding::RemoteNetworkLookupByUuidArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkLookupByUuidRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkLookupByUuid,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkLookupByUuidArgs> =
+            Some(RemoteNetworkLookupByUuidArgs { uuid });
+        let res: Option<RemoteNetworkLookupByUuidRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkLookupByUuid, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkLookupByUuidRet { net } = res;
+        Ok(net)
     }
     fn network_set_autostart(
         &mut self,
-        args: binding::RemoteNetworkSetAutostartArgs,
+        net: RemoteNonnullNetwork,
+        autostart: i32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(network_set_autostart));
-        let req: Option<binding::RemoteNetworkSetAutostartArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkSetAutostart,
-            req,
-        )?;
+        let req: Option<RemoteNetworkSetAutostartArgs> =
+            Some(RemoteNetworkSetAutostartArgs { net, autostart });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNetworkSetAutostart, req)?;
         Ok(())
     }
-    fn network_undefine(&mut self, args: binding::RemoteNetworkUndefineArgs) -> Result<(), Error> {
+    fn network_undefine(&mut self, net: RemoteNonnullNetwork) -> Result<(), Error> {
         trace!("{}", stringify!(network_undefine));
-        let req: Option<binding::RemoteNetworkUndefineArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkUndefine,
-            req,
-        )?;
+        let req: Option<RemoteNetworkUndefineArgs> = Some(RemoteNetworkUndefineArgs { net });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNetworkUndefine, req)?;
         Ok(())
     }
-    fn connect_num_of_defined_networks(
-        &mut self,
-    ) -> Result<binding::RemoteConnectNumOfDefinedNetworksRet, Error> {
+    fn connect_num_of_defined_networks(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_defined_networks));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectNumOfDefinedNetworksRet> = call(
+        let res: Option<RemoteConnectNumOfDefinedNetworksRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectNumOfDefinedNetworks,
+            RemoteProcedure::RemoteProcConnectNumOfDefinedNetworks,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectNumOfDefinedNetworksRet { num } = res;
+        Ok(num)
     }
-    fn connect_num_of_domains(&mut self) -> Result<binding::RemoteConnectNumOfDomainsRet, Error> {
+    fn connect_num_of_domains(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_domains));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectNumOfDomainsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectNumOfDomains,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectNumOfDomainsRet> =
+            call(self, RemoteProcedure::RemoteProcConnectNumOfDomains, req)?;
+        let res = res.unwrap();
+        let RemoteConnectNumOfDomainsRet { num } = res;
+        Ok(num)
     }
-    fn connect_num_of_networks(&mut self) -> Result<binding::RemoteConnectNumOfNetworksRet, Error> {
+    fn connect_num_of_networks(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_networks));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectNumOfNetworksRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectNumOfNetworks,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectNumOfNetworksRet> =
+            call(self, RemoteProcedure::RemoteProcConnectNumOfNetworks, req)?;
+        let res = res.unwrap();
+        let RemoteConnectNumOfNetworksRet { num } = res;
+        Ok(num)
     }
-    fn domain_core_dump(&mut self, args: binding::RemoteDomainCoreDumpArgs) -> Result<(), Error> {
+    fn domain_core_dump(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        to: String,
+        flags: u32,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_core_dump));
-        let req: Option<binding::RemoteDomainCoreDumpArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainCoreDump,
-            req,
-        )?;
+        let req: Option<RemoteDomainCoreDumpArgs> =
+            Some(RemoteDomainCoreDumpArgs { dom, to, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainCoreDump, req)?;
         Ok(())
     }
-    fn domain_restore(&mut self, args: binding::RemoteDomainRestoreArgs) -> Result<(), Error> {
+    fn domain_restore(&mut self, from: String) -> Result<(), Error> {
         trace!("{}", stringify!(domain_restore));
-        let req: Option<binding::RemoteDomainRestoreArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainRestore, req)?;
+        let req: Option<RemoteDomainRestoreArgs> = Some(RemoteDomainRestoreArgs { from });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainRestore, req)?;
         Ok(())
     }
-    fn domain_save(&mut self, args: binding::RemoteDomainSaveArgs) -> Result<(), Error> {
+    fn domain_save(&mut self, dom: RemoteNonnullDomain, to: String) -> Result<(), Error> {
         trace!("{}", stringify!(domain_save));
-        let req: Option<binding::RemoteDomainSaveArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainSave, req)?;
+        let req: Option<RemoteDomainSaveArgs> = Some(RemoteDomainSaveArgs { dom, to });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSave, req)?;
         Ok(())
     }
     fn domain_get_scheduler_type(
         &mut self,
-        args: binding::RemoteDomainGetSchedulerTypeArgs,
-    ) -> Result<binding::RemoteDomainGetSchedulerTypeRet, Error> {
+        dom: RemoteNonnullDomain,
+    ) -> Result<(String, i32), Error> {
         trace!("{}", stringify!(domain_get_scheduler_type));
-        let req: Option<binding::RemoteDomainGetSchedulerTypeArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetSchedulerTypeRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetSchedulerType,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetSchedulerTypeArgs> =
+            Some(RemoteDomainGetSchedulerTypeArgs { dom });
+        let res: Option<RemoteDomainGetSchedulerTypeRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetSchedulerType, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetSchedulerTypeRet { r#type, nparams } = res;
+        Ok((r#type, nparams))
     }
     fn domain_get_scheduler_parameters(
         &mut self,
-        args: binding::RemoteDomainGetSchedulerParametersArgs,
-    ) -> Result<binding::RemoteDomainGetSchedulerParametersRet, Error> {
+        dom: RemoteNonnullDomain,
+        nparams: i32,
+    ) -> Result<Vec<RemoteTypedParam>, Error> {
         trace!("{}", stringify!(domain_get_scheduler_parameters));
-        let req: Option<binding::RemoteDomainGetSchedulerParametersArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetSchedulerParametersRet> = call(
+        let req: Option<RemoteDomainGetSchedulerParametersArgs> =
+            Some(RemoteDomainGetSchedulerParametersArgs { dom, nparams });
+        let res: Option<RemoteDomainGetSchedulerParametersRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainGetSchedulerParameters,
+            RemoteProcedure::RemoteProcDomainGetSchedulerParameters,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainGetSchedulerParametersRet { params } = res;
+        Ok(params)
     }
     fn domain_set_scheduler_parameters(
         &mut self,
-        args: binding::RemoteDomainSetSchedulerParametersArgs,
+        dom: RemoteNonnullDomain,
+        params: Vec<RemoteTypedParam>,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_scheduler_parameters));
-        let req: Option<binding::RemoteDomainSetSchedulerParametersArgs> = Some(args);
+        let req: Option<RemoteDomainSetSchedulerParametersArgs> =
+            Some(RemoteDomainSetSchedulerParametersArgs { dom, params });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetSchedulerParameters,
+            RemoteProcedure::RemoteProcDomainSetSchedulerParameters,
             req,
         )?;
         Ok(())
     }
-    fn connect_get_hostname(&mut self) -> Result<binding::RemoteConnectGetHostnameRet, Error> {
+    fn connect_get_hostname(&mut self) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_hostname));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectGetHostnameRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectGetHostname,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectGetHostnameRet> =
+            call(self, RemoteProcedure::RemoteProcConnectGetHostname, req)?;
+        let res = res.unwrap();
+        let RemoteConnectGetHostnameRet { hostname } = res;
+        Ok(hostname)
     }
-    fn connect_supports_feature(
-        &mut self,
-        args: binding::RemoteConnectSupportsFeatureArgs,
-    ) -> Result<binding::RemoteConnectSupportsFeatureRet, Error> {
+    fn connect_supports_feature(&mut self, feature: i32) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_supports_feature));
-        let req: Option<binding::RemoteConnectSupportsFeatureArgs> = Some(args);
-        let res: Option<binding::RemoteConnectSupportsFeatureRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectSupportsFeature,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectSupportsFeatureArgs> =
+            Some(RemoteConnectSupportsFeatureArgs { feature });
+        let res: Option<RemoteConnectSupportsFeatureRet> =
+            call(self, RemoteProcedure::RemoteProcConnectSupportsFeature, req)?;
+        let res = res.unwrap();
+        let RemoteConnectSupportsFeatureRet { supported } = res;
+        Ok(supported)
     }
     fn domain_migrate_prepare(
         &mut self,
-        args: binding::RemoteDomainMigratePrepareArgs,
-    ) -> Result<binding::RemoteDomainMigratePrepareRet, Error> {
+        uri_in: Option<String>,
+        flags: u64,
+        dname: Option<String>,
+        resource: u64,
+    ) -> Result<(Vec<u8>, Option<String>), Error> {
         trace!("{}", stringify!(domain_migrate_prepare));
-        let req: Option<binding::RemoteDomainMigratePrepareArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMigratePrepareRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMigratePrepare,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainMigratePrepareArgs> = Some(RemoteDomainMigratePrepareArgs {
+            uri_in,
+            flags,
+            dname,
+            resource,
+        });
+        let res: Option<RemoteDomainMigratePrepareRet> =
+            call(self, RemoteProcedure::RemoteProcDomainMigratePrepare, req)?;
+        let res = res.unwrap();
+        let RemoteDomainMigratePrepareRet { cookie, uri_out } = res;
+        Ok((cookie, uri_out))
     }
     fn domain_migrate_perform(
         &mut self,
-        args: binding::RemoteDomainMigratePerformArgs,
+        dom: RemoteNonnullDomain,
+        cookie: Vec<u8>,
+        uri: String,
+        flags: u64,
+        dname: Option<String>,
+        resource: u64,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_migrate_perform));
-        let req: Option<binding::RemoteDomainMigratePerformArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMigratePerform,
-            req,
-        )?;
+        let req: Option<RemoteDomainMigratePerformArgs> = Some(RemoteDomainMigratePerformArgs {
+            dom,
+            cookie,
+            uri,
+            flags,
+            dname,
+            resource,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainMigratePerform, req)?;
         Ok(())
     }
     fn domain_migrate_finish(
         &mut self,
-        args: binding::RemoteDomainMigrateFinishArgs,
-    ) -> Result<binding::RemoteDomainMigrateFinishRet, Error> {
+        dname: String,
+        cookie: Vec<u8>,
+        uri: String,
+        flags: u64,
+    ) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_migrate_finish));
-        let req: Option<binding::RemoteDomainMigrateFinishArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMigrateFinishRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateFinish,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainMigrateFinishArgs> = Some(RemoteDomainMigrateFinishArgs {
+            dname,
+            cookie,
+            uri,
+            flags,
+        });
+        let res: Option<RemoteDomainMigrateFinishRet> =
+            call(self, RemoteProcedure::RemoteProcDomainMigrateFinish, req)?;
+        let res = res.unwrap();
+        let RemoteDomainMigrateFinishRet { ddom } = res;
+        Ok(ddom)
     }
     fn domain_block_stats(
         &mut self,
-        args: binding::RemoteDomainBlockStatsArgs,
-    ) -> Result<binding::RemoteDomainBlockStatsRet, Error> {
+        dom: RemoteNonnullDomain,
+        path: String,
+    ) -> Result<(i64, i64, i64, i64, i64), Error> {
         trace!("{}", stringify!(domain_block_stats));
-        let req: Option<binding::RemoteDomainBlockStatsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainBlockStatsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBlockStats,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainBlockStatsArgs> =
+            Some(RemoteDomainBlockStatsArgs { dom, path });
+        let res: Option<RemoteDomainBlockStatsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainBlockStats, req)?;
+        let res = res.unwrap();
+        let RemoteDomainBlockStatsRet {
+            rd_req,
+            rd_bytes,
+            wr_req,
+            wr_bytes,
+            errs,
+        } = res;
+        Ok((rd_req, rd_bytes, wr_req, wr_bytes, errs))
     }
     fn domain_interface_stats(
         &mut self,
-        args: binding::RemoteDomainInterfaceStatsArgs,
-    ) -> Result<binding::RemoteDomainInterfaceStatsRet, Error> {
+        dom: RemoteNonnullDomain,
+        device: String,
+    ) -> Result<RemoteDomainInterfaceStatsRet, Error> {
         trace!("{}", stringify!(domain_interface_stats));
-        let req: Option<binding::RemoteDomainInterfaceStatsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainInterfaceStatsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainInterfaceStats,
-            req,
-        )?;
+        let req: Option<RemoteDomainInterfaceStatsArgs> =
+            Some(RemoteDomainInterfaceStatsArgs { dom, device });
+        let res: Option<RemoteDomainInterfaceStatsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainInterfaceStats, req)?;
         Ok(res.unwrap())
     }
-    fn auth_list(&mut self) -> Result<binding::RemoteAuthListRet, Error> {
+    fn auth_list(&mut self) -> Result<Vec<RemoteAuthType>, Error> {
         trace!("{}", stringify!(auth_list));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteAuthListRet> =
-            call(self, binding::RemoteProcedure::RemoteProcAuthList, req)?;
-        Ok(res.unwrap())
+        let res: Option<RemoteAuthListRet> = call(self, RemoteProcedure::RemoteProcAuthList, req)?;
+        let res = res.unwrap();
+        let RemoteAuthListRet { types } = res;
+        Ok(types)
     }
-    fn auth_sasl_init(&mut self) -> Result<binding::RemoteAuthSaslInitRet, Error> {
+    fn auth_sasl_init(&mut self) -> Result<String, Error> {
         trace!("{}", stringify!(auth_sasl_init));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteAuthSaslInitRet> =
-            call(self, binding::RemoteProcedure::RemoteProcAuthSaslInit, req)?;
-        Ok(res.unwrap())
+        let res: Option<RemoteAuthSaslInitRet> =
+            call(self, RemoteProcedure::RemoteProcAuthSaslInit, req)?;
+        let res = res.unwrap();
+        let RemoteAuthSaslInitRet { mechlist } = res;
+        Ok(mechlist)
     }
     fn auth_sasl_start(
         &mut self,
-        args: binding::RemoteAuthSaslStartArgs,
-    ) -> Result<binding::RemoteAuthSaslStartRet, Error> {
+        mech: String,
+        nil: i32,
+        data: Vec<i8>,
+    ) -> Result<(i32, i32, Vec<i8>), Error> {
         trace!("{}", stringify!(auth_sasl_start));
-        let req: Option<binding::RemoteAuthSaslStartArgs> = Some(args);
-        let res: Option<binding::RemoteAuthSaslStartRet> =
-            call(self, binding::RemoteProcedure::RemoteProcAuthSaslStart, req)?;
-        Ok(res.unwrap())
+        let req: Option<RemoteAuthSaslStartArgs> =
+            Some(RemoteAuthSaslStartArgs { mech, nil, data });
+        let res: Option<RemoteAuthSaslStartRet> =
+            call(self, RemoteProcedure::RemoteProcAuthSaslStart, req)?;
+        let res = res.unwrap();
+        let RemoteAuthSaslStartRet {
+            complete,
+            nil,
+            data,
+        } = res;
+        Ok((complete, nil, data))
     }
-    fn auth_sasl_step(
-        &mut self,
-        args: binding::RemoteAuthSaslStepArgs,
-    ) -> Result<binding::RemoteAuthSaslStepRet, Error> {
+    fn auth_sasl_step(&mut self, nil: i32, data: Vec<i8>) -> Result<(i32, i32, Vec<i8>), Error> {
         trace!("{}", stringify!(auth_sasl_step));
-        let req: Option<binding::RemoteAuthSaslStepArgs> = Some(args);
-        let res: Option<binding::RemoteAuthSaslStepRet> =
-            call(self, binding::RemoteProcedure::RemoteProcAuthSaslStep, req)?;
-        Ok(res.unwrap())
+        let req: Option<RemoteAuthSaslStepArgs> = Some(RemoteAuthSaslStepArgs { nil, data });
+        let res: Option<RemoteAuthSaslStepRet> =
+            call(self, RemoteProcedure::RemoteProcAuthSaslStep, req)?;
+        let res = res.unwrap();
+        let RemoteAuthSaslStepRet {
+            complete,
+            nil,
+            data,
+        } = res;
+        Ok((complete, nil, data))
     }
-    fn auth_polkit(&mut self) -> Result<binding::RemoteAuthPolkitRet, Error> {
+    fn auth_polkit(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(auth_polkit));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteAuthPolkitRet> =
-            call(self, binding::RemoteProcedure::RemoteProcAuthPolkit, req)?;
-        Ok(res.unwrap())
+        let res: Option<RemoteAuthPolkitRet> =
+            call(self, RemoteProcedure::RemoteProcAuthPolkit, req)?;
+        let res = res.unwrap();
+        let RemoteAuthPolkitRet { complete } = res;
+        Ok(complete)
     }
-    fn connect_num_of_storage_pools(
-        &mut self,
-    ) -> Result<binding::RemoteConnectNumOfStoragePoolsRet, Error> {
+    fn connect_num_of_storage_pools(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_storage_pools));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectNumOfStoragePoolsRet> = call(
+        let res: Option<RemoteConnectNumOfStoragePoolsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectNumOfStoragePools,
+            RemoteProcedure::RemoteProcConnectNumOfStoragePools,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectNumOfStoragePoolsRet { num } = res;
+        Ok(num)
     }
-    fn connect_list_storage_pools(
-        &mut self,
-        args: binding::RemoteConnectListStoragePoolsArgs,
-    ) -> Result<binding::RemoteConnectListStoragePoolsRet, Error> {
+    fn connect_list_storage_pools(&mut self, maxnames: i32) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(connect_list_storage_pools));
-        let req: Option<binding::RemoteConnectListStoragePoolsArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListStoragePoolsRet> = call(
+        let req: Option<RemoteConnectListStoragePoolsArgs> =
+            Some(RemoteConnectListStoragePoolsArgs { maxnames });
+        let res: Option<RemoteConnectListStoragePoolsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectListStoragePools,
+            RemoteProcedure::RemoteProcConnectListStoragePools,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectListStoragePoolsRet { names } = res;
+        Ok(names)
     }
-    fn connect_num_of_defined_storage_pools(
-        &mut self,
-    ) -> Result<binding::RemoteConnectNumOfDefinedStoragePoolsRet, Error> {
+    fn connect_num_of_defined_storage_pools(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_defined_storage_pools));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectNumOfDefinedStoragePoolsRet> = call(
+        let res: Option<RemoteConnectNumOfDefinedStoragePoolsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectNumOfDefinedStoragePools,
+            RemoteProcedure::RemoteProcConnectNumOfDefinedStoragePools,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectNumOfDefinedStoragePoolsRet { num } = res;
+        Ok(num)
     }
-    fn connect_list_defined_storage_pools(
-        &mut self,
-        args: binding::RemoteConnectListDefinedStoragePoolsArgs,
-    ) -> Result<binding::RemoteConnectListDefinedStoragePoolsRet, Error> {
+    fn connect_list_defined_storage_pools(&mut self, maxnames: i32) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(connect_list_defined_storage_pools));
-        let req: Option<binding::RemoteConnectListDefinedStoragePoolsArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListDefinedStoragePoolsRet> = call(
+        let req: Option<RemoteConnectListDefinedStoragePoolsArgs> =
+            Some(RemoteConnectListDefinedStoragePoolsArgs { maxnames });
+        let res: Option<RemoteConnectListDefinedStoragePoolsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectListDefinedStoragePools,
+            RemoteProcedure::RemoteProcConnectListDefinedStoragePools,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectListDefinedStoragePoolsRet { names } = res;
+        Ok(names)
     }
     fn connect_find_storage_pool_sources(
         &mut self,
-        args: binding::RemoteConnectFindStoragePoolSourcesArgs,
-    ) -> Result<binding::RemoteConnectFindStoragePoolSourcesRet, Error> {
+        r#type: String,
+        src_spec: Option<String>,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(connect_find_storage_pool_sources));
-        let req: Option<binding::RemoteConnectFindStoragePoolSourcesArgs> = Some(args);
-        let res: Option<binding::RemoteConnectFindStoragePoolSourcesRet> = call(
+        let req: Option<RemoteConnectFindStoragePoolSourcesArgs> =
+            Some(RemoteConnectFindStoragePoolSourcesArgs {
+                r#type,
+                src_spec,
+                flags,
+            });
+        let res: Option<RemoteConnectFindStoragePoolSourcesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectFindStoragePoolSources,
+            RemoteProcedure::RemoteProcConnectFindStoragePoolSources,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectFindStoragePoolSourcesRet { xml } = res;
+        Ok(xml)
     }
     fn storage_pool_create_xml(
         &mut self,
-        args: binding::RemoteStoragePoolCreateXmlArgs,
-    ) -> Result<binding::RemoteStoragePoolCreateXmlRet, Error> {
+        xml: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullStoragePool, Error> {
         trace!("{}", stringify!(storage_pool_create_xml));
-        let req: Option<binding::RemoteStoragePoolCreateXmlArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolCreateXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolCreateXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStoragePoolCreateXmlArgs> =
+            Some(RemoteStoragePoolCreateXmlArgs { xml, flags });
+        let res: Option<RemoteStoragePoolCreateXmlRet> =
+            call(self, RemoteProcedure::RemoteProcStoragePoolCreateXml, req)?;
+        let res = res.unwrap();
+        let RemoteStoragePoolCreateXmlRet { pool } = res;
+        Ok(pool)
     }
     fn storage_pool_define_xml(
         &mut self,
-        args: binding::RemoteStoragePoolDefineXmlArgs,
-    ) -> Result<binding::RemoteStoragePoolDefineXmlRet, Error> {
+        xml: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullStoragePool, Error> {
         trace!("{}", stringify!(storage_pool_define_xml));
-        let req: Option<binding::RemoteStoragePoolDefineXmlArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolDefineXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolDefineXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStoragePoolDefineXmlArgs> =
+            Some(RemoteStoragePoolDefineXmlArgs { xml, flags });
+        let res: Option<RemoteStoragePoolDefineXmlRet> =
+            call(self, RemoteProcedure::RemoteProcStoragePoolDefineXml, req)?;
+        let res = res.unwrap();
+        let RemoteStoragePoolDefineXmlRet { pool } = res;
+        Ok(pool)
     }
     fn storage_pool_create(
         &mut self,
-        args: binding::RemoteStoragePoolCreateArgs,
+        pool: RemoteNonnullStoragePool,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(storage_pool_create));
-        let req: Option<binding::RemoteStoragePoolCreateArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolCreate,
-            req,
-        )?;
+        let req: Option<RemoteStoragePoolCreateArgs> =
+            Some(RemoteStoragePoolCreateArgs { pool, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStoragePoolCreate, req)?;
         Ok(())
     }
     fn storage_pool_build(
         &mut self,
-        args: binding::RemoteStoragePoolBuildArgs,
+        pool: RemoteNonnullStoragePool,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(storage_pool_build));
-        let req: Option<binding::RemoteStoragePoolBuildArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolBuild,
-            req,
-        )?;
+        let req: Option<RemoteStoragePoolBuildArgs> =
+            Some(RemoteStoragePoolBuildArgs { pool, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStoragePoolBuild, req)?;
         Ok(())
     }
-    fn storage_pool_destroy(
-        &mut self,
-        args: binding::RemoteStoragePoolDestroyArgs,
-    ) -> Result<(), Error> {
+    fn storage_pool_destroy(&mut self, pool: RemoteNonnullStoragePool) -> Result<(), Error> {
         trace!("{}", stringify!(storage_pool_destroy));
-        let req: Option<binding::RemoteStoragePoolDestroyArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolDestroy,
-            req,
-        )?;
+        let req: Option<RemoteStoragePoolDestroyArgs> = Some(RemoteStoragePoolDestroyArgs { pool });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStoragePoolDestroy, req)?;
         Ok(())
     }
     fn storage_pool_delete(
         &mut self,
-        args: binding::RemoteStoragePoolDeleteArgs,
+        pool: RemoteNonnullStoragePool,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(storage_pool_delete));
-        let req: Option<binding::RemoteStoragePoolDeleteArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolDelete,
-            req,
-        )?;
+        let req: Option<RemoteStoragePoolDeleteArgs> =
+            Some(RemoteStoragePoolDeleteArgs { pool, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStoragePoolDelete, req)?;
         Ok(())
     }
-    fn storage_pool_undefine(
-        &mut self,
-        args: binding::RemoteStoragePoolUndefineArgs,
-    ) -> Result<(), Error> {
+    fn storage_pool_undefine(&mut self, pool: RemoteNonnullStoragePool) -> Result<(), Error> {
         trace!("{}", stringify!(storage_pool_undefine));
-        let req: Option<binding::RemoteStoragePoolUndefineArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolUndefine,
-            req,
-        )?;
+        let req: Option<RemoteStoragePoolUndefineArgs> =
+            Some(RemoteStoragePoolUndefineArgs { pool });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStoragePoolUndefine, req)?;
         Ok(())
     }
     fn storage_pool_refresh(
         &mut self,
-        args: binding::RemoteStoragePoolRefreshArgs,
+        pool: RemoteNonnullStoragePool,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(storage_pool_refresh));
-        let req: Option<binding::RemoteStoragePoolRefreshArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolRefresh,
-            req,
-        )?;
+        let req: Option<RemoteStoragePoolRefreshArgs> =
+            Some(RemoteStoragePoolRefreshArgs { pool, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStoragePoolRefresh, req)?;
         Ok(())
     }
     fn storage_pool_lookup_by_name(
         &mut self,
-        args: binding::RemoteStoragePoolLookupByNameArgs,
-    ) -> Result<binding::RemoteStoragePoolLookupByNameRet, Error> {
+        name: String,
+    ) -> Result<RemoteNonnullStoragePool, Error> {
         trace!("{}", stringify!(storage_pool_lookup_by_name));
-        let req: Option<binding::RemoteStoragePoolLookupByNameArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolLookupByNameRet> = call(
+        let req: Option<RemoteStoragePoolLookupByNameArgs> =
+            Some(RemoteStoragePoolLookupByNameArgs { name });
+        let res: Option<RemoteStoragePoolLookupByNameRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolLookupByName,
+            RemoteProcedure::RemoteProcStoragePoolLookupByName,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteStoragePoolLookupByNameRet { pool } = res;
+        Ok(pool)
     }
     fn storage_pool_lookup_by_uuid(
         &mut self,
-        args: binding::RemoteStoragePoolLookupByUuidArgs,
-    ) -> Result<binding::RemoteStoragePoolLookupByUuidRet, Error> {
+        uuid: [u8; VIR_UUID_BUFLEN as usize],
+    ) -> Result<RemoteNonnullStoragePool, Error> {
         trace!("{}", stringify!(storage_pool_lookup_by_uuid));
-        let req: Option<binding::RemoteStoragePoolLookupByUuidArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolLookupByUuidRet> = call(
+        let req: Option<RemoteStoragePoolLookupByUuidArgs> =
+            Some(RemoteStoragePoolLookupByUuidArgs { uuid });
+        let res: Option<RemoteStoragePoolLookupByUuidRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolLookupByUuid,
+            RemoteProcedure::RemoteProcStoragePoolLookupByUuid,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteStoragePoolLookupByUuidRet { pool } = res;
+        Ok(pool)
     }
     fn storage_pool_lookup_by_volume(
         &mut self,
-        args: binding::RemoteStoragePoolLookupByVolumeArgs,
-    ) -> Result<binding::RemoteStoragePoolLookupByVolumeRet, Error> {
+        vol: RemoteNonnullStorageVol,
+    ) -> Result<RemoteNonnullStoragePool, Error> {
         trace!("{}", stringify!(storage_pool_lookup_by_volume));
-        let req: Option<binding::RemoteStoragePoolLookupByVolumeArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolLookupByVolumeRet> = call(
+        let req: Option<RemoteStoragePoolLookupByVolumeArgs> =
+            Some(RemoteStoragePoolLookupByVolumeArgs { vol });
+        let res: Option<RemoteStoragePoolLookupByVolumeRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolLookupByVolume,
+            RemoteProcedure::RemoteProcStoragePoolLookupByVolume,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteStoragePoolLookupByVolumeRet { pool } = res;
+        Ok(pool)
     }
     fn storage_pool_get_info(
         &mut self,
-        args: binding::RemoteStoragePoolGetInfoArgs,
-    ) -> Result<binding::RemoteStoragePoolGetInfoRet, Error> {
+        pool: RemoteNonnullStoragePool,
+    ) -> Result<(u8, u64, u64, u64), Error> {
         trace!("{}", stringify!(storage_pool_get_info));
-        let req: Option<binding::RemoteStoragePoolGetInfoArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolGetInfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolGetInfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStoragePoolGetInfoArgs> = Some(RemoteStoragePoolGetInfoArgs { pool });
+        let res: Option<RemoteStoragePoolGetInfoRet> =
+            call(self, RemoteProcedure::RemoteProcStoragePoolGetInfo, req)?;
+        let res = res.unwrap();
+        let RemoteStoragePoolGetInfoRet {
+            state,
+            capacity,
+            allocation,
+            available,
+        } = res;
+        Ok((state, capacity, allocation, available))
     }
     fn storage_pool_get_xml_desc(
         &mut self,
-        args: binding::RemoteStoragePoolGetXmlDescArgs,
-    ) -> Result<binding::RemoteStoragePoolGetXmlDescRet, Error> {
+        pool: RemoteNonnullStoragePool,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(storage_pool_get_xml_desc));
-        let req: Option<binding::RemoteStoragePoolGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolGetXmlDescRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolGetXmlDesc,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStoragePoolGetXmlDescArgs> =
+            Some(RemoteStoragePoolGetXmlDescArgs { pool, flags });
+        let res: Option<RemoteStoragePoolGetXmlDescRet> =
+            call(self, RemoteProcedure::RemoteProcStoragePoolGetXmlDesc, req)?;
+        let res = res.unwrap();
+        let RemoteStoragePoolGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
-    fn storage_pool_get_autostart(
-        &mut self,
-        args: binding::RemoteStoragePoolGetAutostartArgs,
-    ) -> Result<binding::RemoteStoragePoolGetAutostartRet, Error> {
+    fn storage_pool_get_autostart(&mut self, pool: RemoteNonnullStoragePool) -> Result<i32, Error> {
         trace!("{}", stringify!(storage_pool_get_autostart));
-        let req: Option<binding::RemoteStoragePoolGetAutostartArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolGetAutostartRet> = call(
+        let req: Option<RemoteStoragePoolGetAutostartArgs> =
+            Some(RemoteStoragePoolGetAutostartArgs { pool });
+        let res: Option<RemoteStoragePoolGetAutostartRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolGetAutostart,
+            RemoteProcedure::RemoteProcStoragePoolGetAutostart,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteStoragePoolGetAutostartRet { autostart } = res;
+        Ok(autostart)
     }
     fn storage_pool_set_autostart(
         &mut self,
-        args: binding::RemoteStoragePoolSetAutostartArgs,
+        pool: RemoteNonnullStoragePool,
+        autostart: i32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(storage_pool_set_autostart));
-        let req: Option<binding::RemoteStoragePoolSetAutostartArgs> = Some(args);
+        let req: Option<RemoteStoragePoolSetAutostartArgs> =
+            Some(RemoteStoragePoolSetAutostartArgs { pool, autostart });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolSetAutostart,
+            RemoteProcedure::RemoteProcStoragePoolSetAutostart,
             req,
         )?;
         Ok(())
     }
     fn storage_pool_num_of_volumes(
         &mut self,
-        args: binding::RemoteStoragePoolNumOfVolumesArgs,
-    ) -> Result<binding::RemoteStoragePoolNumOfVolumesRet, Error> {
+        pool: RemoteNonnullStoragePool,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(storage_pool_num_of_volumes));
-        let req: Option<binding::RemoteStoragePoolNumOfVolumesArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolNumOfVolumesRet> = call(
+        let req: Option<RemoteStoragePoolNumOfVolumesArgs> =
+            Some(RemoteStoragePoolNumOfVolumesArgs { pool });
+        let res: Option<RemoteStoragePoolNumOfVolumesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolNumOfVolumes,
+            RemoteProcedure::RemoteProcStoragePoolNumOfVolumes,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteStoragePoolNumOfVolumesRet { num } = res;
+        Ok(num)
     }
     fn storage_pool_list_volumes(
         &mut self,
-        args: binding::RemoteStoragePoolListVolumesArgs,
-    ) -> Result<binding::RemoteStoragePoolListVolumesRet, Error> {
+        pool: RemoteNonnullStoragePool,
+        maxnames: i32,
+    ) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(storage_pool_list_volumes));
-        let req: Option<binding::RemoteStoragePoolListVolumesArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolListVolumesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolListVolumes,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStoragePoolListVolumesArgs> =
+            Some(RemoteStoragePoolListVolumesArgs { pool, maxnames });
+        let res: Option<RemoteStoragePoolListVolumesRet> =
+            call(self, RemoteProcedure::RemoteProcStoragePoolListVolumes, req)?;
+        let res = res.unwrap();
+        let RemoteStoragePoolListVolumesRet { names } = res;
+        Ok(names)
     }
     fn storage_vol_create_xml(
         &mut self,
-        args: binding::RemoteStorageVolCreateXmlArgs,
-    ) -> Result<binding::RemoteStorageVolCreateXmlRet, Error> {
+        pool: RemoteNonnullStoragePool,
+        xml: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullStorageVol, Error> {
         trace!("{}", stringify!(storage_vol_create_xml));
-        let req: Option<binding::RemoteStorageVolCreateXmlArgs> = Some(args);
-        let res: Option<binding::RemoteStorageVolCreateXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolCreateXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStorageVolCreateXmlArgs> =
+            Some(RemoteStorageVolCreateXmlArgs { pool, xml, flags });
+        let res: Option<RemoteStorageVolCreateXmlRet> =
+            call(self, RemoteProcedure::RemoteProcStorageVolCreateXml, req)?;
+        let res = res.unwrap();
+        let RemoteStorageVolCreateXmlRet { vol } = res;
+        Ok(vol)
     }
     fn storage_vol_delete(
         &mut self,
-        args: binding::RemoteStorageVolDeleteArgs,
+        vol: RemoteNonnullStorageVol,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(storage_vol_delete));
-        let req: Option<binding::RemoteStorageVolDeleteArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolDelete,
-            req,
-        )?;
+        let req: Option<RemoteStorageVolDeleteArgs> =
+            Some(RemoteStorageVolDeleteArgs { vol, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStorageVolDelete, req)?;
         Ok(())
     }
     fn storage_vol_lookup_by_name(
         &mut self,
-        args: binding::RemoteStorageVolLookupByNameArgs,
-    ) -> Result<binding::RemoteStorageVolLookupByNameRet, Error> {
+        pool: RemoteNonnullStoragePool,
+        name: String,
+    ) -> Result<RemoteNonnullStorageVol, Error> {
         trace!("{}", stringify!(storage_vol_lookup_by_name));
-        let req: Option<binding::RemoteStorageVolLookupByNameArgs> = Some(args);
-        let res: Option<binding::RemoteStorageVolLookupByNameRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolLookupByName,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStorageVolLookupByNameArgs> =
+            Some(RemoteStorageVolLookupByNameArgs { pool, name });
+        let res: Option<RemoteStorageVolLookupByNameRet> =
+            call(self, RemoteProcedure::RemoteProcStorageVolLookupByName, req)?;
+        let res = res.unwrap();
+        let RemoteStorageVolLookupByNameRet { vol } = res;
+        Ok(vol)
     }
-    fn storage_vol_lookup_by_key(
-        &mut self,
-        args: binding::RemoteStorageVolLookupByKeyArgs,
-    ) -> Result<binding::RemoteStorageVolLookupByKeyRet, Error> {
+    fn storage_vol_lookup_by_key(&mut self, key: String) -> Result<RemoteNonnullStorageVol, Error> {
         trace!("{}", stringify!(storage_vol_lookup_by_key));
-        let req: Option<binding::RemoteStorageVolLookupByKeyArgs> = Some(args);
-        let res: Option<binding::RemoteStorageVolLookupByKeyRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolLookupByKey,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStorageVolLookupByKeyArgs> =
+            Some(RemoteStorageVolLookupByKeyArgs { key });
+        let res: Option<RemoteStorageVolLookupByKeyRet> =
+            call(self, RemoteProcedure::RemoteProcStorageVolLookupByKey, req)?;
+        let res = res.unwrap();
+        let RemoteStorageVolLookupByKeyRet { vol } = res;
+        Ok(vol)
     }
     fn storage_vol_lookup_by_path(
         &mut self,
-        args: binding::RemoteStorageVolLookupByPathArgs,
-    ) -> Result<binding::RemoteStorageVolLookupByPathRet, Error> {
+        path: String,
+    ) -> Result<RemoteNonnullStorageVol, Error> {
         trace!("{}", stringify!(storage_vol_lookup_by_path));
-        let req: Option<binding::RemoteStorageVolLookupByPathArgs> = Some(args);
-        let res: Option<binding::RemoteStorageVolLookupByPathRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolLookupByPath,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStorageVolLookupByPathArgs> =
+            Some(RemoteStorageVolLookupByPathArgs { path });
+        let res: Option<RemoteStorageVolLookupByPathRet> =
+            call(self, RemoteProcedure::RemoteProcStorageVolLookupByPath, req)?;
+        let res = res.unwrap();
+        let RemoteStorageVolLookupByPathRet { vol } = res;
+        Ok(vol)
     }
     fn storage_vol_get_info(
         &mut self,
-        args: binding::RemoteStorageVolGetInfoArgs,
-    ) -> Result<binding::RemoteStorageVolGetInfoRet, Error> {
+        vol: RemoteNonnullStorageVol,
+    ) -> Result<(i8, u64, u64), Error> {
         trace!("{}", stringify!(storage_vol_get_info));
-        let req: Option<binding::RemoteStorageVolGetInfoArgs> = Some(args);
-        let res: Option<binding::RemoteStorageVolGetInfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolGetInfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStorageVolGetInfoArgs> = Some(RemoteStorageVolGetInfoArgs { vol });
+        let res: Option<RemoteStorageVolGetInfoRet> =
+            call(self, RemoteProcedure::RemoteProcStorageVolGetInfo, req)?;
+        let res = res.unwrap();
+        let RemoteStorageVolGetInfoRet {
+            r#type,
+            capacity,
+            allocation,
+        } = res;
+        Ok((r#type, capacity, allocation))
     }
     fn storage_vol_get_xml_desc(
         &mut self,
-        args: binding::RemoteStorageVolGetXmlDescArgs,
-    ) -> Result<binding::RemoteStorageVolGetXmlDescRet, Error> {
+        vol: RemoteNonnullStorageVol,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(storage_vol_get_xml_desc));
-        let req: Option<binding::RemoteStorageVolGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteStorageVolGetXmlDescRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolGetXmlDesc,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStorageVolGetXmlDescArgs> =
+            Some(RemoteStorageVolGetXmlDescArgs { vol, flags });
+        let res: Option<RemoteStorageVolGetXmlDescRet> =
+            call(self, RemoteProcedure::RemoteProcStorageVolGetXmlDesc, req)?;
+        let res = res.unwrap();
+        let RemoteStorageVolGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
-    fn storage_vol_get_path(
-        &mut self,
-        args: binding::RemoteStorageVolGetPathArgs,
-    ) -> Result<binding::RemoteStorageVolGetPathRet, Error> {
+    fn storage_vol_get_path(&mut self, vol: RemoteNonnullStorageVol) -> Result<String, Error> {
         trace!("{}", stringify!(storage_vol_get_path));
-        let req: Option<binding::RemoteStorageVolGetPathArgs> = Some(args);
-        let res: Option<binding::RemoteStorageVolGetPathRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolGetPath,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStorageVolGetPathArgs> = Some(RemoteStorageVolGetPathArgs { vol });
+        let res: Option<RemoteStorageVolGetPathRet> =
+            call(self, RemoteProcedure::RemoteProcStorageVolGetPath, req)?;
+        let res = res.unwrap();
+        let RemoteStorageVolGetPathRet { name } = res;
+        Ok(name)
     }
     fn node_get_cells_free_memory(
         &mut self,
-        args: binding::RemoteNodeGetCellsFreeMemoryArgs,
-    ) -> Result<binding::RemoteNodeGetCellsFreeMemoryRet, Error> {
+        start_cell: i32,
+        maxcells: i32,
+    ) -> Result<Vec<u64>, Error> {
         trace!("{}", stringify!(node_get_cells_free_memory));
-        let req: Option<binding::RemoteNodeGetCellsFreeMemoryArgs> = Some(args);
-        let res: Option<binding::RemoteNodeGetCellsFreeMemoryRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeGetCellsFreeMemory,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeGetCellsFreeMemoryArgs> =
+            Some(RemoteNodeGetCellsFreeMemoryArgs {
+                start_cell,
+                maxcells,
+            });
+        let res: Option<RemoteNodeGetCellsFreeMemoryRet> =
+            call(self, RemoteProcedure::RemoteProcNodeGetCellsFreeMemory, req)?;
+        let res = res.unwrap();
+        let RemoteNodeGetCellsFreeMemoryRet { cells } = res;
+        Ok(cells)
     }
-    fn node_get_free_memory(&mut self) -> Result<binding::RemoteNodeGetFreeMemoryRet, Error> {
+    fn node_get_free_memory(&mut self) -> Result<u64, Error> {
         trace!("{}", stringify!(node_get_free_memory));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteNodeGetFreeMemoryRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeGetFreeMemory,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteNodeGetFreeMemoryRet> =
+            call(self, RemoteProcedure::RemoteProcNodeGetFreeMemory, req)?;
+        let res = res.unwrap();
+        let RemoteNodeGetFreeMemoryRet { free_mem } = res;
+        Ok(free_mem)
     }
     fn domain_block_peek(
         &mut self,
-        args: binding::RemoteDomainBlockPeekArgs,
-    ) -> Result<binding::RemoteDomainBlockPeekRet, Error> {
+        dom: RemoteNonnullDomain,
+        path: String,
+        offset: u64,
+        size: u32,
+        flags: u32,
+    ) -> Result<Vec<u8>, Error> {
         trace!("{}", stringify!(domain_block_peek));
-        let req: Option<binding::RemoteDomainBlockPeekArgs> = Some(args);
-        let res: Option<binding::RemoteDomainBlockPeekRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBlockPeek,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainBlockPeekArgs> = Some(RemoteDomainBlockPeekArgs {
+            dom,
+            path,
+            offset,
+            size,
+            flags,
+        });
+        let res: Option<RemoteDomainBlockPeekRet> =
+            call(self, RemoteProcedure::RemoteProcDomainBlockPeek, req)?;
+        let res = res.unwrap();
+        let RemoteDomainBlockPeekRet { buffer } = res;
+        Ok(buffer)
     }
     fn domain_memory_peek(
         &mut self,
-        args: binding::RemoteDomainMemoryPeekArgs,
-    ) -> Result<binding::RemoteDomainMemoryPeekRet, Error> {
+        dom: RemoteNonnullDomain,
+        offset: u64,
+        size: u32,
+        flags: u32,
+    ) -> Result<Vec<u8>, Error> {
         trace!("{}", stringify!(domain_memory_peek));
-        let req: Option<binding::RemoteDomainMemoryPeekArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMemoryPeekRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMemoryPeek,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainMemoryPeekArgs> = Some(RemoteDomainMemoryPeekArgs {
+            dom,
+            offset,
+            size,
+            flags,
+        });
+        let res: Option<RemoteDomainMemoryPeekRet> =
+            call(self, RemoteProcedure::RemoteProcDomainMemoryPeek, req)?;
+        let res = res.unwrap();
+        let RemoteDomainMemoryPeekRet { buffer } = res;
+        Ok(buffer)
     }
-    fn connect_domain_event_register(
-        &mut self,
-    ) -> Result<binding::RemoteConnectDomainEventRegisterRet, Error> {
+    fn connect_domain_event_register(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_domain_event_register));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectDomainEventRegisterRet> = call(
+        let res: Option<RemoteConnectDomainEventRegisterRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectDomainEventRegister,
+            RemoteProcedure::RemoteProcConnectDomainEventRegister,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectDomainEventRegisterRet { cb_registered } = res;
+        Ok(cb_registered)
     }
-    fn connect_domain_event_deregister(
-        &mut self,
-    ) -> Result<binding::RemoteConnectDomainEventDeregisterRet, Error> {
+    fn connect_domain_event_deregister(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_domain_event_deregister));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectDomainEventDeregisterRet> = call(
+        let res: Option<RemoteConnectDomainEventDeregisterRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectDomainEventDeregister,
+            RemoteProcedure::RemoteProcConnectDomainEventDeregister,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectDomainEventDeregisterRet { cb_registered } = res;
+        Ok(cb_registered)
     }
     fn domain_event_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_lifecycle));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventLifecycle,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventLifecycle, req)?;
         Ok(())
     }
     fn domain_migrate_prepare2(
         &mut self,
-        args: binding::RemoteDomainMigratePrepare2Args,
-    ) -> Result<binding::RemoteDomainMigratePrepare2Ret, Error> {
+        uri_in: Option<String>,
+        flags: u64,
+        dname: Option<String>,
+        resource: u64,
+        dom_xml: String,
+    ) -> Result<(Vec<u8>, Option<String>), Error> {
         trace!("{}", stringify!(domain_migrate_prepare2));
-        let req: Option<binding::RemoteDomainMigratePrepare2Args> = Some(args);
-        let res: Option<binding::RemoteDomainMigratePrepare2Ret> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMigratePrepare2,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainMigratePrepare2Args> = Some(RemoteDomainMigratePrepare2Args {
+            uri_in,
+            flags,
+            dname,
+            resource,
+            dom_xml,
+        });
+        let res: Option<RemoteDomainMigratePrepare2Ret> =
+            call(self, RemoteProcedure::RemoteProcDomainMigratePrepare2, req)?;
+        let res = res.unwrap();
+        let RemoteDomainMigratePrepare2Ret { cookie, uri_out } = res;
+        Ok((cookie, uri_out))
     }
     fn domain_migrate_finish2(
         &mut self,
-        args: binding::RemoteDomainMigrateFinish2Args,
-    ) -> Result<binding::RemoteDomainMigrateFinish2Ret, Error> {
+        dname: String,
+        cookie: Vec<u8>,
+        uri: String,
+        flags: u64,
+        retcode: i32,
+    ) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_migrate_finish2));
-        let req: Option<binding::RemoteDomainMigrateFinish2Args> = Some(args);
-        let res: Option<binding::RemoteDomainMigrateFinish2Ret> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateFinish2,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainMigrateFinish2Args> = Some(RemoteDomainMigrateFinish2Args {
+            dname,
+            cookie,
+            uri,
+            flags,
+            retcode,
+        });
+        let res: Option<RemoteDomainMigrateFinish2Ret> =
+            call(self, RemoteProcedure::RemoteProcDomainMigrateFinish2, req)?;
+        let res = res.unwrap();
+        let RemoteDomainMigrateFinish2Ret { ddom } = res;
+        Ok(ddom)
     }
-    fn connect_get_uri(&mut self) -> Result<binding::RemoteConnectGetUriRet, Error> {
+    fn connect_get_uri(&mut self) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_uri));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectGetUriRet> =
-            call(self, binding::RemoteProcedure::RemoteProcConnectGetUri, req)?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectGetUriRet> =
+            call(self, RemoteProcedure::RemoteProcConnectGetUri, req)?;
+        let res = res.unwrap();
+        let RemoteConnectGetUriRet { uri } = res;
+        Ok(uri)
     }
-    fn node_num_of_devices(
-        &mut self,
-        args: binding::RemoteNodeNumOfDevicesArgs,
-    ) -> Result<binding::RemoteNodeNumOfDevicesRet, Error> {
+    fn node_num_of_devices(&mut self, cap: Option<String>, flags: u32) -> Result<i32, Error> {
         trace!("{}", stringify!(node_num_of_devices));
-        let req: Option<binding::RemoteNodeNumOfDevicesArgs> = Some(args);
-        let res: Option<binding::RemoteNodeNumOfDevicesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeNumOfDevices,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeNumOfDevicesArgs> =
+            Some(RemoteNodeNumOfDevicesArgs { cap, flags });
+        let res: Option<RemoteNodeNumOfDevicesRet> =
+            call(self, RemoteProcedure::RemoteProcNodeNumOfDevices, req)?;
+        let res = res.unwrap();
+        let RemoteNodeNumOfDevicesRet { num } = res;
+        Ok(num)
     }
     fn node_list_devices(
         &mut self,
-        args: binding::RemoteNodeListDevicesArgs,
-    ) -> Result<binding::RemoteNodeListDevicesRet, Error> {
+        cap: Option<String>,
+        maxnames: i32,
+        flags: u32,
+    ) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(node_list_devices));
-        let req: Option<binding::RemoteNodeListDevicesArgs> = Some(args);
-        let res: Option<binding::RemoteNodeListDevicesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeListDevices,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeListDevicesArgs> = Some(RemoteNodeListDevicesArgs {
+            cap,
+            maxnames,
+            flags,
+        });
+        let res: Option<RemoteNodeListDevicesRet> =
+            call(self, RemoteProcedure::RemoteProcNodeListDevices, req)?;
+        let res = res.unwrap();
+        let RemoteNodeListDevicesRet { names } = res;
+        Ok(names)
     }
     fn node_device_lookup_by_name(
         &mut self,
-        args: binding::RemoteNodeDeviceLookupByNameArgs,
-    ) -> Result<binding::RemoteNodeDeviceLookupByNameRet, Error> {
+        name: String,
+    ) -> Result<RemoteNonnullNodeDevice, Error> {
         trace!("{}", stringify!(node_device_lookup_by_name));
-        let req: Option<binding::RemoteNodeDeviceLookupByNameArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceLookupByNameRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceLookupByName,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeDeviceLookupByNameArgs> =
+            Some(RemoteNodeDeviceLookupByNameArgs { name });
+        let res: Option<RemoteNodeDeviceLookupByNameRet> =
+            call(self, RemoteProcedure::RemoteProcNodeDeviceLookupByName, req)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceLookupByNameRet { dev } = res;
+        Ok(dev)
     }
-    fn node_device_get_xml_desc(
-        &mut self,
-        args: binding::RemoteNodeDeviceGetXmlDescArgs,
-    ) -> Result<binding::RemoteNodeDeviceGetXmlDescRet, Error> {
+    fn node_device_get_xml_desc(&mut self, name: String, flags: u32) -> Result<String, Error> {
         trace!("{}", stringify!(node_device_get_xml_desc));
-        let req: Option<binding::RemoteNodeDeviceGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceGetXmlDescRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceGetXmlDesc,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeDeviceGetXmlDescArgs> =
+            Some(RemoteNodeDeviceGetXmlDescArgs { name, flags });
+        let res: Option<RemoteNodeDeviceGetXmlDescRet> =
+            call(self, RemoteProcedure::RemoteProcNodeDeviceGetXmlDesc, req)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
-    fn node_device_get_parent(
-        &mut self,
-        args: binding::RemoteNodeDeviceGetParentArgs,
-    ) -> Result<binding::RemoteNodeDeviceGetParentRet, Error> {
+    fn node_device_get_parent(&mut self, name: String) -> Result<Option<String>, Error> {
         trace!("{}", stringify!(node_device_get_parent));
-        let req: Option<binding::RemoteNodeDeviceGetParentArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceGetParentRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceGetParent,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeDeviceGetParentArgs> =
+            Some(RemoteNodeDeviceGetParentArgs { name });
+        let res: Option<RemoteNodeDeviceGetParentRet> =
+            call(self, RemoteProcedure::RemoteProcNodeDeviceGetParent, req)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceGetParentRet { parent_name } = res;
+        Ok(parent_name)
     }
-    fn node_device_num_of_caps(
-        &mut self,
-        args: binding::RemoteNodeDeviceNumOfCapsArgs,
-    ) -> Result<binding::RemoteNodeDeviceNumOfCapsRet, Error> {
+    fn node_device_num_of_caps(&mut self, name: String) -> Result<i32, Error> {
         trace!("{}", stringify!(node_device_num_of_caps));
-        let req: Option<binding::RemoteNodeDeviceNumOfCapsArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceNumOfCapsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceNumOfCaps,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeDeviceNumOfCapsArgs> =
+            Some(RemoteNodeDeviceNumOfCapsArgs { name });
+        let res: Option<RemoteNodeDeviceNumOfCapsRet> =
+            call(self, RemoteProcedure::RemoteProcNodeDeviceNumOfCaps, req)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceNumOfCapsRet { num } = res;
+        Ok(num)
     }
-    fn node_device_list_caps(
-        &mut self,
-        args: binding::RemoteNodeDeviceListCapsArgs,
-    ) -> Result<binding::RemoteNodeDeviceListCapsRet, Error> {
+    fn node_device_list_caps(&mut self, name: String, maxnames: i32) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(node_device_list_caps));
-        let req: Option<binding::RemoteNodeDeviceListCapsArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceListCapsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceListCaps,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeDeviceListCapsArgs> =
+            Some(RemoteNodeDeviceListCapsArgs { name, maxnames });
+        let res: Option<RemoteNodeDeviceListCapsRet> =
+            call(self, RemoteProcedure::RemoteProcNodeDeviceListCaps, req)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceListCapsRet { names } = res;
+        Ok(names)
     }
-    fn node_device_dettach(
-        &mut self,
-        args: binding::RemoteNodeDeviceDettachArgs,
-    ) -> Result<(), Error> {
+    fn node_device_dettach(&mut self, name: String) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_dettach));
-        let req: Option<binding::RemoteNodeDeviceDettachArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceDettach,
-            req,
-        )?;
+        let req: Option<RemoteNodeDeviceDettachArgs> = Some(RemoteNodeDeviceDettachArgs { name });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceDettach, req)?;
         Ok(())
     }
-    fn node_device_re_attach(
-        &mut self,
-        args: binding::RemoteNodeDeviceReAttachArgs,
-    ) -> Result<(), Error> {
+    fn node_device_re_attach(&mut self, name: String) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_re_attach));
-        let req: Option<binding::RemoteNodeDeviceReAttachArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceReAttach,
-            req,
-        )?;
+        let req: Option<RemoteNodeDeviceReAttachArgs> = Some(RemoteNodeDeviceReAttachArgs { name });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceReAttach, req)?;
         Ok(())
     }
-    fn node_device_reset(&mut self, args: binding::RemoteNodeDeviceResetArgs) -> Result<(), Error> {
+    fn node_device_reset(&mut self, name: String) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_reset));
-        let req: Option<binding::RemoteNodeDeviceResetArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceReset,
-            req,
-        )?;
+        let req: Option<RemoteNodeDeviceResetArgs> = Some(RemoteNodeDeviceResetArgs { name });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceReset, req)?;
         Ok(())
     }
     fn domain_get_security_label(
         &mut self,
-        args: binding::RemoteDomainGetSecurityLabelArgs,
-    ) -> Result<binding::RemoteDomainGetSecurityLabelRet, Error> {
+        dom: RemoteNonnullDomain,
+    ) -> Result<(Vec<i8>, i32), Error> {
         trace!("{}", stringify!(domain_get_security_label));
-        let req: Option<binding::RemoteDomainGetSecurityLabelArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetSecurityLabelRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetSecurityLabel,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetSecurityLabelArgs> =
+            Some(RemoteDomainGetSecurityLabelArgs { dom });
+        let res: Option<RemoteDomainGetSecurityLabelRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetSecurityLabel, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetSecurityLabelRet { label, enforcing } = res;
+        Ok((label, enforcing))
     }
-    fn node_get_security_model(&mut self) -> Result<binding::RemoteNodeGetSecurityModelRet, Error> {
+    fn node_get_security_model(&mut self) -> Result<(Vec<i8>, Vec<i8>), Error> {
         trace!("{}", stringify!(node_get_security_model));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteNodeGetSecurityModelRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeGetSecurityModel,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteNodeGetSecurityModelRet> =
+            call(self, RemoteProcedure::RemoteProcNodeGetSecurityModel, req)?;
+        let res = res.unwrap();
+        let RemoteNodeGetSecurityModelRet { model, doi } = res;
+        Ok((model, doi))
     }
     fn node_device_create_xml(
         &mut self,
-        args: binding::RemoteNodeDeviceCreateXmlArgs,
-    ) -> Result<binding::RemoteNodeDeviceCreateXmlRet, Error> {
+        xml_desc: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullNodeDevice, Error> {
         trace!("{}", stringify!(node_device_create_xml));
-        let req: Option<binding::RemoteNodeDeviceCreateXmlArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceCreateXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceCreateXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeDeviceCreateXmlArgs> =
+            Some(RemoteNodeDeviceCreateXmlArgs { xml_desc, flags });
+        let res: Option<RemoteNodeDeviceCreateXmlRet> =
+            call(self, RemoteProcedure::RemoteProcNodeDeviceCreateXml, req)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceCreateXmlRet { dev } = res;
+        Ok(dev)
     }
-    fn node_device_destroy(
-        &mut self,
-        args: binding::RemoteNodeDeviceDestroyArgs,
-    ) -> Result<(), Error> {
+    fn node_device_destroy(&mut self, name: String) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_destroy));
-        let req: Option<binding::RemoteNodeDeviceDestroyArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceDestroy,
-            req,
-        )?;
+        let req: Option<RemoteNodeDeviceDestroyArgs> = Some(RemoteNodeDeviceDestroyArgs { name });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceDestroy, req)?;
         Ok(())
     }
     fn storage_vol_create_xml_from(
         &mut self,
-        args: binding::RemoteStorageVolCreateXmlFromArgs,
-    ) -> Result<binding::RemoteStorageVolCreateXmlFromRet, Error> {
+        pool: RemoteNonnullStoragePool,
+        xml: String,
+        clonevol: RemoteNonnullStorageVol,
+        flags: u32,
+    ) -> Result<RemoteNonnullStorageVol, Error> {
         trace!("{}", stringify!(storage_vol_create_xml_from));
-        let req: Option<binding::RemoteStorageVolCreateXmlFromArgs> = Some(args);
-        let res: Option<binding::RemoteStorageVolCreateXmlFromRet> = call(
+        let req: Option<RemoteStorageVolCreateXmlFromArgs> =
+            Some(RemoteStorageVolCreateXmlFromArgs {
+                pool,
+                xml,
+                clonevol,
+                flags,
+            });
+        let res: Option<RemoteStorageVolCreateXmlFromRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStorageVolCreateXmlFrom,
+            RemoteProcedure::RemoteProcStorageVolCreateXmlFrom,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteStorageVolCreateXmlFromRet { vol } = res;
+        Ok(vol)
     }
-    fn connect_num_of_interfaces(
-        &mut self,
-    ) -> Result<binding::RemoteConnectNumOfInterfacesRet, Error> {
+    fn connect_num_of_interfaces(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_interfaces));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectNumOfInterfacesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectNumOfInterfaces,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectNumOfInterfacesRet> =
+            call(self, RemoteProcedure::RemoteProcConnectNumOfInterfaces, req)?;
+        let res = res.unwrap();
+        let RemoteConnectNumOfInterfacesRet { num } = res;
+        Ok(num)
     }
-    fn connect_list_interfaces(
-        &mut self,
-        args: binding::RemoteConnectListInterfacesArgs,
-    ) -> Result<binding::RemoteConnectListInterfacesRet, Error> {
+    fn connect_list_interfaces(&mut self, maxnames: i32) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(connect_list_interfaces));
-        let req: Option<binding::RemoteConnectListInterfacesArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListInterfacesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectListInterfaces,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectListInterfacesArgs> =
+            Some(RemoteConnectListInterfacesArgs { maxnames });
+        let res: Option<RemoteConnectListInterfacesRet> =
+            call(self, RemoteProcedure::RemoteProcConnectListInterfaces, req)?;
+        let res = res.unwrap();
+        let RemoteConnectListInterfacesRet { names } = res;
+        Ok(names)
     }
-    fn interface_lookup_by_name(
-        &mut self,
-        args: binding::RemoteInterfaceLookupByNameArgs,
-    ) -> Result<binding::RemoteInterfaceLookupByNameRet, Error> {
+    fn interface_lookup_by_name(&mut self, name: String) -> Result<RemoteNonnullInterface, Error> {
         trace!("{}", stringify!(interface_lookup_by_name));
-        let req: Option<binding::RemoteInterfaceLookupByNameArgs> = Some(args);
-        let res: Option<binding::RemoteInterfaceLookupByNameRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcInterfaceLookupByName,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteInterfaceLookupByNameArgs> =
+            Some(RemoteInterfaceLookupByNameArgs { name });
+        let res: Option<RemoteInterfaceLookupByNameRet> =
+            call(self, RemoteProcedure::RemoteProcInterfaceLookupByName, req)?;
+        let res = res.unwrap();
+        let RemoteInterfaceLookupByNameRet { iface } = res;
+        Ok(iface)
     }
     fn interface_lookup_by_mac_string(
         &mut self,
-        args: binding::RemoteInterfaceLookupByMacStringArgs,
-    ) -> Result<binding::RemoteInterfaceLookupByMacStringRet, Error> {
+        mac: String,
+    ) -> Result<RemoteNonnullInterface, Error> {
         trace!("{}", stringify!(interface_lookup_by_mac_string));
-        let req: Option<binding::RemoteInterfaceLookupByMacStringArgs> = Some(args);
-        let res: Option<binding::RemoteInterfaceLookupByMacStringRet> = call(
+        let req: Option<RemoteInterfaceLookupByMacStringArgs> =
+            Some(RemoteInterfaceLookupByMacStringArgs { mac });
+        let res: Option<RemoteInterfaceLookupByMacStringRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcInterfaceLookupByMacString,
+            RemoteProcedure::RemoteProcInterfaceLookupByMacString,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteInterfaceLookupByMacStringRet { iface } = res;
+        Ok(iface)
     }
     fn interface_get_xml_desc(
         &mut self,
-        args: binding::RemoteInterfaceGetXmlDescArgs,
-    ) -> Result<binding::RemoteInterfaceGetXmlDescRet, Error> {
+        iface: RemoteNonnullInterface,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(interface_get_xml_desc));
-        let req: Option<binding::RemoteInterfaceGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteInterfaceGetXmlDescRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcInterfaceGetXmlDesc,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteInterfaceGetXmlDescArgs> =
+            Some(RemoteInterfaceGetXmlDescArgs { iface, flags });
+        let res: Option<RemoteInterfaceGetXmlDescRet> =
+            call(self, RemoteProcedure::RemoteProcInterfaceGetXmlDesc, req)?;
+        let res = res.unwrap();
+        let RemoteInterfaceGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
     fn interface_define_xml(
         &mut self,
-        args: binding::RemoteInterfaceDefineXmlArgs,
-    ) -> Result<binding::RemoteInterfaceDefineXmlRet, Error> {
+        xml: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullInterface, Error> {
         trace!("{}", stringify!(interface_define_xml));
-        let req: Option<binding::RemoteInterfaceDefineXmlArgs> = Some(args);
-        let res: Option<binding::RemoteInterfaceDefineXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcInterfaceDefineXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteInterfaceDefineXmlArgs> =
+            Some(RemoteInterfaceDefineXmlArgs { xml, flags });
+        let res: Option<RemoteInterfaceDefineXmlRet> =
+            call(self, RemoteProcedure::RemoteProcInterfaceDefineXml, req)?;
+        let res = res.unwrap();
+        let RemoteInterfaceDefineXmlRet { iface } = res;
+        Ok(iface)
     }
-    fn interface_undefine(
-        &mut self,
-        args: binding::RemoteInterfaceUndefineArgs,
-    ) -> Result<(), Error> {
+    fn interface_undefine(&mut self, iface: RemoteNonnullInterface) -> Result<(), Error> {
         trace!("{}", stringify!(interface_undefine));
-        let req: Option<binding::RemoteInterfaceUndefineArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcInterfaceUndefine,
-            req,
-        )?;
+        let req: Option<RemoteInterfaceUndefineArgs> = Some(RemoteInterfaceUndefineArgs { iface });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcInterfaceUndefine, req)?;
         Ok(())
     }
-    fn interface_create(&mut self, args: binding::RemoteInterfaceCreateArgs) -> Result<(), Error> {
+    fn interface_create(&mut self, iface: RemoteNonnullInterface, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(interface_create));
-        let req: Option<binding::RemoteInterfaceCreateArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcInterfaceCreate,
-            req,
-        )?;
+        let req: Option<RemoteInterfaceCreateArgs> =
+            Some(RemoteInterfaceCreateArgs { iface, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcInterfaceCreate, req)?;
         Ok(())
     }
     fn interface_destroy(
         &mut self,
-        args: binding::RemoteInterfaceDestroyArgs,
+        iface: RemoteNonnullInterface,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(interface_destroy));
-        let req: Option<binding::RemoteInterfaceDestroyArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcInterfaceDestroy,
-            req,
-        )?;
+        let req: Option<RemoteInterfaceDestroyArgs> =
+            Some(RemoteInterfaceDestroyArgs { iface, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcInterfaceDestroy, req)?;
         Ok(())
     }
     fn connect_domain_xml_from_native(
         &mut self,
-        args: binding::RemoteConnectDomainXmlFromNativeArgs,
-    ) -> Result<binding::RemoteConnectDomainXmlFromNativeRet, Error> {
+        native_format: String,
+        native_config: String,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(connect_domain_xml_from_native));
-        let req: Option<binding::RemoteConnectDomainXmlFromNativeArgs> = Some(args);
-        let res: Option<binding::RemoteConnectDomainXmlFromNativeRet> = call(
+        let req: Option<RemoteConnectDomainXmlFromNativeArgs> =
+            Some(RemoteConnectDomainXmlFromNativeArgs {
+                native_format,
+                native_config,
+                flags,
+            });
+        let res: Option<RemoteConnectDomainXmlFromNativeRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectDomainXmlFromNative,
+            RemoteProcedure::RemoteProcConnectDomainXmlFromNative,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectDomainXmlFromNativeRet { domain_xml } = res;
+        Ok(domain_xml)
     }
     fn connect_domain_xml_to_native(
         &mut self,
-        args: binding::RemoteConnectDomainXmlToNativeArgs,
-    ) -> Result<binding::RemoteConnectDomainXmlToNativeRet, Error> {
+        native_format: String,
+        domain_xml: String,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(connect_domain_xml_to_native));
-        let req: Option<binding::RemoteConnectDomainXmlToNativeArgs> = Some(args);
-        let res: Option<binding::RemoteConnectDomainXmlToNativeRet> = call(
+        let req: Option<RemoteConnectDomainXmlToNativeArgs> =
+            Some(RemoteConnectDomainXmlToNativeArgs {
+                native_format,
+                domain_xml,
+                flags,
+            });
+        let res: Option<RemoteConnectDomainXmlToNativeRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectDomainXmlToNative,
+            RemoteProcedure::RemoteProcConnectDomainXmlToNative,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectDomainXmlToNativeRet { native_config } = res;
+        Ok(native_config)
     }
-    fn connect_num_of_defined_interfaces(
-        &mut self,
-    ) -> Result<binding::RemoteConnectNumOfDefinedInterfacesRet, Error> {
+    fn connect_num_of_defined_interfaces(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_defined_interfaces));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectNumOfDefinedInterfacesRet> = call(
+        let res: Option<RemoteConnectNumOfDefinedInterfacesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectNumOfDefinedInterfaces,
+            RemoteProcedure::RemoteProcConnectNumOfDefinedInterfaces,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectNumOfDefinedInterfacesRet { num } = res;
+        Ok(num)
     }
-    fn connect_list_defined_interfaces(
-        &mut self,
-        args: binding::RemoteConnectListDefinedInterfacesArgs,
-    ) -> Result<binding::RemoteConnectListDefinedInterfacesRet, Error> {
+    fn connect_list_defined_interfaces(&mut self, maxnames: i32) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(connect_list_defined_interfaces));
-        let req: Option<binding::RemoteConnectListDefinedInterfacesArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListDefinedInterfacesRet> = call(
+        let req: Option<RemoteConnectListDefinedInterfacesArgs> =
+            Some(RemoteConnectListDefinedInterfacesArgs { maxnames });
+        let res: Option<RemoteConnectListDefinedInterfacesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectListDefinedInterfaces,
+            RemoteProcedure::RemoteProcConnectListDefinedInterfaces,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectListDefinedInterfacesRet { names } = res;
+        Ok(names)
     }
-    fn connect_num_of_secrets(&mut self) -> Result<binding::RemoteConnectNumOfSecretsRet, Error> {
+    fn connect_num_of_secrets(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_secrets));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectNumOfSecretsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectNumOfSecrets,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectNumOfSecretsRet> =
+            call(self, RemoteProcedure::RemoteProcConnectNumOfSecrets, req)?;
+        let res = res.unwrap();
+        let RemoteConnectNumOfSecretsRet { num } = res;
+        Ok(num)
     }
-    fn connect_list_secrets(
-        &mut self,
-        args: binding::RemoteConnectListSecretsArgs,
-    ) -> Result<binding::RemoteConnectListSecretsRet, Error> {
+    fn connect_list_secrets(&mut self, maxuuids: i32) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(connect_list_secrets));
-        let req: Option<binding::RemoteConnectListSecretsArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListSecretsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectListSecrets,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectListSecretsArgs> =
+            Some(RemoteConnectListSecretsArgs { maxuuids });
+        let res: Option<RemoteConnectListSecretsRet> =
+            call(self, RemoteProcedure::RemoteProcConnectListSecrets, req)?;
+        let res = res.unwrap();
+        let RemoteConnectListSecretsRet { uuids } = res;
+        Ok(uuids)
     }
     fn secret_lookup_by_uuid(
         &mut self,
-        args: binding::RemoteSecretLookupByUuidArgs,
-    ) -> Result<binding::RemoteSecretLookupByUuidRet, Error> {
+        uuid: [u8; VIR_UUID_BUFLEN as usize],
+    ) -> Result<RemoteNonnullSecret, Error> {
         trace!("{}", stringify!(secret_lookup_by_uuid));
-        let req: Option<binding::RemoteSecretLookupByUuidArgs> = Some(args);
-        let res: Option<binding::RemoteSecretLookupByUuidRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcSecretLookupByUuid,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteSecretLookupByUuidArgs> = Some(RemoteSecretLookupByUuidArgs { uuid });
+        let res: Option<RemoteSecretLookupByUuidRet> =
+            call(self, RemoteProcedure::RemoteProcSecretLookupByUuid, req)?;
+        let res = res.unwrap();
+        let RemoteSecretLookupByUuidRet { secret } = res;
+        Ok(secret)
     }
-    fn secret_define_xml(
-        &mut self,
-        args: binding::RemoteSecretDefineXmlArgs,
-    ) -> Result<binding::RemoteSecretDefineXmlRet, Error> {
+    fn secret_define_xml(&mut self, xml: String, flags: u32) -> Result<RemoteNonnullSecret, Error> {
         trace!("{}", stringify!(secret_define_xml));
-        let req: Option<binding::RemoteSecretDefineXmlArgs> = Some(args);
-        let res: Option<binding::RemoteSecretDefineXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcSecretDefineXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteSecretDefineXmlArgs> = Some(RemoteSecretDefineXmlArgs { xml, flags });
+        let res: Option<RemoteSecretDefineXmlRet> =
+            call(self, RemoteProcedure::RemoteProcSecretDefineXml, req)?;
+        let res = res.unwrap();
+        let RemoteSecretDefineXmlRet { secret } = res;
+        Ok(secret)
     }
     fn secret_get_xml_desc(
         &mut self,
-        args: binding::RemoteSecretGetXmlDescArgs,
-    ) -> Result<binding::RemoteSecretGetXmlDescRet, Error> {
+        secret: RemoteNonnullSecret,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(secret_get_xml_desc));
-        let req: Option<binding::RemoteSecretGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteSecretGetXmlDescRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcSecretGetXmlDesc,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteSecretGetXmlDescArgs> =
+            Some(RemoteSecretGetXmlDescArgs { secret, flags });
+        let res: Option<RemoteSecretGetXmlDescRet> =
+            call(self, RemoteProcedure::RemoteProcSecretGetXmlDesc, req)?;
+        let res = res.unwrap();
+        let RemoteSecretGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
-    fn secret_set_value(&mut self, args: binding::RemoteSecretSetValueArgs) -> Result<(), Error> {
+    fn secret_set_value(
+        &mut self,
+        secret: RemoteNonnullSecret,
+        value: Vec<u8>,
+        flags: u32,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(secret_set_value));
-        let req: Option<binding::RemoteSecretSetValueArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcSecretSetValue,
-            req,
-        )?;
+        let req: Option<RemoteSecretSetValueArgs> = Some(RemoteSecretSetValueArgs {
+            secret,
+            value,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcSecretSetValue, req)?;
         Ok(())
     }
     fn secret_get_value(
         &mut self,
-        args: binding::RemoteSecretGetValueArgs,
-    ) -> Result<binding::RemoteSecretGetValueRet, Error> {
+        secret: RemoteNonnullSecret,
+        flags: u32,
+    ) -> Result<Vec<u8>, Error> {
         trace!("{}", stringify!(secret_get_value));
-        let req: Option<binding::RemoteSecretGetValueArgs> = Some(args);
-        let res: Option<binding::RemoteSecretGetValueRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcSecretGetValue,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteSecretGetValueArgs> =
+            Some(RemoteSecretGetValueArgs { secret, flags });
+        let res: Option<RemoteSecretGetValueRet> =
+            call(self, RemoteProcedure::RemoteProcSecretGetValue, req)?;
+        let res = res.unwrap();
+        let RemoteSecretGetValueRet { value } = res;
+        Ok(value)
     }
-    fn secret_undefine(&mut self, args: binding::RemoteSecretUndefineArgs) -> Result<(), Error> {
+    fn secret_undefine(&mut self, secret: RemoteNonnullSecret) -> Result<(), Error> {
         trace!("{}", stringify!(secret_undefine));
-        let req: Option<binding::RemoteSecretUndefineArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcSecretUndefine,
-            req,
-        )?;
+        let req: Option<RemoteSecretUndefineArgs> = Some(RemoteSecretUndefineArgs { secret });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcSecretUndefine, req)?;
         Ok(())
     }
     fn secret_lookup_by_usage(
         &mut self,
-        args: binding::RemoteSecretLookupByUsageArgs,
-    ) -> Result<binding::RemoteSecretLookupByUsageRet, Error> {
+        usage_type: i32,
+        usage_id: String,
+    ) -> Result<RemoteNonnullSecret, Error> {
         trace!("{}", stringify!(secret_lookup_by_usage));
-        let req: Option<binding::RemoteSecretLookupByUsageArgs> = Some(args);
-        let res: Option<binding::RemoteSecretLookupByUsageRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcSecretLookupByUsage,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteSecretLookupByUsageArgs> = Some(RemoteSecretLookupByUsageArgs {
+            usage_type,
+            usage_id,
+        });
+        let res: Option<RemoteSecretLookupByUsageRet> =
+            call(self, RemoteProcedure::RemoteProcSecretLookupByUsage, req)?;
+        let res = res.unwrap();
+        let RemoteSecretLookupByUsageRet { secret } = res;
+        Ok(secret)
     }
     fn domain_migrate_prepare_tunnel(
         &mut self,
-        args: binding::RemoteDomainMigratePrepareTunnelArgs,
+        flags: u64,
+        dname: Option<String>,
+        resource: u64,
+        dom_xml: String,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_migrate_prepare_tunnel));
-        let req: Option<binding::RemoteDomainMigratePrepareTunnelArgs> = Some(args);
+        let req: Option<RemoteDomainMigratePrepareTunnelArgs> =
+            Some(RemoteDomainMigratePrepareTunnelArgs {
+                flags,
+                dname,
+                resource,
+                dom_xml,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigratePrepareTunnel,
+            RemoteProcedure::RemoteProcDomainMigratePrepareTunnel,
             req,
         )?;
         Ok(())
     }
-    fn connect_is_secure(&mut self) -> Result<binding::RemoteConnectIsSecureRet, Error> {
+    fn connect_is_secure(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_is_secure));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectIsSecureRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectIsSecure,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectIsSecureRet> =
+            call(self, RemoteProcedure::RemoteProcConnectIsSecure, req)?;
+        let res = res.unwrap();
+        let RemoteConnectIsSecureRet { secure } = res;
+        Ok(secure)
     }
-    fn domain_is_active(
-        &mut self,
-        args: binding::RemoteDomainIsActiveArgs,
-    ) -> Result<binding::RemoteDomainIsActiveRet, Error> {
+    fn domain_is_active(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_is_active));
-        let req: Option<binding::RemoteDomainIsActiveArgs> = Some(args);
-        let res: Option<binding::RemoteDomainIsActiveRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainIsActive,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainIsActiveArgs> = Some(RemoteDomainIsActiveArgs { dom });
+        let res: Option<RemoteDomainIsActiveRet> =
+            call(self, RemoteProcedure::RemoteProcDomainIsActive, req)?;
+        let res = res.unwrap();
+        let RemoteDomainIsActiveRet { active } = res;
+        Ok(active)
     }
-    fn domain_is_persistent(
-        &mut self,
-        args: binding::RemoteDomainIsPersistentArgs,
-    ) -> Result<binding::RemoteDomainIsPersistentRet, Error> {
+    fn domain_is_persistent(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_is_persistent));
-        let req: Option<binding::RemoteDomainIsPersistentArgs> = Some(args);
-        let res: Option<binding::RemoteDomainIsPersistentRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainIsPersistent,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainIsPersistentArgs> = Some(RemoteDomainIsPersistentArgs { dom });
+        let res: Option<RemoteDomainIsPersistentRet> =
+            call(self, RemoteProcedure::RemoteProcDomainIsPersistent, req)?;
+        let res = res.unwrap();
+        let RemoteDomainIsPersistentRet { persistent } = res;
+        Ok(persistent)
     }
-    fn network_is_active(
-        &mut self,
-        args: binding::RemoteNetworkIsActiveArgs,
-    ) -> Result<binding::RemoteNetworkIsActiveRet, Error> {
+    fn network_is_active(&mut self, net: RemoteNonnullNetwork) -> Result<i32, Error> {
         trace!("{}", stringify!(network_is_active));
-        let req: Option<binding::RemoteNetworkIsActiveArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkIsActiveRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkIsActive,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkIsActiveArgs> = Some(RemoteNetworkIsActiveArgs { net });
+        let res: Option<RemoteNetworkIsActiveRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkIsActive, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkIsActiveRet { active } = res;
+        Ok(active)
     }
-    fn network_is_persistent(
-        &mut self,
-        args: binding::RemoteNetworkIsPersistentArgs,
-    ) -> Result<binding::RemoteNetworkIsPersistentRet, Error> {
+    fn network_is_persistent(&mut self, net: RemoteNonnullNetwork) -> Result<i32, Error> {
         trace!("{}", stringify!(network_is_persistent));
-        let req: Option<binding::RemoteNetworkIsPersistentArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkIsPersistentRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkIsPersistent,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkIsPersistentArgs> =
+            Some(RemoteNetworkIsPersistentArgs { net });
+        let res: Option<RemoteNetworkIsPersistentRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkIsPersistent, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkIsPersistentRet { persistent } = res;
+        Ok(persistent)
     }
-    fn storage_pool_is_active(
-        &mut self,
-        args: binding::RemoteStoragePoolIsActiveArgs,
-    ) -> Result<binding::RemoteStoragePoolIsActiveRet, Error> {
+    fn storage_pool_is_active(&mut self, pool: RemoteNonnullStoragePool) -> Result<i32, Error> {
         trace!("{}", stringify!(storage_pool_is_active));
-        let req: Option<binding::RemoteStoragePoolIsActiveArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolIsActiveRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStoragePoolIsActive,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStoragePoolIsActiveArgs> =
+            Some(RemoteStoragePoolIsActiveArgs { pool });
+        let res: Option<RemoteStoragePoolIsActiveRet> =
+            call(self, RemoteProcedure::RemoteProcStoragePoolIsActive, req)?;
+        let res = res.unwrap();
+        let RemoteStoragePoolIsActiveRet { active } = res;
+        Ok(active)
     }
-    fn storage_pool_is_persistent(
-        &mut self,
-        args: binding::RemoteStoragePoolIsPersistentArgs,
-    ) -> Result<binding::RemoteStoragePoolIsPersistentRet, Error> {
+    fn storage_pool_is_persistent(&mut self, pool: RemoteNonnullStoragePool) -> Result<i32, Error> {
         trace!("{}", stringify!(storage_pool_is_persistent));
-        let req: Option<binding::RemoteStoragePoolIsPersistentArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolIsPersistentRet> = call(
+        let req: Option<RemoteStoragePoolIsPersistentArgs> =
+            Some(RemoteStoragePoolIsPersistentArgs { pool });
+        let res: Option<RemoteStoragePoolIsPersistentRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolIsPersistent,
+            RemoteProcedure::RemoteProcStoragePoolIsPersistent,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteStoragePoolIsPersistentRet { persistent } = res;
+        Ok(persistent)
     }
-    fn interface_is_active(
-        &mut self,
-        args: binding::RemoteInterfaceIsActiveArgs,
-    ) -> Result<binding::RemoteInterfaceIsActiveRet, Error> {
+    fn interface_is_active(&mut self, iface: RemoteNonnullInterface) -> Result<i32, Error> {
         trace!("{}", stringify!(interface_is_active));
-        let req: Option<binding::RemoteInterfaceIsActiveArgs> = Some(args);
-        let res: Option<binding::RemoteInterfaceIsActiveRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcInterfaceIsActive,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteInterfaceIsActiveArgs> = Some(RemoteInterfaceIsActiveArgs { iface });
+        let res: Option<RemoteInterfaceIsActiveRet> =
+            call(self, RemoteProcedure::RemoteProcInterfaceIsActive, req)?;
+        let res = res.unwrap();
+        let RemoteInterfaceIsActiveRet { active } = res;
+        Ok(active)
     }
-    fn connect_get_lib_version(&mut self) -> Result<binding::RemoteConnectGetLibVersionRet, Error> {
+    fn connect_get_lib_version(&mut self) -> Result<u64, Error> {
         trace!("{}", stringify!(connect_get_lib_version));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectGetLibVersionRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectGetLibVersion,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectGetLibVersionRet> =
+            call(self, RemoteProcedure::RemoteProcConnectGetLibVersion, req)?;
+        let res = res.unwrap();
+        let RemoteConnectGetLibVersionRet { lib_ver } = res;
+        Ok(lib_ver)
     }
-    fn connect_compare_cpu(
-        &mut self,
-        args: binding::RemoteConnectCompareCpuArgs,
-    ) -> Result<binding::RemoteConnectCompareCpuRet, Error> {
+    fn connect_compare_cpu(&mut self, xml: String, flags: u32) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_compare_cpu));
-        let req: Option<binding::RemoteConnectCompareCpuArgs> = Some(args);
-        let res: Option<binding::RemoteConnectCompareCpuRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectCompareCpu,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectCompareCpuArgs> =
+            Some(RemoteConnectCompareCpuArgs { xml, flags });
+        let res: Option<RemoteConnectCompareCpuRet> =
+            call(self, RemoteProcedure::RemoteProcConnectCompareCpu, req)?;
+        let res = res.unwrap();
+        let RemoteConnectCompareCpuRet { result } = res;
+        Ok(result)
     }
     fn domain_memory_stats(
         &mut self,
-        args: binding::RemoteDomainMemoryStatsArgs,
-    ) -> Result<binding::RemoteDomainMemoryStatsRet, Error> {
+        dom: RemoteNonnullDomain,
+        max_stats: u32,
+        flags: u32,
+    ) -> Result<Vec<RemoteDomainMemoryStat>, Error> {
         trace!("{}", stringify!(domain_memory_stats));
-        let req: Option<binding::RemoteDomainMemoryStatsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMemoryStatsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMemoryStats,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainMemoryStatsArgs> = Some(RemoteDomainMemoryStatsArgs {
+            dom,
+            max_stats,
+            flags,
+        });
+        let res: Option<RemoteDomainMemoryStatsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainMemoryStats, req)?;
+        let res = res.unwrap();
+        let RemoteDomainMemoryStatsRet { stats } = res;
+        Ok(stats)
     }
     fn domain_attach_device_flags(
         &mut self,
-        args: binding::RemoteDomainAttachDeviceFlagsArgs,
+        dom: RemoteNonnullDomain,
+        xml: String,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_attach_device_flags));
-        let req: Option<binding::RemoteDomainAttachDeviceFlagsArgs> = Some(args);
+        let req: Option<RemoteDomainAttachDeviceFlagsArgs> =
+            Some(RemoteDomainAttachDeviceFlagsArgs { dom, xml, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainAttachDeviceFlags,
+            RemoteProcedure::RemoteProcDomainAttachDeviceFlags,
             req,
         )?;
         Ok(())
     }
     fn domain_detach_device_flags(
         &mut self,
-        args: binding::RemoteDomainDetachDeviceFlagsArgs,
+        dom: RemoteNonnullDomain,
+        xml: String,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_detach_device_flags));
-        let req: Option<binding::RemoteDomainDetachDeviceFlagsArgs> = Some(args);
+        let req: Option<RemoteDomainDetachDeviceFlagsArgs> =
+            Some(RemoteDomainDetachDeviceFlagsArgs { dom, xml, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainDetachDeviceFlags,
+            RemoteProcedure::RemoteProcDomainDetachDeviceFlags,
             req,
         )?;
         Ok(())
     }
-    fn connect_baseline_cpu(
-        &mut self,
-        args: binding::RemoteConnectBaselineCpuArgs,
-    ) -> Result<binding::RemoteConnectBaselineCpuRet, Error> {
+    fn connect_baseline_cpu(&mut self, xml_cpus: Vec<String>, flags: u32) -> Result<String, Error> {
         trace!("{}", stringify!(connect_baseline_cpu));
-        let req: Option<binding::RemoteConnectBaselineCpuArgs> = Some(args);
-        let res: Option<binding::RemoteConnectBaselineCpuRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectBaselineCpu,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectBaselineCpuArgs> =
+            Some(RemoteConnectBaselineCpuArgs { xml_cpus, flags });
+        let res: Option<RemoteConnectBaselineCpuRet> =
+            call(self, RemoteProcedure::RemoteProcConnectBaselineCpu, req)?;
+        let res = res.unwrap();
+        let RemoteConnectBaselineCpuRet { cpu } = res;
+        Ok(cpu)
     }
     fn domain_get_job_info(
         &mut self,
-        args: binding::RemoteDomainGetJobInfoArgs,
-    ) -> Result<binding::RemoteDomainGetJobInfoRet, Error> {
+        dom: RemoteNonnullDomain,
+    ) -> Result<RemoteDomainGetJobInfoRet, Error> {
         trace!("{}", stringify!(domain_get_job_info));
-        let req: Option<binding::RemoteDomainGetJobInfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetJobInfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetJobInfo,
-            req,
-        )?;
+        let req: Option<RemoteDomainGetJobInfoArgs> = Some(RemoteDomainGetJobInfoArgs { dom });
+        let res: Option<RemoteDomainGetJobInfoRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetJobInfo, req)?;
         Ok(res.unwrap())
     }
-    fn domain_abort_job(&mut self, args: binding::RemoteDomainAbortJobArgs) -> Result<(), Error> {
+    fn domain_abort_job(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_abort_job));
-        let req: Option<binding::RemoteDomainAbortJobArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainAbortJob,
-            req,
-        )?;
+        let req: Option<RemoteDomainAbortJobArgs> = Some(RemoteDomainAbortJobArgs { dom });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainAbortJob, req)?;
         Ok(())
     }
-    fn storage_vol_wipe(&mut self, args: binding::RemoteStorageVolWipeArgs) -> Result<(), Error> {
+    fn storage_vol_wipe(&mut self, vol: RemoteNonnullStorageVol, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(storage_vol_wipe));
-        let req: Option<binding::RemoteStorageVolWipeArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolWipe,
-            req,
-        )?;
+        let req: Option<RemoteStorageVolWipeArgs> = Some(RemoteStorageVolWipeArgs { vol, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStorageVolWipe, req)?;
         Ok(())
     }
     fn domain_migrate_set_max_downtime(
         &mut self,
-        args: binding::RemoteDomainMigrateSetMaxDowntimeArgs,
+        dom: RemoteNonnullDomain,
+        downtime: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_migrate_set_max_downtime));
-        let req: Option<binding::RemoteDomainMigrateSetMaxDowntimeArgs> = Some(args);
+        let req: Option<RemoteDomainMigrateSetMaxDowntimeArgs> =
+            Some(RemoteDomainMigrateSetMaxDowntimeArgs {
+                dom,
+                downtime,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateSetMaxDowntime,
+            RemoteProcedure::RemoteProcDomainMigrateSetMaxDowntime,
             req,
         )?;
         Ok(())
     }
-    fn connect_domain_event_register_any(
-        &mut self,
-        args: binding::RemoteConnectDomainEventRegisterAnyArgs,
-    ) -> Result<(), Error> {
+    fn connect_domain_event_register_any(&mut self, event_id: i32) -> Result<(), Error> {
         trace!("{}", stringify!(connect_domain_event_register_any));
-        let req: Option<binding::RemoteConnectDomainEventRegisterAnyArgs> = Some(args);
+        let req: Option<RemoteConnectDomainEventRegisterAnyArgs> =
+            Some(RemoteConnectDomainEventRegisterAnyArgs { event_id });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectDomainEventRegisterAny,
+            RemoteProcedure::RemoteProcConnectDomainEventRegisterAny,
             req,
         )?;
         Ok(())
     }
-    fn connect_domain_event_deregister_any(
-        &mut self,
-        args: binding::RemoteConnectDomainEventDeregisterAnyArgs,
-    ) -> Result<(), Error> {
+    fn connect_domain_event_deregister_any(&mut self, event_id: i32) -> Result<(), Error> {
         trace!("{}", stringify!(connect_domain_event_deregister_any));
-        let req: Option<binding::RemoteConnectDomainEventDeregisterAnyArgs> = Some(args);
+        let req: Option<RemoteConnectDomainEventDeregisterAnyArgs> =
+            Some(RemoteConnectDomainEventDeregisterAnyArgs { event_id });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectDomainEventDeregisterAny,
+            RemoteProcedure::RemoteProcConnectDomainEventDeregisterAny,
             req,
         )?;
         Ok(())
@@ -2028,1527 +1996,1862 @@ pub trait Libvirt {
     fn domain_event_reboot(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_reboot));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventReboot,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventReboot, req)?;
         Ok(())
     }
     fn domain_event_rtc_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_rtc_change));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventRtcChange,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventRtcChange, req)?;
         Ok(())
     }
     fn domain_event_watchdog(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_watchdog));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventWatchdog,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventWatchdog, req)?;
         Ok(())
     }
     fn domain_event_io_error(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_io_error));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventIoError,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventIoError, req)?;
         Ok(())
     }
     fn domain_event_graphics(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_graphics));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventGraphics,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventGraphics, req)?;
         Ok(())
     }
     fn domain_update_device_flags(
         &mut self,
-        args: binding::RemoteDomainUpdateDeviceFlagsArgs,
+        dom: RemoteNonnullDomain,
+        xml: String,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_update_device_flags));
-        let req: Option<binding::RemoteDomainUpdateDeviceFlagsArgs> = Some(args);
+        let req: Option<RemoteDomainUpdateDeviceFlagsArgs> =
+            Some(RemoteDomainUpdateDeviceFlagsArgs { dom, xml, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainUpdateDeviceFlags,
+            RemoteProcedure::RemoteProcDomainUpdateDeviceFlags,
             req,
         )?;
         Ok(())
     }
-    fn nwfilter_lookup_by_name(
-        &mut self,
-        args: binding::RemoteNwfilterLookupByNameArgs,
-    ) -> Result<binding::RemoteNwfilterLookupByNameRet, Error> {
+    fn nwfilter_lookup_by_name(&mut self, name: String) -> Result<RemoteNonnullNwfilter, Error> {
         trace!("{}", stringify!(nwfilter_lookup_by_name));
-        let req: Option<binding::RemoteNwfilterLookupByNameArgs> = Some(args);
-        let res: Option<binding::RemoteNwfilterLookupByNameRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNwfilterLookupByName,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNwfilterLookupByNameArgs> =
+            Some(RemoteNwfilterLookupByNameArgs { name });
+        let res: Option<RemoteNwfilterLookupByNameRet> =
+            call(self, RemoteProcedure::RemoteProcNwfilterLookupByName, req)?;
+        let res = res.unwrap();
+        let RemoteNwfilterLookupByNameRet { nwfilter } = res;
+        Ok(nwfilter)
     }
     fn nwfilter_lookup_by_uuid(
         &mut self,
-        args: binding::RemoteNwfilterLookupByUuidArgs,
-    ) -> Result<binding::RemoteNwfilterLookupByUuidRet, Error> {
+        uuid: [u8; VIR_UUID_BUFLEN as usize],
+    ) -> Result<RemoteNonnullNwfilter, Error> {
         trace!("{}", stringify!(nwfilter_lookup_by_uuid));
-        let req: Option<binding::RemoteNwfilterLookupByUuidArgs> = Some(args);
-        let res: Option<binding::RemoteNwfilterLookupByUuidRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNwfilterLookupByUuid,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNwfilterLookupByUuidArgs> =
+            Some(RemoteNwfilterLookupByUuidArgs { uuid });
+        let res: Option<RemoteNwfilterLookupByUuidRet> =
+            call(self, RemoteProcedure::RemoteProcNwfilterLookupByUuid, req)?;
+        let res = res.unwrap();
+        let RemoteNwfilterLookupByUuidRet { nwfilter } = res;
+        Ok(nwfilter)
     }
     fn nwfilter_get_xml_desc(
         &mut self,
-        args: binding::RemoteNwfilterGetXmlDescArgs,
-    ) -> Result<binding::RemoteNwfilterGetXmlDescRet, Error> {
+        nwfilter: RemoteNonnullNwfilter,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(nwfilter_get_xml_desc));
-        let req: Option<binding::RemoteNwfilterGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteNwfilterGetXmlDescRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNwfilterGetXmlDesc,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNwfilterGetXmlDescArgs> =
+            Some(RemoteNwfilterGetXmlDescArgs { nwfilter, flags });
+        let res: Option<RemoteNwfilterGetXmlDescRet> =
+            call(self, RemoteProcedure::RemoteProcNwfilterGetXmlDesc, req)?;
+        let res = res.unwrap();
+        let RemoteNwfilterGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
-    fn connect_num_of_nwfilters(
-        &mut self,
-    ) -> Result<binding::RemoteConnectNumOfNwfiltersRet, Error> {
+    fn connect_num_of_nwfilters(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_nwfilters));
         let req: Option<()> = None;
-        let res: Option<binding::RemoteConnectNumOfNwfiltersRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectNumOfNwfilters,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let res: Option<RemoteConnectNumOfNwfiltersRet> =
+            call(self, RemoteProcedure::RemoteProcConnectNumOfNwfilters, req)?;
+        let res = res.unwrap();
+        let RemoteConnectNumOfNwfiltersRet { num } = res;
+        Ok(num)
     }
-    fn connect_list_nwfilters(
-        &mut self,
-        args: binding::RemoteConnectListNwfiltersArgs,
-    ) -> Result<binding::RemoteConnectListNwfiltersRet, Error> {
+    fn connect_list_nwfilters(&mut self, maxnames: i32) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(connect_list_nwfilters));
-        let req: Option<binding::RemoteConnectListNwfiltersArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListNwfiltersRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectListNwfilters,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectListNwfiltersArgs> =
+            Some(RemoteConnectListNwfiltersArgs { maxnames });
+        let res: Option<RemoteConnectListNwfiltersRet> =
+            call(self, RemoteProcedure::RemoteProcConnectListNwfilters, req)?;
+        let res = res.unwrap();
+        let RemoteConnectListNwfiltersRet { names } = res;
+        Ok(names)
     }
-    fn nwfilter_define_xml(
-        &mut self,
-        args: binding::RemoteNwfilterDefineXmlArgs,
-    ) -> Result<binding::RemoteNwfilterDefineXmlRet, Error> {
+    fn nwfilter_define_xml(&mut self, xml: String) -> Result<RemoteNonnullNwfilter, Error> {
         trace!("{}", stringify!(nwfilter_define_xml));
-        let req: Option<binding::RemoteNwfilterDefineXmlArgs> = Some(args);
-        let res: Option<binding::RemoteNwfilterDefineXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNwfilterDefineXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNwfilterDefineXmlArgs> = Some(RemoteNwfilterDefineXmlArgs { xml });
+        let res: Option<RemoteNwfilterDefineXmlRet> =
+            call(self, RemoteProcedure::RemoteProcNwfilterDefineXml, req)?;
+        let res = res.unwrap();
+        let RemoteNwfilterDefineXmlRet { nwfilter } = res;
+        Ok(nwfilter)
     }
-    fn nwfilter_undefine(
-        &mut self,
-        args: binding::RemoteNwfilterUndefineArgs,
-    ) -> Result<(), Error> {
+    fn nwfilter_undefine(&mut self, nwfilter: RemoteNonnullNwfilter) -> Result<(), Error> {
         trace!("{}", stringify!(nwfilter_undefine));
-        let req: Option<binding::RemoteNwfilterUndefineArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNwfilterUndefine,
-            req,
-        )?;
+        let req: Option<RemoteNwfilterUndefineArgs> = Some(RemoteNwfilterUndefineArgs { nwfilter });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNwfilterUndefine, req)?;
         Ok(())
     }
-    fn domain_managed_save(
-        &mut self,
-        args: binding::RemoteDomainManagedSaveArgs,
-    ) -> Result<(), Error> {
+    fn domain_managed_save(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_managed_save));
-        let req: Option<binding::RemoteDomainManagedSaveArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainManagedSave,
-            req,
-        )?;
+        let req: Option<RemoteDomainManagedSaveArgs> =
+            Some(RemoteDomainManagedSaveArgs { dom, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainManagedSave, req)?;
         Ok(())
     }
     fn domain_has_managed_save_image(
         &mut self,
-        args: binding::RemoteDomainHasManagedSaveImageArgs,
-    ) -> Result<binding::RemoteDomainHasManagedSaveImageRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_has_managed_save_image));
-        let req: Option<binding::RemoteDomainHasManagedSaveImageArgs> = Some(args);
-        let res: Option<binding::RemoteDomainHasManagedSaveImageRet> = call(
+        let req: Option<RemoteDomainHasManagedSaveImageArgs> =
+            Some(RemoteDomainHasManagedSaveImageArgs { dom, flags });
+        let res: Option<RemoteDomainHasManagedSaveImageRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainHasManagedSaveImage,
+            RemoteProcedure::RemoteProcDomainHasManagedSaveImage,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainHasManagedSaveImageRet { result } = res;
+        Ok(result)
     }
     fn domain_managed_save_remove(
         &mut self,
-        args: binding::RemoteDomainManagedSaveRemoveArgs,
+        dom: RemoteNonnullDomain,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_managed_save_remove));
-        let req: Option<binding::RemoteDomainManagedSaveRemoveArgs> = Some(args);
+        let req: Option<RemoteDomainManagedSaveRemoveArgs> =
+            Some(RemoteDomainManagedSaveRemoveArgs { dom, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainManagedSaveRemove,
+            RemoteProcedure::RemoteProcDomainManagedSaveRemove,
             req,
         )?;
         Ok(())
     }
     fn domain_snapshot_create_xml(
         &mut self,
-        args: binding::RemoteDomainSnapshotCreateXmlArgs,
-    ) -> Result<binding::RemoteDomainSnapshotCreateXmlRet, Error> {
+        dom: RemoteNonnullDomain,
+        xml_desc: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomainSnapshot, Error> {
         trace!("{}", stringify!(domain_snapshot_create_xml));
-        let req: Option<binding::RemoteDomainSnapshotCreateXmlArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotCreateXmlRet> = call(
+        let req: Option<RemoteDomainSnapshotCreateXmlArgs> =
+            Some(RemoteDomainSnapshotCreateXmlArgs {
+                dom,
+                xml_desc,
+                flags,
+            });
+        let res: Option<RemoteDomainSnapshotCreateXmlRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotCreateXml,
+            RemoteProcedure::RemoteProcDomainSnapshotCreateXml,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSnapshotCreateXmlRet { snap } = res;
+        Ok(snap)
     }
     fn domain_snapshot_get_xml_desc(
         &mut self,
-        args: binding::RemoteDomainSnapshotGetXmlDescArgs,
-    ) -> Result<binding::RemoteDomainSnapshotGetXmlDescRet, Error> {
+        snap: RemoteNonnullDomainSnapshot,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(domain_snapshot_get_xml_desc));
-        let req: Option<binding::RemoteDomainSnapshotGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotGetXmlDescRet> = call(
+        let req: Option<RemoteDomainSnapshotGetXmlDescArgs> =
+            Some(RemoteDomainSnapshotGetXmlDescArgs { snap, flags });
+        let res: Option<RemoteDomainSnapshotGetXmlDescRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotGetXmlDesc,
+            RemoteProcedure::RemoteProcDomainSnapshotGetXmlDesc,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSnapshotGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
-    fn domain_snapshot_num(
-        &mut self,
-        args: binding::RemoteDomainSnapshotNumArgs,
-    ) -> Result<binding::RemoteDomainSnapshotNumRet, Error> {
+    fn domain_snapshot_num(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_snapshot_num));
-        let req: Option<binding::RemoteDomainSnapshotNumArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotNumRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotNum,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainSnapshotNumArgs> =
+            Some(RemoteDomainSnapshotNumArgs { dom, flags });
+        let res: Option<RemoteDomainSnapshotNumRet> =
+            call(self, RemoteProcedure::RemoteProcDomainSnapshotNum, req)?;
+        let res = res.unwrap();
+        let RemoteDomainSnapshotNumRet { num } = res;
+        Ok(num)
     }
     fn domain_snapshot_list_names(
         &mut self,
-        args: binding::RemoteDomainSnapshotListNamesArgs,
-    ) -> Result<binding::RemoteDomainSnapshotListNamesRet, Error> {
+        dom: RemoteNonnullDomain,
+        maxnames: i32,
+        flags: u32,
+    ) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(domain_snapshot_list_names));
-        let req: Option<binding::RemoteDomainSnapshotListNamesArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotListNamesRet> = call(
+        let req: Option<RemoteDomainSnapshotListNamesArgs> =
+            Some(RemoteDomainSnapshotListNamesArgs {
+                dom,
+                maxnames,
+                flags,
+            });
+        let res: Option<RemoteDomainSnapshotListNamesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotListNames,
+            RemoteProcedure::RemoteProcDomainSnapshotListNames,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSnapshotListNamesRet { names } = res;
+        Ok(names)
     }
     fn domain_snapshot_lookup_by_name(
         &mut self,
-        args: binding::RemoteDomainSnapshotLookupByNameArgs,
-    ) -> Result<binding::RemoteDomainSnapshotLookupByNameRet, Error> {
+        dom: RemoteNonnullDomain,
+        name: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomainSnapshot, Error> {
         trace!("{}", stringify!(domain_snapshot_lookup_by_name));
-        let req: Option<binding::RemoteDomainSnapshotLookupByNameArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotLookupByNameRet> = call(
+        let req: Option<RemoteDomainSnapshotLookupByNameArgs> =
+            Some(RemoteDomainSnapshotLookupByNameArgs { dom, name, flags });
+        let res: Option<RemoteDomainSnapshotLookupByNameRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotLookupByName,
+            RemoteProcedure::RemoteProcDomainSnapshotLookupByName,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSnapshotLookupByNameRet { snap } = res;
+        Ok(snap)
     }
     fn domain_has_current_snapshot(
         &mut self,
-        args: binding::RemoteDomainHasCurrentSnapshotArgs,
-    ) -> Result<binding::RemoteDomainHasCurrentSnapshotRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_has_current_snapshot));
-        let req: Option<binding::RemoteDomainHasCurrentSnapshotArgs> = Some(args);
-        let res: Option<binding::RemoteDomainHasCurrentSnapshotRet> = call(
+        let req: Option<RemoteDomainHasCurrentSnapshotArgs> =
+            Some(RemoteDomainHasCurrentSnapshotArgs { dom, flags });
+        let res: Option<RemoteDomainHasCurrentSnapshotRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainHasCurrentSnapshot,
+            RemoteProcedure::RemoteProcDomainHasCurrentSnapshot,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainHasCurrentSnapshotRet { result } = res;
+        Ok(result)
     }
     fn domain_snapshot_current(
         &mut self,
-        args: binding::RemoteDomainSnapshotCurrentArgs,
-    ) -> Result<binding::RemoteDomainSnapshotCurrentRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomainSnapshot, Error> {
         trace!("{}", stringify!(domain_snapshot_current));
-        let req: Option<binding::RemoteDomainSnapshotCurrentArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotCurrentRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotCurrent,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainSnapshotCurrentArgs> =
+            Some(RemoteDomainSnapshotCurrentArgs { dom, flags });
+        let res: Option<RemoteDomainSnapshotCurrentRet> =
+            call(self, RemoteProcedure::RemoteProcDomainSnapshotCurrent, req)?;
+        let res = res.unwrap();
+        let RemoteDomainSnapshotCurrentRet { snap } = res;
+        Ok(snap)
     }
     fn domain_revert_to_snapshot(
         &mut self,
-        args: binding::RemoteDomainRevertToSnapshotArgs,
+        snap: RemoteNonnullDomainSnapshot,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_revert_to_snapshot));
-        let req: Option<binding::RemoteDomainRevertToSnapshotArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainRevertToSnapshot,
-            req,
-        )?;
+        let req: Option<RemoteDomainRevertToSnapshotArgs> =
+            Some(RemoteDomainRevertToSnapshotArgs { snap, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainRevertToSnapshot, req)?;
         Ok(())
     }
     fn domain_snapshot_delete(
         &mut self,
-        args: binding::RemoteDomainSnapshotDeleteArgs,
+        snap: RemoteNonnullDomainSnapshot,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_snapshot_delete));
-        let req: Option<binding::RemoteDomainSnapshotDeleteArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotDelete,
-            req,
-        )?;
+        let req: Option<RemoteDomainSnapshotDeleteArgs> =
+            Some(RemoteDomainSnapshotDeleteArgs { snap, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSnapshotDelete, req)?;
         Ok(())
     }
     fn domain_get_block_info(
         &mut self,
-        args: binding::RemoteDomainGetBlockInfoArgs,
-    ) -> Result<binding::RemoteDomainGetBlockInfoRet, Error> {
+        dom: RemoteNonnullDomain,
+        path: String,
+        flags: u32,
+    ) -> Result<(u64, u64, u64), Error> {
         trace!("{}", stringify!(domain_get_block_info));
-        let req: Option<binding::RemoteDomainGetBlockInfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetBlockInfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetBlockInfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetBlockInfoArgs> =
+            Some(RemoteDomainGetBlockInfoArgs { dom, path, flags });
+        let res: Option<RemoteDomainGetBlockInfoRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetBlockInfo, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetBlockInfoRet {
+            allocation,
+            capacity,
+            physical,
+        } = res;
+        Ok((allocation, capacity, physical))
     }
     fn domain_event_io_error_reason(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_io_error_reason));
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventIoErrorReason,
+            RemoteProcedure::RemoteProcDomainEventIoErrorReason,
             req,
         )?;
         Ok(())
     }
     fn domain_create_with_flags(
         &mut self,
-        args: binding::RemoteDomainCreateWithFlagsArgs,
-    ) -> Result<binding::RemoteDomainCreateWithFlagsRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_create_with_flags));
-        let req: Option<binding::RemoteDomainCreateWithFlagsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainCreateWithFlagsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainCreateWithFlags,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainCreateWithFlagsArgs> =
+            Some(RemoteDomainCreateWithFlagsArgs { dom, flags });
+        let res: Option<RemoteDomainCreateWithFlagsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainCreateWithFlags, req)?;
+        let res = res.unwrap();
+        let RemoteDomainCreateWithFlagsRet { dom } = res;
+        Ok(dom)
     }
     fn domain_set_memory_parameters(
         &mut self,
-        args: binding::RemoteDomainSetMemoryParametersArgs,
+        dom: RemoteNonnullDomain,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_memory_parameters));
-        let req: Option<binding::RemoteDomainSetMemoryParametersArgs> = Some(args);
+        let req: Option<RemoteDomainSetMemoryParametersArgs> =
+            Some(RemoteDomainSetMemoryParametersArgs { dom, params, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetMemoryParameters,
+            RemoteProcedure::RemoteProcDomainSetMemoryParameters,
             req,
         )?;
         Ok(())
     }
     fn domain_get_memory_parameters(
         &mut self,
-        args: binding::RemoteDomainGetMemoryParametersArgs,
-    ) -> Result<binding::RemoteDomainGetMemoryParametersRet, Error> {
+        dom: RemoteNonnullDomain,
+        nparams: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteTypedParam>, i32), Error> {
         trace!("{}", stringify!(domain_get_memory_parameters));
-        let req: Option<binding::RemoteDomainGetMemoryParametersArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetMemoryParametersRet> = call(
+        let req: Option<RemoteDomainGetMemoryParametersArgs> =
+            Some(RemoteDomainGetMemoryParametersArgs {
+                dom,
+                nparams,
+                flags,
+            });
+        let res: Option<RemoteDomainGetMemoryParametersRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainGetMemoryParameters,
+            RemoteProcedure::RemoteProcDomainGetMemoryParameters,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainGetMemoryParametersRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn domain_set_vcpus_flags(
         &mut self,
-        args: binding::RemoteDomainSetVcpusFlagsArgs,
+        dom: RemoteNonnullDomain,
+        nvcpus: u32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_vcpus_flags));
-        let req: Option<binding::RemoteDomainSetVcpusFlagsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetVcpusFlags,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetVcpusFlagsArgs> =
+            Some(RemoteDomainSetVcpusFlagsArgs { dom, nvcpus, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetVcpusFlags, req)?;
         Ok(())
     }
     fn domain_get_vcpus_flags(
         &mut self,
-        args: binding::RemoteDomainGetVcpusFlagsArgs,
-    ) -> Result<binding::RemoteDomainGetVcpusFlagsRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_get_vcpus_flags));
-        let req: Option<binding::RemoteDomainGetVcpusFlagsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetVcpusFlagsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetVcpusFlags,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetVcpusFlagsArgs> =
+            Some(RemoteDomainGetVcpusFlagsArgs { dom, flags });
+        let res: Option<RemoteDomainGetVcpusFlagsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetVcpusFlags, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetVcpusFlagsRet { num } = res;
+        Ok(num)
     }
     fn domain_open_console(
         &mut self,
-        args: binding::RemoteDomainOpenConsoleArgs,
+        dom: RemoteNonnullDomain,
+        dev_name: Option<String>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_open_console));
-        let req: Option<binding::RemoteDomainOpenConsoleArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainOpenConsole,
-            req,
-        )?;
+        let req: Option<RemoteDomainOpenConsoleArgs> = Some(RemoteDomainOpenConsoleArgs {
+            dom,
+            dev_name,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainOpenConsole, req)?;
         Ok(())
     }
-    fn domain_is_updated(
-        &mut self,
-        args: binding::RemoteDomainIsUpdatedArgs,
-    ) -> Result<binding::RemoteDomainIsUpdatedRet, Error> {
+    fn domain_is_updated(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_is_updated));
-        let req: Option<binding::RemoteDomainIsUpdatedArgs> = Some(args);
-        let res: Option<binding::RemoteDomainIsUpdatedRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainIsUpdated,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainIsUpdatedArgs> = Some(RemoteDomainIsUpdatedArgs { dom });
+        let res: Option<RemoteDomainIsUpdatedRet> =
+            call(self, RemoteProcedure::RemoteProcDomainIsUpdated, req)?;
+        let res = res.unwrap();
+        let RemoteDomainIsUpdatedRet { updated } = res;
+        Ok(updated)
     }
-    fn connect_get_sysinfo(
-        &mut self,
-        args: binding::RemoteConnectGetSysinfoArgs,
-    ) -> Result<binding::RemoteConnectGetSysinfoRet, Error> {
+    fn connect_get_sysinfo(&mut self, flags: u32) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_sysinfo));
-        let req: Option<binding::RemoteConnectGetSysinfoArgs> = Some(args);
-        let res: Option<binding::RemoteConnectGetSysinfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectGetSysinfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectGetSysinfoArgs> = Some(RemoteConnectGetSysinfoArgs { flags });
+        let res: Option<RemoteConnectGetSysinfoRet> =
+            call(self, RemoteProcedure::RemoteProcConnectGetSysinfo, req)?;
+        let res = res.unwrap();
+        let RemoteConnectGetSysinfoRet { sysinfo } = res;
+        Ok(sysinfo)
     }
     fn domain_set_memory_flags(
         &mut self,
-        args: binding::RemoteDomainSetMemoryFlagsArgs,
+        dom: RemoteNonnullDomain,
+        memory: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_memory_flags));
-        let req: Option<binding::RemoteDomainSetMemoryFlagsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetMemoryFlags,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetMemoryFlagsArgs> =
+            Some(RemoteDomainSetMemoryFlagsArgs { dom, memory, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetMemoryFlags, req)?;
         Ok(())
     }
     fn domain_set_blkio_parameters(
         &mut self,
-        args: binding::RemoteDomainSetBlkioParametersArgs,
+        dom: RemoteNonnullDomain,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_blkio_parameters));
-        let req: Option<binding::RemoteDomainSetBlkioParametersArgs> = Some(args);
+        let req: Option<RemoteDomainSetBlkioParametersArgs> =
+            Some(RemoteDomainSetBlkioParametersArgs { dom, params, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetBlkioParameters,
+            RemoteProcedure::RemoteProcDomainSetBlkioParameters,
             req,
         )?;
         Ok(())
     }
     fn domain_get_blkio_parameters(
         &mut self,
-        args: binding::RemoteDomainGetBlkioParametersArgs,
-    ) -> Result<binding::RemoteDomainGetBlkioParametersRet, Error> {
+        dom: RemoteNonnullDomain,
+        nparams: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteTypedParam>, i32), Error> {
         trace!("{}", stringify!(domain_get_blkio_parameters));
-        let req: Option<binding::RemoteDomainGetBlkioParametersArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetBlkioParametersRet> = call(
+        let req: Option<RemoteDomainGetBlkioParametersArgs> =
+            Some(RemoteDomainGetBlkioParametersArgs {
+                dom,
+                nparams,
+                flags,
+            });
+        let res: Option<RemoteDomainGetBlkioParametersRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainGetBlkioParameters,
+            RemoteProcedure::RemoteProcDomainGetBlkioParameters,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainGetBlkioParametersRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn domain_migrate_set_max_speed(
         &mut self,
-        args: binding::RemoteDomainMigrateSetMaxSpeedArgs,
+        dom: RemoteNonnullDomain,
+        bandwidth: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_migrate_set_max_speed));
-        let req: Option<binding::RemoteDomainMigrateSetMaxSpeedArgs> = Some(args);
+        let req: Option<RemoteDomainMigrateSetMaxSpeedArgs> =
+            Some(RemoteDomainMigrateSetMaxSpeedArgs {
+                dom,
+                bandwidth,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateSetMaxSpeed,
+            RemoteProcedure::RemoteProcDomainMigrateSetMaxSpeed,
             req,
         )?;
         Ok(())
     }
     fn storage_vol_upload(
         &mut self,
-        args: binding::RemoteStorageVolUploadArgs,
+        vol: RemoteNonnullStorageVol,
+        offset: u64,
+        length: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(storage_vol_upload));
-        let req: Option<binding::RemoteStorageVolUploadArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolUpload,
-            req,
-        )?;
+        let req: Option<RemoteStorageVolUploadArgs> = Some(RemoteStorageVolUploadArgs {
+            vol,
+            offset,
+            length,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStorageVolUpload, req)?;
         Ok(())
     }
     fn storage_vol_download(
         &mut self,
-        args: binding::RemoteStorageVolDownloadArgs,
+        vol: RemoteNonnullStorageVol,
+        offset: u64,
+        length: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(storage_vol_download));
-        let req: Option<binding::RemoteStorageVolDownloadArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolDownload,
-            req,
-        )?;
+        let req: Option<RemoteStorageVolDownloadArgs> = Some(RemoteStorageVolDownloadArgs {
+            vol,
+            offset,
+            length,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStorageVolDownload, req)?;
         Ok(())
     }
-    fn domain_inject_nmi(&mut self, args: binding::RemoteDomainInjectNmiArgs) -> Result<(), Error> {
+    fn domain_inject_nmi(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_inject_nmi));
-        let req: Option<binding::RemoteDomainInjectNmiArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainInjectNmi,
-            req,
-        )?;
+        let req: Option<RemoteDomainInjectNmiArgs> = Some(RemoteDomainInjectNmiArgs { dom, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainInjectNmi, req)?;
         Ok(())
     }
     fn domain_screenshot(
         &mut self,
-        args: binding::RemoteDomainScreenshotArgs,
-    ) -> Result<binding::RemoteDomainScreenshotRet, Error> {
+        dom: RemoteNonnullDomain,
+        screen: u32,
+        flags: u32,
+    ) -> Result<Option<String>, Error> {
         trace!("{}", stringify!(domain_screenshot));
-        let req: Option<binding::RemoteDomainScreenshotArgs> = Some(args);
-        let res: Option<binding::RemoteDomainScreenshotRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainScreenshot,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainScreenshotArgs> =
+            Some(RemoteDomainScreenshotArgs { dom, screen, flags });
+        let res: Option<RemoteDomainScreenshotRet> =
+            call(self, RemoteProcedure::RemoteProcDomainScreenshot, req)?;
+        let res = res.unwrap();
+        let RemoteDomainScreenshotRet { mime } = res;
+        Ok(mime)
     }
     fn domain_get_state(
         &mut self,
-        args: binding::RemoteDomainGetStateArgs,
-    ) -> Result<binding::RemoteDomainGetStateRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<(i32, i32), Error> {
         trace!("{}", stringify!(domain_get_state));
-        let req: Option<binding::RemoteDomainGetStateArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetStateRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetState,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetStateArgs> = Some(RemoteDomainGetStateArgs { dom, flags });
+        let res: Option<RemoteDomainGetStateRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetState, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetStateRet { state, reason } = res;
+        Ok((state, reason))
     }
     fn domain_migrate_begin3(
         &mut self,
-        args: binding::RemoteDomainMigrateBegin3Args,
-    ) -> Result<binding::RemoteDomainMigrateBegin3Ret, Error> {
+        dom: RemoteNonnullDomain,
+        xmlin: Option<String>,
+        flags: u64,
+        dname: Option<String>,
+        resource: u64,
+    ) -> Result<(Vec<u8>, String), Error> {
         trace!("{}", stringify!(domain_migrate_begin3));
-        let req: Option<binding::RemoteDomainMigrateBegin3Args> = Some(args);
-        let res: Option<binding::RemoteDomainMigrateBegin3Ret> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateBegin3,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainMigrateBegin3Args> = Some(RemoteDomainMigrateBegin3Args {
+            dom,
+            xmlin,
+            flags,
+            dname,
+            resource,
+        });
+        let res: Option<RemoteDomainMigrateBegin3Ret> =
+            call(self, RemoteProcedure::RemoteProcDomainMigrateBegin3, req)?;
+        let res = res.unwrap();
+        let RemoteDomainMigrateBegin3Ret { cookie_out, xml } = res;
+        Ok((cookie_out, xml))
     }
     fn domain_migrate_prepare3(
         &mut self,
-        args: binding::RemoteDomainMigratePrepare3Args,
-    ) -> Result<binding::RemoteDomainMigratePrepare3Ret, Error> {
+        cookie_in: Vec<u8>,
+        uri_in: Option<String>,
+        flags: u64,
+        dname: Option<String>,
+        resource: u64,
+        dom_xml: String,
+    ) -> Result<(Vec<u8>, Option<String>), Error> {
         trace!("{}", stringify!(domain_migrate_prepare3));
-        let req: Option<binding::RemoteDomainMigratePrepare3Args> = Some(args);
-        let res: Option<binding::RemoteDomainMigratePrepare3Ret> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMigratePrepare3,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainMigratePrepare3Args> = Some(RemoteDomainMigratePrepare3Args {
+            cookie_in,
+            uri_in,
+            flags,
+            dname,
+            resource,
+            dom_xml,
+        });
+        let res: Option<RemoteDomainMigratePrepare3Ret> =
+            call(self, RemoteProcedure::RemoteProcDomainMigratePrepare3, req)?;
+        let res = res.unwrap();
+        let RemoteDomainMigratePrepare3Ret {
+            cookie_out,
+            uri_out,
+        } = res;
+        Ok((cookie_out, uri_out))
     }
     fn domain_migrate_prepare_tunnel3(
         &mut self,
-        args: binding::RemoteDomainMigratePrepareTunnel3Args,
-    ) -> Result<binding::RemoteDomainMigratePrepareTunnel3Ret, Error> {
+        cookie_in: Vec<u8>,
+        flags: u64,
+        dname: Option<String>,
+        resource: u64,
+        dom_xml: String,
+    ) -> Result<Vec<u8>, Error> {
         trace!("{}", stringify!(domain_migrate_prepare_tunnel3));
-        let req: Option<binding::RemoteDomainMigratePrepareTunnel3Args> = Some(args);
-        let res: Option<binding::RemoteDomainMigratePrepareTunnel3Ret> = call(
+        let req: Option<RemoteDomainMigratePrepareTunnel3Args> =
+            Some(RemoteDomainMigratePrepareTunnel3Args {
+                cookie_in,
+                flags,
+                dname,
+                resource,
+                dom_xml,
+            });
+        let res: Option<RemoteDomainMigratePrepareTunnel3Ret> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3,
+            RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainMigratePrepareTunnel3Ret { cookie_out } = res;
+        Ok(cookie_out)
     }
     fn domain_migrate_perform3(
         &mut self,
-        args: binding::RemoteDomainMigratePerform3Args,
-    ) -> Result<binding::RemoteDomainMigratePerform3Ret, Error> {
+        args: RemoteDomainMigratePerform3Args,
+    ) -> Result<Vec<u8>, Error> {
         trace!("{}", stringify!(domain_migrate_perform3));
-        let req: Option<binding::RemoteDomainMigratePerform3Args> = Some(args);
-        let res: Option<binding::RemoteDomainMigratePerform3Ret> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMigratePerform3,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainMigratePerform3Args> = Some(args);
+        let res: Option<RemoteDomainMigratePerform3Ret> =
+            call(self, RemoteProcedure::RemoteProcDomainMigratePerform3, req)?;
+        let res = res.unwrap();
+        let RemoteDomainMigratePerform3Ret { cookie_out } = res;
+        Ok(cookie_out)
     }
     fn domain_migrate_finish3(
         &mut self,
-        args: binding::RemoteDomainMigrateFinish3Args,
-    ) -> Result<binding::RemoteDomainMigrateFinish3Ret, Error> {
+        dname: String,
+        cookie_in: Vec<u8>,
+        dconnuri: Option<String>,
+        uri: Option<String>,
+        flags: u64,
+        cancelled: i32,
+    ) -> Result<(RemoteNonnullDomain, Vec<u8>), Error> {
         trace!("{}", stringify!(domain_migrate_finish3));
-        let req: Option<binding::RemoteDomainMigrateFinish3Args> = Some(args);
-        let res: Option<binding::RemoteDomainMigrateFinish3Ret> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateFinish3,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainMigrateFinish3Args> = Some(RemoteDomainMigrateFinish3Args {
+            dname,
+            cookie_in,
+            dconnuri,
+            uri,
+            flags,
+            cancelled,
+        });
+        let res: Option<RemoteDomainMigrateFinish3Ret> =
+            call(self, RemoteProcedure::RemoteProcDomainMigrateFinish3, req)?;
+        let res = res.unwrap();
+        let RemoteDomainMigrateFinish3Ret { dom, cookie_out } = res;
+        Ok((dom, cookie_out))
     }
     fn domain_migrate_confirm3(
         &mut self,
-        args: binding::RemoteDomainMigrateConfirm3Args,
+        dom: RemoteNonnullDomain,
+        cookie_in: Vec<u8>,
+        flags: u64,
+        cancelled: i32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_migrate_confirm3));
-        let req: Option<binding::RemoteDomainMigrateConfirm3Args> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateConfirm3,
-            req,
-        )?;
+        let req: Option<RemoteDomainMigrateConfirm3Args> = Some(RemoteDomainMigrateConfirm3Args {
+            dom,
+            cookie_in,
+            flags,
+            cancelled,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainMigrateConfirm3, req)?;
         Ok(())
     }
     fn domain_set_scheduler_parameters_flags(
         &mut self,
-        args: binding::RemoteDomainSetSchedulerParametersFlagsArgs,
+        dom: RemoteNonnullDomain,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_scheduler_parameters_flags));
-        let req: Option<binding::RemoteDomainSetSchedulerParametersFlagsArgs> = Some(args);
+        let req: Option<RemoteDomainSetSchedulerParametersFlagsArgs> =
+            Some(RemoteDomainSetSchedulerParametersFlagsArgs { dom, params, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetSchedulerParametersFlags,
+            RemoteProcedure::RemoteProcDomainSetSchedulerParametersFlags,
             req,
         )?;
         Ok(())
     }
-    fn interface_change_begin(
-        &mut self,
-        args: binding::RemoteInterfaceChangeBeginArgs,
-    ) -> Result<(), Error> {
+    fn interface_change_begin(&mut self, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(interface_change_begin));
-        let req: Option<binding::RemoteInterfaceChangeBeginArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcInterfaceChangeBegin,
-            req,
-        )?;
+        let req: Option<RemoteInterfaceChangeBeginArgs> =
+            Some(RemoteInterfaceChangeBeginArgs { flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcInterfaceChangeBegin, req)?;
         Ok(())
     }
-    fn interface_change_commit(
-        &mut self,
-        args: binding::RemoteInterfaceChangeCommitArgs,
-    ) -> Result<(), Error> {
+    fn interface_change_commit(&mut self, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(interface_change_commit));
-        let req: Option<binding::RemoteInterfaceChangeCommitArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcInterfaceChangeCommit,
-            req,
-        )?;
+        let req: Option<RemoteInterfaceChangeCommitArgs> =
+            Some(RemoteInterfaceChangeCommitArgs { flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcInterfaceChangeCommit, req)?;
         Ok(())
     }
-    fn interface_change_rollback(
-        &mut self,
-        args: binding::RemoteInterfaceChangeRollbackArgs,
-    ) -> Result<(), Error> {
+    fn interface_change_rollback(&mut self, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(interface_change_rollback));
-        let req: Option<binding::RemoteInterfaceChangeRollbackArgs> = Some(args);
+        let req: Option<RemoteInterfaceChangeRollbackArgs> =
+            Some(RemoteInterfaceChangeRollbackArgs { flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcInterfaceChangeRollback,
+            RemoteProcedure::RemoteProcInterfaceChangeRollback,
             req,
         )?;
         Ok(())
     }
     fn domain_get_scheduler_parameters_flags(
         &mut self,
-        args: binding::RemoteDomainGetSchedulerParametersFlagsArgs,
-    ) -> Result<binding::RemoteDomainGetSchedulerParametersFlagsRet, Error> {
+        dom: RemoteNonnullDomain,
+        nparams: i32,
+        flags: u32,
+    ) -> Result<Vec<RemoteTypedParam>, Error> {
         trace!("{}", stringify!(domain_get_scheduler_parameters_flags));
-        let req: Option<binding::RemoteDomainGetSchedulerParametersFlagsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetSchedulerParametersFlagsRet> = call(
+        let req: Option<RemoteDomainGetSchedulerParametersFlagsArgs> =
+            Some(RemoteDomainGetSchedulerParametersFlagsArgs {
+                dom,
+                nparams,
+                flags,
+            });
+        let res: Option<RemoteDomainGetSchedulerParametersFlagsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainGetSchedulerParametersFlags,
+            RemoteProcedure::RemoteProcDomainGetSchedulerParametersFlags,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainGetSchedulerParametersFlagsRet { params } = res;
+        Ok(params)
     }
     fn domain_event_control_error(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_control_error));
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventControlError,
+            RemoteProcedure::RemoteProcDomainEventControlError,
             req,
         )?;
         Ok(())
     }
     fn domain_pin_vcpu_flags(
         &mut self,
-        args: binding::RemoteDomainPinVcpuFlagsArgs,
+        dom: RemoteNonnullDomain,
+        vcpu: u32,
+        cpumap: Vec<u8>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_pin_vcpu_flags));
-        let req: Option<binding::RemoteDomainPinVcpuFlagsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainPinVcpuFlags,
-            req,
-        )?;
+        let req: Option<RemoteDomainPinVcpuFlagsArgs> = Some(RemoteDomainPinVcpuFlagsArgs {
+            dom,
+            vcpu,
+            cpumap,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainPinVcpuFlags, req)?;
         Ok(())
     }
-    fn domain_send_key(&mut self, args: binding::RemoteDomainSendKeyArgs) -> Result<(), Error> {
+    fn domain_send_key(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        codeset: u32,
+        holdtime: u32,
+        keycodes: Vec<u32>,
+        flags: u32,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_send_key));
-        let req: Option<binding::RemoteDomainSendKeyArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainSendKey, req)?;
+        let req: Option<RemoteDomainSendKeyArgs> = Some(RemoteDomainSendKeyArgs {
+            dom,
+            codeset,
+            holdtime,
+            keycodes,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSendKey, req)?;
         Ok(())
     }
     fn node_get_cpu_stats(
         &mut self,
-        args: binding::RemoteNodeGetCpuStatsArgs,
-    ) -> Result<binding::RemoteNodeGetCpuStatsRet, Error> {
+        cpu_num: i32,
+        nparams: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNodeGetCpuStats>, i32), Error> {
         trace!("{}", stringify!(node_get_cpu_stats));
-        let req: Option<binding::RemoteNodeGetCpuStatsArgs> = Some(args);
-        let res: Option<binding::RemoteNodeGetCpuStatsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeGetCpuStats,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeGetCpuStatsArgs> = Some(RemoteNodeGetCpuStatsArgs {
+            cpu_num,
+            nparams,
+            flags,
+        });
+        let res: Option<RemoteNodeGetCpuStatsRet> =
+            call(self, RemoteProcedure::RemoteProcNodeGetCpuStats, req)?;
+        let res = res.unwrap();
+        let RemoteNodeGetCpuStatsRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn node_get_memory_stats(
         &mut self,
-        args: binding::RemoteNodeGetMemoryStatsArgs,
-    ) -> Result<binding::RemoteNodeGetMemoryStatsRet, Error> {
+        nparams: i32,
+        cell_num: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNodeGetMemoryStats>, i32), Error> {
         trace!("{}", stringify!(node_get_memory_stats));
-        let req: Option<binding::RemoteNodeGetMemoryStatsArgs> = Some(args);
-        let res: Option<binding::RemoteNodeGetMemoryStatsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeGetMemoryStats,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeGetMemoryStatsArgs> = Some(RemoteNodeGetMemoryStatsArgs {
+            nparams,
+            cell_num,
+            flags,
+        });
+        let res: Option<RemoteNodeGetMemoryStatsRet> =
+            call(self, RemoteProcedure::RemoteProcNodeGetMemoryStats, req)?;
+        let res = res.unwrap();
+        let RemoteNodeGetMemoryStatsRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn domain_get_control_info(
         &mut self,
-        args: binding::RemoteDomainGetControlInfoArgs,
-    ) -> Result<binding::RemoteDomainGetControlInfoRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<(u32, u32, u64), Error> {
         trace!("{}", stringify!(domain_get_control_info));
-        let req: Option<binding::RemoteDomainGetControlInfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetControlInfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetControlInfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetControlInfoArgs> =
+            Some(RemoteDomainGetControlInfoArgs { dom, flags });
+        let res: Option<RemoteDomainGetControlInfoRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetControlInfo, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetControlInfoRet {
+            state,
+            details,
+            state_time,
+        } = res;
+        Ok((state, details, state_time))
     }
     fn domain_get_vcpu_pin_info(
         &mut self,
-        args: binding::RemoteDomainGetVcpuPinInfoArgs,
-    ) -> Result<binding::RemoteDomainGetVcpuPinInfoRet, Error> {
+        dom: RemoteNonnullDomain,
+        ncpumaps: i32,
+        maplen: i32,
+        flags: u32,
+    ) -> Result<(Vec<u8>, i32), Error> {
         trace!("{}", stringify!(domain_get_vcpu_pin_info));
-        let req: Option<binding::RemoteDomainGetVcpuPinInfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetVcpuPinInfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetVcpuPinInfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetVcpuPinInfoArgs> = Some(RemoteDomainGetVcpuPinInfoArgs {
+            dom,
+            ncpumaps,
+            maplen,
+            flags,
+        });
+        let res: Option<RemoteDomainGetVcpuPinInfoRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetVcpuPinInfo, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetVcpuPinInfoRet { cpumaps, num } = res;
+        Ok((cpumaps, num))
     }
-    fn domain_undefine_flags(
-        &mut self,
-        args: binding::RemoteDomainUndefineFlagsArgs,
-    ) -> Result<(), Error> {
+    fn domain_undefine_flags(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_undefine_flags));
-        let req: Option<binding::RemoteDomainUndefineFlagsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainUndefineFlags,
-            req,
-        )?;
+        let req: Option<RemoteDomainUndefineFlagsArgs> =
+            Some(RemoteDomainUndefineFlagsArgs { dom, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainUndefineFlags, req)?;
         Ok(())
     }
-    fn domain_save_flags(&mut self, args: binding::RemoteDomainSaveFlagsArgs) -> Result<(), Error> {
+    fn domain_save_flags(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        to: String,
+        dxml: Option<String>,
+        flags: u32,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_save_flags));
-        let req: Option<binding::RemoteDomainSaveFlagsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSaveFlags,
-            req,
-        )?;
+        let req: Option<RemoteDomainSaveFlagsArgs> = Some(RemoteDomainSaveFlagsArgs {
+            dom,
+            to,
+            dxml,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSaveFlags, req)?;
         Ok(())
     }
     fn domain_restore_flags(
         &mut self,
-        args: binding::RemoteDomainRestoreFlagsArgs,
+        from: String,
+        dxml: Option<String>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_restore_flags));
-        let req: Option<binding::RemoteDomainRestoreFlagsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainRestoreFlags,
-            req,
-        )?;
+        let req: Option<RemoteDomainRestoreFlagsArgs> =
+            Some(RemoteDomainRestoreFlagsArgs { from, dxml, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainRestoreFlags, req)?;
         Ok(())
     }
-    fn domain_destroy_flags(
-        &mut self,
-        args: binding::RemoteDomainDestroyFlagsArgs,
-    ) -> Result<(), Error> {
+    fn domain_destroy_flags(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_destroy_flags));
-        let req: Option<binding::RemoteDomainDestroyFlagsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainDestroyFlags,
-            req,
-        )?;
+        let req: Option<RemoteDomainDestroyFlagsArgs> =
+            Some(RemoteDomainDestroyFlagsArgs { dom, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainDestroyFlags, req)?;
         Ok(())
     }
     fn domain_save_image_get_xml_desc(
         &mut self,
-        args: binding::RemoteDomainSaveImageGetXmlDescArgs,
-    ) -> Result<binding::RemoteDomainSaveImageGetXmlDescRet, Error> {
+        file: String,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(domain_save_image_get_xml_desc));
-        let req: Option<binding::RemoteDomainSaveImageGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSaveImageGetXmlDescRet> = call(
+        let req: Option<RemoteDomainSaveImageGetXmlDescArgs> =
+            Some(RemoteDomainSaveImageGetXmlDescArgs { file, flags });
+        let res: Option<RemoteDomainSaveImageGetXmlDescRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSaveImageGetXmlDesc,
+            RemoteProcedure::RemoteProcDomainSaveImageGetXmlDesc,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSaveImageGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
     fn domain_save_image_define_xml(
         &mut self,
-        args: binding::RemoteDomainSaveImageDefineXmlArgs,
+        file: String,
+        dxml: String,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_save_image_define_xml));
-        let req: Option<binding::RemoteDomainSaveImageDefineXmlArgs> = Some(args);
+        let req: Option<RemoteDomainSaveImageDefineXmlArgs> =
+            Some(RemoteDomainSaveImageDefineXmlArgs { file, dxml, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSaveImageDefineXml,
+            RemoteProcedure::RemoteProcDomainSaveImageDefineXml,
             req,
         )?;
         Ok(())
     }
     fn domain_block_job_abort(
         &mut self,
-        args: binding::RemoteDomainBlockJobAbortArgs,
+        dom: RemoteNonnullDomain,
+        path: String,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_block_job_abort));
-        let req: Option<binding::RemoteDomainBlockJobAbortArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBlockJobAbort,
-            req,
-        )?;
+        let req: Option<RemoteDomainBlockJobAbortArgs> =
+            Some(RemoteDomainBlockJobAbortArgs { dom, path, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainBlockJobAbort, req)?;
         Ok(())
     }
     fn domain_get_block_job_info(
         &mut self,
-        args: binding::RemoteDomainGetBlockJobInfoArgs,
-    ) -> Result<binding::RemoteDomainGetBlockJobInfoRet, Error> {
+        dom: RemoteNonnullDomain,
+        path: String,
+        flags: u32,
+    ) -> Result<(i32, i32, u64, u64, u64), Error> {
         trace!("{}", stringify!(domain_get_block_job_info));
-        let req: Option<binding::RemoteDomainGetBlockJobInfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetBlockJobInfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetBlockJobInfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetBlockJobInfoArgs> =
+            Some(RemoteDomainGetBlockJobInfoArgs { dom, path, flags });
+        let res: Option<RemoteDomainGetBlockJobInfoRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetBlockJobInfo, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetBlockJobInfoRet {
+            found,
+            r#type,
+            bandwidth,
+            cur,
+            end,
+        } = res;
+        Ok((found, r#type, bandwidth, cur, end))
     }
     fn domain_block_job_set_speed(
         &mut self,
-        args: binding::RemoteDomainBlockJobSetSpeedArgs,
+        dom: RemoteNonnullDomain,
+        path: String,
+        bandwidth: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_block_job_set_speed));
-        let req: Option<binding::RemoteDomainBlockJobSetSpeedArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBlockJobSetSpeed,
-            req,
-        )?;
+        let req: Option<RemoteDomainBlockJobSetSpeedArgs> =
+            Some(RemoteDomainBlockJobSetSpeedArgs {
+                dom,
+                path,
+                bandwidth,
+                flags,
+            });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainBlockJobSetSpeed, req)?;
         Ok(())
     }
-    fn domain_block_pull(&mut self, args: binding::RemoteDomainBlockPullArgs) -> Result<(), Error> {
+    fn domain_block_pull(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        path: String,
+        bandwidth: u64,
+        flags: u32,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_block_pull));
-        let req: Option<binding::RemoteDomainBlockPullArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBlockPull,
-            req,
-        )?;
+        let req: Option<RemoteDomainBlockPullArgs> = Some(RemoteDomainBlockPullArgs {
+            dom,
+            path,
+            bandwidth,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainBlockPull, req)?;
         Ok(())
     }
     fn domain_event_block_job(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_block_job));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventBlockJob,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventBlockJob, req)?;
         Ok(())
     }
     fn domain_migrate_get_max_speed(
         &mut self,
-        args: binding::RemoteDomainMigrateGetMaxSpeedArgs,
-    ) -> Result<binding::RemoteDomainMigrateGetMaxSpeedRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<u64, Error> {
         trace!("{}", stringify!(domain_migrate_get_max_speed));
-        let req: Option<binding::RemoteDomainMigrateGetMaxSpeedArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMigrateGetMaxSpeedRet> = call(
+        let req: Option<RemoteDomainMigrateGetMaxSpeedArgs> =
+            Some(RemoteDomainMigrateGetMaxSpeedArgs { dom, flags });
+        let res: Option<RemoteDomainMigrateGetMaxSpeedRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateGetMaxSpeed,
+            RemoteProcedure::RemoteProcDomainMigrateGetMaxSpeed,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainMigrateGetMaxSpeedRet { bandwidth } = res;
+        Ok(bandwidth)
     }
     fn domain_block_stats_flags(
         &mut self,
-        args: binding::RemoteDomainBlockStatsFlagsArgs,
-    ) -> Result<binding::RemoteDomainBlockStatsFlagsRet, Error> {
+        dom: RemoteNonnullDomain,
+        path: String,
+        nparams: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteTypedParam>, i32), Error> {
         trace!("{}", stringify!(domain_block_stats_flags));
-        let req: Option<binding::RemoteDomainBlockStatsFlagsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainBlockStatsFlagsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBlockStatsFlags,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainBlockStatsFlagsArgs> = Some(RemoteDomainBlockStatsFlagsArgs {
+            dom,
+            path,
+            nparams,
+            flags,
+        });
+        let res: Option<RemoteDomainBlockStatsFlagsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainBlockStatsFlags, req)?;
+        let res = res.unwrap();
+        let RemoteDomainBlockStatsFlagsRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn domain_snapshot_get_parent(
         &mut self,
-        args: binding::RemoteDomainSnapshotGetParentArgs,
-    ) -> Result<binding::RemoteDomainSnapshotGetParentRet, Error> {
+        snap: RemoteNonnullDomainSnapshot,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomainSnapshot, Error> {
         trace!("{}", stringify!(domain_snapshot_get_parent));
-        let req: Option<binding::RemoteDomainSnapshotGetParentArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotGetParentRet> = call(
+        let req: Option<RemoteDomainSnapshotGetParentArgs> =
+            Some(RemoteDomainSnapshotGetParentArgs { snap, flags });
+        let res: Option<RemoteDomainSnapshotGetParentRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotGetParent,
+            RemoteProcedure::RemoteProcDomainSnapshotGetParent,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSnapshotGetParentRet { snap } = res;
+        Ok(snap)
     }
-    fn domain_reset(&mut self, args: binding::RemoteDomainResetArgs) -> Result<(), Error> {
+    fn domain_reset(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_reset));
-        let req: Option<binding::RemoteDomainResetArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainReset, req)?;
+        let req: Option<RemoteDomainResetArgs> = Some(RemoteDomainResetArgs { dom, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainReset, req)?;
         Ok(())
     }
     fn domain_snapshot_num_children(
         &mut self,
-        args: binding::RemoteDomainSnapshotNumChildrenArgs,
-    ) -> Result<binding::RemoteDomainSnapshotNumChildrenRet, Error> {
+        snap: RemoteNonnullDomainSnapshot,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_snapshot_num_children));
-        let req: Option<binding::RemoteDomainSnapshotNumChildrenArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotNumChildrenRet> = call(
+        let req: Option<RemoteDomainSnapshotNumChildrenArgs> =
+            Some(RemoteDomainSnapshotNumChildrenArgs { snap, flags });
+        let res: Option<RemoteDomainSnapshotNumChildrenRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotNumChildren,
+            RemoteProcedure::RemoteProcDomainSnapshotNumChildren,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSnapshotNumChildrenRet { num } = res;
+        Ok(num)
     }
     fn domain_snapshot_list_children_names(
         &mut self,
-        args: binding::RemoteDomainSnapshotListChildrenNamesArgs,
-    ) -> Result<binding::RemoteDomainSnapshotListChildrenNamesRet, Error> {
+        snap: RemoteNonnullDomainSnapshot,
+        maxnames: i32,
+        flags: u32,
+    ) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(domain_snapshot_list_children_names));
-        let req: Option<binding::RemoteDomainSnapshotListChildrenNamesArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotListChildrenNamesRet> = call(
+        let req: Option<RemoteDomainSnapshotListChildrenNamesArgs> =
+            Some(RemoteDomainSnapshotListChildrenNamesArgs {
+                snap,
+                maxnames,
+                flags,
+            });
+        let res: Option<RemoteDomainSnapshotListChildrenNamesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotListChildrenNames,
+            RemoteProcedure::RemoteProcDomainSnapshotListChildrenNames,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSnapshotListChildrenNamesRet { names } = res;
+        Ok(names)
     }
     fn domain_event_disk_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_disk_change));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventDiskChange,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventDiskChange, req)?;
         Ok(())
     }
     fn domain_open_graphics(
         &mut self,
-        args: binding::RemoteDomainOpenGraphicsArgs,
+        dom: RemoteNonnullDomain,
+        idx: u32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_open_graphics));
-        let req: Option<binding::RemoteDomainOpenGraphicsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainOpenGraphics,
-            req,
-        )?;
+        let req: Option<RemoteDomainOpenGraphicsArgs> =
+            Some(RemoteDomainOpenGraphicsArgs { dom, idx, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainOpenGraphics, req)?;
         Ok(())
     }
     fn node_suspend_for_duration(
         &mut self,
-        args: binding::RemoteNodeSuspendForDurationArgs,
+        target: u32,
+        duration: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(node_suspend_for_duration));
-        let req: Option<binding::RemoteNodeSuspendForDurationArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeSuspendForDuration,
-            req,
-        )?;
+        let req: Option<RemoteNodeSuspendForDurationArgs> =
+            Some(RemoteNodeSuspendForDurationArgs {
+                target,
+                duration,
+                flags,
+            });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeSuspendForDuration, req)?;
         Ok(())
     }
     fn domain_block_resize(
         &mut self,
-        args: binding::RemoteDomainBlockResizeArgs,
+        dom: RemoteNonnullDomain,
+        disk: String,
+        size: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_block_resize));
-        let req: Option<binding::RemoteDomainBlockResizeArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBlockResize,
-            req,
-        )?;
+        let req: Option<RemoteDomainBlockResizeArgs> = Some(RemoteDomainBlockResizeArgs {
+            dom,
+            disk,
+            size,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainBlockResize, req)?;
         Ok(())
     }
     fn domain_set_block_io_tune(
         &mut self,
-        args: binding::RemoteDomainSetBlockIoTuneArgs,
+        dom: RemoteNonnullDomain,
+        disk: String,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_block_io_tune));
-        let req: Option<binding::RemoteDomainSetBlockIoTuneArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetBlockIoTune,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetBlockIoTuneArgs> = Some(RemoteDomainSetBlockIoTuneArgs {
+            dom,
+            disk,
+            params,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetBlockIoTune, req)?;
         Ok(())
     }
     fn domain_get_block_io_tune(
         &mut self,
-        args: binding::RemoteDomainGetBlockIoTuneArgs,
-    ) -> Result<binding::RemoteDomainGetBlockIoTuneRet, Error> {
+        dom: RemoteNonnullDomain,
+        disk: Option<String>,
+        nparams: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteTypedParam>, i32), Error> {
         trace!("{}", stringify!(domain_get_block_io_tune));
-        let req: Option<binding::RemoteDomainGetBlockIoTuneArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetBlockIoTuneRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetBlockIoTune,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetBlockIoTuneArgs> = Some(RemoteDomainGetBlockIoTuneArgs {
+            dom,
+            disk,
+            nparams,
+            flags,
+        });
+        let res: Option<RemoteDomainGetBlockIoTuneRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetBlockIoTune, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetBlockIoTuneRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn domain_set_numa_parameters(
         &mut self,
-        args: binding::RemoteDomainSetNumaParametersArgs,
+        dom: RemoteNonnullDomain,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_numa_parameters));
-        let req: Option<binding::RemoteDomainSetNumaParametersArgs> = Some(args);
+        let req: Option<RemoteDomainSetNumaParametersArgs> =
+            Some(RemoteDomainSetNumaParametersArgs { dom, params, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetNumaParameters,
+            RemoteProcedure::RemoteProcDomainSetNumaParameters,
             req,
         )?;
         Ok(())
     }
     fn domain_get_numa_parameters(
         &mut self,
-        args: binding::RemoteDomainGetNumaParametersArgs,
-    ) -> Result<binding::RemoteDomainGetNumaParametersRet, Error> {
+        dom: RemoteNonnullDomain,
+        nparams: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteTypedParam>, i32), Error> {
         trace!("{}", stringify!(domain_get_numa_parameters));
-        let req: Option<binding::RemoteDomainGetNumaParametersArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetNumaParametersRet> = call(
+        let req: Option<RemoteDomainGetNumaParametersArgs> =
+            Some(RemoteDomainGetNumaParametersArgs {
+                dom,
+                nparams,
+                flags,
+            });
+        let res: Option<RemoteDomainGetNumaParametersRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainGetNumaParameters,
+            RemoteProcedure::RemoteProcDomainGetNumaParameters,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainGetNumaParametersRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn domain_set_interface_parameters(
         &mut self,
-        args: binding::RemoteDomainSetInterfaceParametersArgs,
+        dom: RemoteNonnullDomain,
+        device: String,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_interface_parameters));
-        let req: Option<binding::RemoteDomainSetInterfaceParametersArgs> = Some(args);
+        let req: Option<RemoteDomainSetInterfaceParametersArgs> =
+            Some(RemoteDomainSetInterfaceParametersArgs {
+                dom,
+                device,
+                params,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetInterfaceParameters,
+            RemoteProcedure::RemoteProcDomainSetInterfaceParameters,
             req,
         )?;
         Ok(())
     }
     fn domain_get_interface_parameters(
         &mut self,
-        args: binding::RemoteDomainGetInterfaceParametersArgs,
-    ) -> Result<binding::RemoteDomainGetInterfaceParametersRet, Error> {
+        dom: RemoteNonnullDomain,
+        device: String,
+        nparams: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteTypedParam>, i32), Error> {
         trace!("{}", stringify!(domain_get_interface_parameters));
-        let req: Option<binding::RemoteDomainGetInterfaceParametersArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetInterfaceParametersRet> = call(
+        let req: Option<RemoteDomainGetInterfaceParametersArgs> =
+            Some(RemoteDomainGetInterfaceParametersArgs {
+                dom,
+                device,
+                nparams,
+                flags,
+            });
+        let res: Option<RemoteDomainGetInterfaceParametersRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainGetInterfaceParameters,
+            RemoteProcedure::RemoteProcDomainGetInterfaceParameters,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainGetInterfaceParametersRet { params, nparams } = res;
+        Ok((params, nparams))
     }
-    fn domain_shutdown_flags(
-        &mut self,
-        args: binding::RemoteDomainShutdownFlagsArgs,
-    ) -> Result<(), Error> {
+    fn domain_shutdown_flags(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_shutdown_flags));
-        let req: Option<binding::RemoteDomainShutdownFlagsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainShutdownFlags,
-            req,
-        )?;
+        let req: Option<RemoteDomainShutdownFlagsArgs> =
+            Some(RemoteDomainShutdownFlagsArgs { dom, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainShutdownFlags, req)?;
         Ok(())
     }
     fn storage_vol_wipe_pattern(
         &mut self,
-        args: binding::RemoteStorageVolWipePatternArgs,
+        vol: RemoteNonnullStorageVol,
+        algorithm: u32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(storage_vol_wipe_pattern));
-        let req: Option<binding::RemoteStorageVolWipePatternArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolWipePattern,
-            req,
-        )?;
+        let req: Option<RemoteStorageVolWipePatternArgs> = Some(RemoteStorageVolWipePatternArgs {
+            vol,
+            algorithm,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStorageVolWipePattern, req)?;
         Ok(())
     }
     fn storage_vol_resize(
         &mut self,
-        args: binding::RemoteStorageVolResizeArgs,
+        vol: RemoteNonnullStorageVol,
+        capacity: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(storage_vol_resize));
-        let req: Option<binding::RemoteStorageVolResizeArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolResize,
-            req,
-        )?;
+        let req: Option<RemoteStorageVolResizeArgs> = Some(RemoteStorageVolResizeArgs {
+            vol,
+            capacity,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcStorageVolResize, req)?;
         Ok(())
     }
     fn domain_pm_suspend_for_duration(
         &mut self,
-        args: binding::RemoteDomainPmSuspendForDurationArgs,
+        dom: RemoteNonnullDomain,
+        target: u32,
+        duration: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_pm_suspend_for_duration));
-        let req: Option<binding::RemoteDomainPmSuspendForDurationArgs> = Some(args);
+        let req: Option<RemoteDomainPmSuspendForDurationArgs> =
+            Some(RemoteDomainPmSuspendForDurationArgs {
+                dom,
+                target,
+                duration,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainPmSuspendForDuration,
+            RemoteProcedure::RemoteProcDomainPmSuspendForDuration,
             req,
         )?;
         Ok(())
     }
     fn domain_get_cpu_stats(
         &mut self,
-        args: binding::RemoteDomainGetCpuStatsArgs,
-    ) -> Result<binding::RemoteDomainGetCpuStatsRet, Error> {
+        dom: RemoteNonnullDomain,
+        nparams: u32,
+        start_cpu: i32,
+        ncpus: u32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteTypedParam>, i32), Error> {
         trace!("{}", stringify!(domain_get_cpu_stats));
-        let req: Option<binding::RemoteDomainGetCpuStatsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetCpuStatsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetCpuStats,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetCpuStatsArgs> = Some(RemoteDomainGetCpuStatsArgs {
+            dom,
+            nparams,
+            start_cpu,
+            ncpus,
+            flags,
+        });
+        let res: Option<RemoteDomainGetCpuStatsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetCpuStats, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetCpuStatsRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn domain_get_disk_errors(
         &mut self,
-        args: binding::RemoteDomainGetDiskErrorsArgs,
-    ) -> Result<binding::RemoteDomainGetDiskErrorsRet, Error> {
+        dom: RemoteNonnullDomain,
+        maxerrors: u32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteDomainDiskError>, i32), Error> {
         trace!("{}", stringify!(domain_get_disk_errors));
-        let req: Option<binding::RemoteDomainGetDiskErrorsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetDiskErrorsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetDiskErrors,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetDiskErrorsArgs> = Some(RemoteDomainGetDiskErrorsArgs {
+            dom,
+            maxerrors,
+            flags,
+        });
+        let res: Option<RemoteDomainGetDiskErrorsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetDiskErrors, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetDiskErrorsRet { errors, nerrors } = res;
+        Ok((errors, nerrors))
     }
     fn domain_set_metadata(
         &mut self,
-        args: binding::RemoteDomainSetMetadataArgs,
+        dom: RemoteNonnullDomain,
+        r#type: i32,
+        metadata: Option<String>,
+        key: Option<String>,
+        uri: Option<String>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_metadata));
-        let req: Option<binding::RemoteDomainSetMetadataArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetMetadata,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetMetadataArgs> = Some(RemoteDomainSetMetadataArgs {
+            dom,
+            r#type,
+            metadata,
+            key,
+            uri,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetMetadata, req)?;
         Ok(())
     }
     fn domain_get_metadata(
         &mut self,
-        args: binding::RemoteDomainGetMetadataArgs,
-    ) -> Result<binding::RemoteDomainGetMetadataRet, Error> {
+        dom: RemoteNonnullDomain,
+        r#type: i32,
+        uri: Option<String>,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(domain_get_metadata));
-        let req: Option<binding::RemoteDomainGetMetadataArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetMetadataRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetMetadata,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetMetadataArgs> = Some(RemoteDomainGetMetadataArgs {
+            dom,
+            r#type,
+            uri,
+            flags,
+        });
+        let res: Option<RemoteDomainGetMetadataRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetMetadata, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetMetadataRet { metadata } = res;
+        Ok(metadata)
     }
     fn domain_block_rebase(
         &mut self,
-        args: binding::RemoteDomainBlockRebaseArgs,
+        dom: RemoteNonnullDomain,
+        path: String,
+        base: Option<String>,
+        bandwidth: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_block_rebase));
-        let req: Option<binding::RemoteDomainBlockRebaseArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBlockRebase,
-            req,
-        )?;
+        let req: Option<RemoteDomainBlockRebaseArgs> = Some(RemoteDomainBlockRebaseArgs {
+            dom,
+            path,
+            base,
+            bandwidth,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainBlockRebase, req)?;
         Ok(())
     }
-    fn domain_pm_wakeup(&mut self, args: binding::RemoteDomainPmWakeupArgs) -> Result<(), Error> {
+    fn domain_pm_wakeup(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_pm_wakeup));
-        let req: Option<binding::RemoteDomainPmWakeupArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainPmWakeup,
-            req,
-        )?;
+        let req: Option<RemoteDomainPmWakeupArgs> = Some(RemoteDomainPmWakeupArgs { dom, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainPmWakeup, req)?;
         Ok(())
     }
     fn domain_event_tray_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_tray_change));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventTrayChange,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventTrayChange, req)?;
         Ok(())
     }
     fn domain_event_pmwakeup(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_pmwakeup));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventPmwakeup,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventPmwakeup, req)?;
         Ok(())
     }
     fn domain_event_pmsuspend(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_pmsuspend));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventPmsuspend,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventPmsuspend, req)?;
         Ok(())
     }
     fn domain_snapshot_is_current(
         &mut self,
-        args: binding::RemoteDomainSnapshotIsCurrentArgs,
-    ) -> Result<binding::RemoteDomainSnapshotIsCurrentRet, Error> {
+        snap: RemoteNonnullDomainSnapshot,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_snapshot_is_current));
-        let req: Option<binding::RemoteDomainSnapshotIsCurrentArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotIsCurrentRet> = call(
+        let req: Option<RemoteDomainSnapshotIsCurrentArgs> =
+            Some(RemoteDomainSnapshotIsCurrentArgs { snap, flags });
+        let res: Option<RemoteDomainSnapshotIsCurrentRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotIsCurrent,
+            RemoteProcedure::RemoteProcDomainSnapshotIsCurrent,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSnapshotIsCurrentRet { current } = res;
+        Ok(current)
     }
     fn domain_snapshot_has_metadata(
         &mut self,
-        args: binding::RemoteDomainSnapshotHasMetadataArgs,
-    ) -> Result<binding::RemoteDomainSnapshotHasMetadataRet, Error> {
+        snap: RemoteNonnullDomainSnapshot,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_snapshot_has_metadata));
-        let req: Option<binding::RemoteDomainSnapshotHasMetadataArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotHasMetadataRet> = call(
+        let req: Option<RemoteDomainSnapshotHasMetadataArgs> =
+            Some(RemoteDomainSnapshotHasMetadataArgs { snap, flags });
+        let res: Option<RemoteDomainSnapshotHasMetadataRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotHasMetadata,
+            RemoteProcedure::RemoteProcDomainSnapshotHasMetadata,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSnapshotHasMetadataRet { metadata } = res;
+        Ok(metadata)
     }
     fn connect_list_all_domains(
         &mut self,
-        args: binding::RemoteConnectListAllDomainsArgs,
-    ) -> Result<binding::RemoteConnectListAllDomainsRet, Error> {
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullDomain>, u32), Error> {
         trace!("{}", stringify!(connect_list_all_domains));
-        let req: Option<binding::RemoteConnectListAllDomainsArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListAllDomainsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectListAllDomains,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectListAllDomainsArgs> = Some(RemoteConnectListAllDomainsArgs {
+            need_results,
+            flags,
+        });
+        let res: Option<RemoteConnectListAllDomainsRet> =
+            call(self, RemoteProcedure::RemoteProcConnectListAllDomains, req)?;
+        let res = res.unwrap();
+        let RemoteConnectListAllDomainsRet { domains, ret } = res;
+        Ok((domains, ret))
     }
     fn domain_list_all_snapshots(
         &mut self,
-        args: binding::RemoteDomainListAllSnapshotsArgs,
-    ) -> Result<binding::RemoteDomainListAllSnapshotsRet, Error> {
+        dom: RemoteNonnullDomain,
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullDomainSnapshot>, i32), Error> {
         trace!("{}", stringify!(domain_list_all_snapshots));
-        let req: Option<binding::RemoteDomainListAllSnapshotsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainListAllSnapshotsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainListAllSnapshots,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainListAllSnapshotsArgs> =
+            Some(RemoteDomainListAllSnapshotsArgs {
+                dom,
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteDomainListAllSnapshotsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainListAllSnapshots, req)?;
+        let res = res.unwrap();
+        let RemoteDomainListAllSnapshotsRet { snapshots, ret } = res;
+        Ok((snapshots, ret))
     }
     fn domain_snapshot_list_all_children(
         &mut self,
-        args: binding::RemoteDomainSnapshotListAllChildrenArgs,
-    ) -> Result<binding::RemoteDomainSnapshotListAllChildrenRet, Error> {
+        snapshot: RemoteNonnullDomainSnapshot,
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullDomainSnapshot>, i32), Error> {
         trace!("{}", stringify!(domain_snapshot_list_all_children));
-        let req: Option<binding::RemoteDomainSnapshotListAllChildrenArgs> = Some(args);
-        let res: Option<binding::RemoteDomainSnapshotListAllChildrenRet> = call(
+        let req: Option<RemoteDomainSnapshotListAllChildrenArgs> =
+            Some(RemoteDomainSnapshotListAllChildrenArgs {
+                snapshot,
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteDomainSnapshotListAllChildrenRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSnapshotListAllChildren,
+            RemoteProcedure::RemoteProcDomainSnapshotListAllChildren,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainSnapshotListAllChildrenRet { snapshots, ret } = res;
+        Ok((snapshots, ret))
     }
     fn domain_event_balloon_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_balloon_change));
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventBalloonChange,
+            RemoteProcedure::RemoteProcDomainEventBalloonChange,
             req,
         )?;
         Ok(())
     }
     fn domain_get_hostname(
         &mut self,
-        args: binding::RemoteDomainGetHostnameArgs,
-    ) -> Result<binding::RemoteDomainGetHostnameRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(domain_get_hostname));
-        let req: Option<binding::RemoteDomainGetHostnameArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetHostnameRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetHostname,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetHostnameArgs> =
+            Some(RemoteDomainGetHostnameArgs { dom, flags });
+        let res: Option<RemoteDomainGetHostnameRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetHostname, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetHostnameRet { hostname } = res;
+        Ok(hostname)
     }
     fn domain_get_security_label_list(
         &mut self,
-        args: binding::RemoteDomainGetSecurityLabelListArgs,
-    ) -> Result<binding::RemoteDomainGetSecurityLabelListRet, Error> {
+        dom: RemoteNonnullDomain,
+    ) -> Result<(Vec<RemoteDomainGetSecurityLabelRet>, i32), Error> {
         trace!("{}", stringify!(domain_get_security_label_list));
-        let req: Option<binding::RemoteDomainGetSecurityLabelListArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetSecurityLabelListRet> = call(
+        let req: Option<RemoteDomainGetSecurityLabelListArgs> =
+            Some(RemoteDomainGetSecurityLabelListArgs { dom });
+        let res: Option<RemoteDomainGetSecurityLabelListRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainGetSecurityLabelList,
+            RemoteProcedure::RemoteProcDomainGetSecurityLabelList,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainGetSecurityLabelListRet { labels, ret } = res;
+        Ok((labels, ret))
     }
     fn domain_pin_emulator(
         &mut self,
-        args: binding::RemoteDomainPinEmulatorArgs,
+        dom: RemoteNonnullDomain,
+        cpumap: Vec<u8>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_pin_emulator));
-        let req: Option<binding::RemoteDomainPinEmulatorArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainPinEmulator,
-            req,
-        )?;
+        let req: Option<RemoteDomainPinEmulatorArgs> =
+            Some(RemoteDomainPinEmulatorArgs { dom, cpumap, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainPinEmulator, req)?;
         Ok(())
     }
     fn domain_get_emulator_pin_info(
         &mut self,
-        args: binding::RemoteDomainGetEmulatorPinInfoArgs,
-    ) -> Result<binding::RemoteDomainGetEmulatorPinInfoRet, Error> {
+        dom: RemoteNonnullDomain,
+        maplen: i32,
+        flags: u32,
+    ) -> Result<(Vec<u8>, i32), Error> {
         trace!("{}", stringify!(domain_get_emulator_pin_info));
-        let req: Option<binding::RemoteDomainGetEmulatorPinInfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetEmulatorPinInfoRet> = call(
+        let req: Option<RemoteDomainGetEmulatorPinInfoArgs> =
+            Some(RemoteDomainGetEmulatorPinInfoArgs { dom, maplen, flags });
+        let res: Option<RemoteDomainGetEmulatorPinInfoRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainGetEmulatorPinInfo,
+            RemoteProcedure::RemoteProcDomainGetEmulatorPinInfo,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainGetEmulatorPinInfoRet { cpumaps, ret } = res;
+        Ok((cpumaps, ret))
     }
     fn connect_list_all_storage_pools(
         &mut self,
-        args: binding::RemoteConnectListAllStoragePoolsArgs,
-    ) -> Result<binding::RemoteConnectListAllStoragePoolsRet, Error> {
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullStoragePool>, u32), Error> {
         trace!("{}", stringify!(connect_list_all_storage_pools));
-        let req: Option<binding::RemoteConnectListAllStoragePoolsArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListAllStoragePoolsRet> = call(
+        let req: Option<RemoteConnectListAllStoragePoolsArgs> =
+            Some(RemoteConnectListAllStoragePoolsArgs {
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteConnectListAllStoragePoolsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectListAllStoragePools,
+            RemoteProcedure::RemoteProcConnectListAllStoragePools,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectListAllStoragePoolsRet { pools, ret } = res;
+        Ok((pools, ret))
     }
     fn storage_pool_list_all_volumes(
         &mut self,
-        args: binding::RemoteStoragePoolListAllVolumesArgs,
-    ) -> Result<binding::RemoteStoragePoolListAllVolumesRet, Error> {
+        pool: RemoteNonnullStoragePool,
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullStorageVol>, u32), Error> {
         trace!("{}", stringify!(storage_pool_list_all_volumes));
-        let req: Option<binding::RemoteStoragePoolListAllVolumesArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolListAllVolumesRet> = call(
+        let req: Option<RemoteStoragePoolListAllVolumesArgs> =
+            Some(RemoteStoragePoolListAllVolumesArgs {
+                pool,
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteStoragePoolListAllVolumesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolListAllVolumes,
+            RemoteProcedure::RemoteProcStoragePoolListAllVolumes,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteStoragePoolListAllVolumesRet { vols, ret } = res;
+        Ok((vols, ret))
     }
     fn connect_list_all_networks(
         &mut self,
-        args: binding::RemoteConnectListAllNetworksArgs,
-    ) -> Result<binding::RemoteConnectListAllNetworksRet, Error> {
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullNetwork>, u32), Error> {
         trace!("{}", stringify!(connect_list_all_networks));
-        let req: Option<binding::RemoteConnectListAllNetworksArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListAllNetworksRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectListAllNetworks,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectListAllNetworksArgs> =
+            Some(RemoteConnectListAllNetworksArgs {
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteConnectListAllNetworksRet> =
+            call(self, RemoteProcedure::RemoteProcConnectListAllNetworks, req)?;
+        let res = res.unwrap();
+        let RemoteConnectListAllNetworksRet { nets, ret } = res;
+        Ok((nets, ret))
     }
     fn connect_list_all_interfaces(
         &mut self,
-        args: binding::RemoteConnectListAllInterfacesArgs,
-    ) -> Result<binding::RemoteConnectListAllInterfacesRet, Error> {
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullInterface>, u32), Error> {
         trace!("{}", stringify!(connect_list_all_interfaces));
-        let req: Option<binding::RemoteConnectListAllInterfacesArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListAllInterfacesRet> = call(
+        let req: Option<RemoteConnectListAllInterfacesArgs> =
+            Some(RemoteConnectListAllInterfacesArgs {
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteConnectListAllInterfacesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectListAllInterfaces,
+            RemoteProcedure::RemoteProcConnectListAllInterfaces,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectListAllInterfacesRet { ifaces, ret } = res;
+        Ok((ifaces, ret))
     }
     fn connect_list_all_node_devices(
         &mut self,
-        args: binding::RemoteConnectListAllNodeDevicesArgs,
-    ) -> Result<binding::RemoteConnectListAllNodeDevicesRet, Error> {
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullNodeDevice>, u32), Error> {
         trace!("{}", stringify!(connect_list_all_node_devices));
-        let req: Option<binding::RemoteConnectListAllNodeDevicesArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListAllNodeDevicesRet> = call(
+        let req: Option<RemoteConnectListAllNodeDevicesArgs> =
+            Some(RemoteConnectListAllNodeDevicesArgs {
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteConnectListAllNodeDevicesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectListAllNodeDevices,
+            RemoteProcedure::RemoteProcConnectListAllNodeDevices,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectListAllNodeDevicesRet { devices, ret } = res;
+        Ok((devices, ret))
     }
     fn connect_list_all_nwfilters(
         &mut self,
-        args: binding::RemoteConnectListAllNwfiltersArgs,
-    ) -> Result<binding::RemoteConnectListAllNwfiltersRet, Error> {
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullNwfilter>, u32), Error> {
         trace!("{}", stringify!(connect_list_all_nwfilters));
-        let req: Option<binding::RemoteConnectListAllNwfiltersArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListAllNwfiltersRet> = call(
+        let req: Option<RemoteConnectListAllNwfiltersArgs> =
+            Some(RemoteConnectListAllNwfiltersArgs {
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteConnectListAllNwfiltersRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectListAllNwfilters,
+            RemoteProcedure::RemoteProcConnectListAllNwfilters,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectListAllNwfiltersRet { filters, ret } = res;
+        Ok((filters, ret))
     }
     fn connect_list_all_secrets(
         &mut self,
-        args: binding::RemoteConnectListAllSecretsArgs,
-    ) -> Result<binding::RemoteConnectListAllSecretsRet, Error> {
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullSecret>, u32), Error> {
         trace!("{}", stringify!(connect_list_all_secrets));
-        let req: Option<binding::RemoteConnectListAllSecretsArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListAllSecretsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectListAllSecrets,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteConnectListAllSecretsArgs> = Some(RemoteConnectListAllSecretsArgs {
+            need_results,
+            flags,
+        });
+        let res: Option<RemoteConnectListAllSecretsRet> =
+            call(self, RemoteProcedure::RemoteProcConnectListAllSecrets, req)?;
+        let res = res.unwrap();
+        let RemoteConnectListAllSecretsRet { secrets, ret } = res;
+        Ok((secrets, ret))
     }
     fn node_set_memory_parameters(
         &mut self,
-        args: binding::RemoteNodeSetMemoryParametersArgs,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(node_set_memory_parameters));
-        let req: Option<binding::RemoteNodeSetMemoryParametersArgs> = Some(args);
+        let req: Option<RemoteNodeSetMemoryParametersArgs> =
+            Some(RemoteNodeSetMemoryParametersArgs { params, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcNodeSetMemoryParameters,
+            RemoteProcedure::RemoteProcNodeSetMemoryParameters,
             req,
         )?;
         Ok(())
     }
     fn node_get_memory_parameters(
         &mut self,
-        args: binding::RemoteNodeGetMemoryParametersArgs,
-    ) -> Result<binding::RemoteNodeGetMemoryParametersRet, Error> {
+        nparams: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteTypedParam>, i32), Error> {
         trace!("{}", stringify!(node_get_memory_parameters));
-        let req: Option<binding::RemoteNodeGetMemoryParametersArgs> = Some(args);
-        let res: Option<binding::RemoteNodeGetMemoryParametersRet> = call(
+        let req: Option<RemoteNodeGetMemoryParametersArgs> =
+            Some(RemoteNodeGetMemoryParametersArgs { nparams, flags });
+        let res: Option<RemoteNodeGetMemoryParametersRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcNodeGetMemoryParameters,
+            RemoteProcedure::RemoteProcNodeGetMemoryParameters,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteNodeGetMemoryParametersRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn domain_block_commit(
         &mut self,
-        args: binding::RemoteDomainBlockCommitArgs,
+        dom: RemoteNonnullDomain,
+        disk: String,
+        base: Option<String>,
+        top: Option<String>,
+        bandwidth: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_block_commit));
-        let req: Option<binding::RemoteDomainBlockCommitArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBlockCommit,
-            req,
-        )?;
+        let req: Option<RemoteDomainBlockCommitArgs> = Some(RemoteDomainBlockCommitArgs {
+            dom,
+            disk,
+            base,
+            top,
+            bandwidth,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainBlockCommit, req)?;
         Ok(())
     }
-    fn network_update(&mut self, args: binding::RemoteNetworkUpdateArgs) -> Result<(), Error> {
+    fn network_update(
+        &mut self,
+        net: RemoteNonnullNetwork,
+        command: u32,
+        section: u32,
+        parent_index: i32,
+        xml: String,
+        flags: u32,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(network_update));
-        let req: Option<binding::RemoteNetworkUpdateArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcNetworkUpdate, req)?;
+        let req: Option<RemoteNetworkUpdateArgs> = Some(RemoteNetworkUpdateArgs {
+            net,
+            command,
+            section,
+            parent_index,
+            xml,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNetworkUpdate, req)?;
         Ok(())
     }
     fn domain_event_pmsuspend_disk(&mut self) -> Result<(), Error> {
@@ -3556,280 +3859,410 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventPmsuspendDisk,
+            RemoteProcedure::RemoteProcDomainEventPmsuspendDisk,
             req,
         )?;
         Ok(())
     }
     fn node_get_cpu_map(
         &mut self,
-        args: binding::RemoteNodeGetCpuMapArgs,
-    ) -> Result<binding::RemoteNodeGetCpuMapRet, Error> {
+        need_map: i32,
+        need_online: i32,
+        flags: u32,
+    ) -> Result<(Vec<u8>, u32, i32), Error> {
         trace!("{}", stringify!(node_get_cpu_map));
-        let req: Option<binding::RemoteNodeGetCpuMapArgs> = Some(args);
-        let res: Option<binding::RemoteNodeGetCpuMapRet> =
-            call(self, binding::RemoteProcedure::RemoteProcNodeGetCpuMap, req)?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeGetCpuMapArgs> = Some(RemoteNodeGetCpuMapArgs {
+            need_map,
+            need_online,
+            flags,
+        });
+        let res: Option<RemoteNodeGetCpuMapRet> =
+            call(self, RemoteProcedure::RemoteProcNodeGetCpuMap, req)?;
+        let res = res.unwrap();
+        let RemoteNodeGetCpuMapRet {
+            cpumap,
+            online,
+            ret,
+        } = res;
+        Ok((cpumap, online, ret))
     }
-    fn domain_fstrim(&mut self, args: binding::RemoteDomainFstrimArgs) -> Result<(), Error> {
+    fn domain_fstrim(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        mount_point: Option<String>,
+        minimum: u64,
+        flags: u32,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_fstrim));
-        let req: Option<binding::RemoteDomainFstrimArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainFstrim, req)?;
+        let req: Option<RemoteDomainFstrimArgs> = Some(RemoteDomainFstrimArgs {
+            dom,
+            mount_point,
+            minimum,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainFstrim, req)?;
         Ok(())
     }
     fn domain_send_process_signal(
         &mut self,
-        args: binding::RemoteDomainSendProcessSignalArgs,
+        dom: RemoteNonnullDomain,
+        pid_value: i64,
+        signum: u32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_send_process_signal));
-        let req: Option<binding::RemoteDomainSendProcessSignalArgs> = Some(args);
+        let req: Option<RemoteDomainSendProcessSignalArgs> =
+            Some(RemoteDomainSendProcessSignalArgs {
+                dom,
+                pid_value,
+                signum,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSendProcessSignal,
+            RemoteProcedure::RemoteProcDomainSendProcessSignal,
             req,
         )?;
         Ok(())
     }
     fn domain_open_channel(
         &mut self,
-        args: binding::RemoteDomainOpenChannelArgs,
+        dom: RemoteNonnullDomain,
+        name: Option<String>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_open_channel));
-        let req: Option<binding::RemoteDomainOpenChannelArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainOpenChannel,
-            req,
-        )?;
+        let req: Option<RemoteDomainOpenChannelArgs> =
+            Some(RemoteDomainOpenChannelArgs { dom, name, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainOpenChannel, req)?;
         Ok(())
     }
     fn node_device_lookup_scsi_host_by_wwn(
         &mut self,
-        args: binding::RemoteNodeDeviceLookupScsiHostByWwnArgs,
-    ) -> Result<binding::RemoteNodeDeviceLookupScsiHostByWwnRet, Error> {
+        wwnn: String,
+        wwpn: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullNodeDevice, Error> {
         trace!("{}", stringify!(node_device_lookup_scsi_host_by_wwn));
-        let req: Option<binding::RemoteNodeDeviceLookupScsiHostByWwnArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceLookupScsiHostByWwnRet> = call(
+        let req: Option<RemoteNodeDeviceLookupScsiHostByWwnArgs> =
+            Some(RemoteNodeDeviceLookupScsiHostByWwnArgs { wwnn, wwpn, flags });
+        let res: Option<RemoteNodeDeviceLookupScsiHostByWwnRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceLookupScsiHostByWwn,
+            RemoteProcedure::RemoteProcNodeDeviceLookupScsiHostByWwn,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteNodeDeviceLookupScsiHostByWwnRet { dev } = res;
+        Ok(dev)
     }
     fn domain_get_job_stats(
         &mut self,
-        args: binding::RemoteDomainGetJobStatsArgs,
-    ) -> Result<binding::RemoteDomainGetJobStatsRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<(i32, Vec<RemoteTypedParam>), Error> {
         trace!("{}", stringify!(domain_get_job_stats));
-        let req: Option<binding::RemoteDomainGetJobStatsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetJobStatsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetJobStats,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetJobStatsArgs> =
+            Some(RemoteDomainGetJobStatsArgs { dom, flags });
+        let res: Option<RemoteDomainGetJobStatsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetJobStats, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetJobStatsRet { r#type, params } = res;
+        Ok((r#type, params))
     }
     fn domain_migrate_get_compression_cache(
         &mut self,
-        args: binding::RemoteDomainMigrateGetCompressionCacheArgs,
-    ) -> Result<binding::RemoteDomainMigrateGetCompressionCacheRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<u64, Error> {
         trace!("{}", stringify!(domain_migrate_get_compression_cache));
-        let req: Option<binding::RemoteDomainMigrateGetCompressionCacheArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMigrateGetCompressionCacheRet> = call(
+        let req: Option<RemoteDomainMigrateGetCompressionCacheArgs> =
+            Some(RemoteDomainMigrateGetCompressionCacheArgs { dom, flags });
+        let res: Option<RemoteDomainMigrateGetCompressionCacheRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateGetCompressionCache,
+            RemoteProcedure::RemoteProcDomainMigrateGetCompressionCache,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainMigrateGetCompressionCacheRet { cache_size } = res;
+        Ok(cache_size)
     }
     fn domain_migrate_set_compression_cache(
         &mut self,
-        args: binding::RemoteDomainMigrateSetCompressionCacheArgs,
+        dom: RemoteNonnullDomain,
+        cache_size: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_migrate_set_compression_cache));
-        let req: Option<binding::RemoteDomainMigrateSetCompressionCacheArgs> = Some(args);
+        let req: Option<RemoteDomainMigrateSetCompressionCacheArgs> =
+            Some(RemoteDomainMigrateSetCompressionCacheArgs {
+                dom,
+                cache_size,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateSetCompressionCache,
+            RemoteProcedure::RemoteProcDomainMigrateSetCompressionCache,
             req,
         )?;
         Ok(())
     }
     fn node_device_detach_flags(
         &mut self,
-        args: binding::RemoteNodeDeviceDetachFlagsArgs,
+        name: String,
+        driver_name: Option<String>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_detach_flags));
-        let req: Option<binding::RemoteNodeDeviceDetachFlagsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceDetachFlags,
-            req,
-        )?;
+        let req: Option<RemoteNodeDeviceDetachFlagsArgs> = Some(RemoteNodeDeviceDetachFlagsArgs {
+            name,
+            driver_name,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceDetachFlags, req)?;
         Ok(())
     }
     fn domain_migrate_begin3_params(
         &mut self,
-        args: binding::RemoteDomainMigrateBegin3ParamsArgs,
-    ) -> Result<binding::RemoteDomainMigrateBegin3ParamsRet, Error> {
+        dom: RemoteNonnullDomain,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
+    ) -> Result<(Vec<u8>, String), Error> {
         trace!("{}", stringify!(domain_migrate_begin3_params));
-        let req: Option<binding::RemoteDomainMigrateBegin3ParamsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMigrateBegin3ParamsRet> = call(
+        let req: Option<RemoteDomainMigrateBegin3ParamsArgs> =
+            Some(RemoteDomainMigrateBegin3ParamsArgs { dom, params, flags });
+        let res: Option<RemoteDomainMigrateBegin3ParamsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateBegin3Params,
+            RemoteProcedure::RemoteProcDomainMigrateBegin3Params,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainMigrateBegin3ParamsRet { cookie_out, xml } = res;
+        Ok((cookie_out, xml))
     }
     fn domain_migrate_prepare3_params(
         &mut self,
-        args: binding::RemoteDomainMigratePrepare3ParamsArgs,
-    ) -> Result<binding::RemoteDomainMigratePrepare3ParamsRet, Error> {
+        params: Vec<RemoteTypedParam>,
+        cookie_in: Vec<u8>,
+        flags: u32,
+    ) -> Result<(Vec<u8>, Option<String>), Error> {
         trace!("{}", stringify!(domain_migrate_prepare3_params));
-        let req: Option<binding::RemoteDomainMigratePrepare3ParamsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMigratePrepare3ParamsRet> = call(
+        let req: Option<RemoteDomainMigratePrepare3ParamsArgs> =
+            Some(RemoteDomainMigratePrepare3ParamsArgs {
+                params,
+                cookie_in,
+                flags,
+            });
+        let res: Option<RemoteDomainMigratePrepare3ParamsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigratePrepare3Params,
+            RemoteProcedure::RemoteProcDomainMigratePrepare3Params,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainMigratePrepare3ParamsRet {
+            cookie_out,
+            uri_out,
+        } = res;
+        Ok((cookie_out, uri_out))
     }
     fn domain_migrate_prepare_tunnel3_params(
         &mut self,
-        args: binding::RemoteDomainMigratePrepareTunnel3ParamsArgs,
-    ) -> Result<binding::RemoteDomainMigratePrepareTunnel3ParamsRet, Error> {
+        params: Vec<RemoteTypedParam>,
+        cookie_in: Vec<u8>,
+        flags: u32,
+    ) -> Result<Vec<u8>, Error> {
         trace!("{}", stringify!(domain_migrate_prepare_tunnel3_params));
-        let req: Option<binding::RemoteDomainMigratePrepareTunnel3ParamsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMigratePrepareTunnel3ParamsRet> = call(
+        let req: Option<RemoteDomainMigratePrepareTunnel3ParamsArgs> =
+            Some(RemoteDomainMigratePrepareTunnel3ParamsArgs {
+                params,
+                cookie_in,
+                flags,
+            });
+        let res: Option<RemoteDomainMigratePrepareTunnel3ParamsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3Params,
+            RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3Params,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainMigratePrepareTunnel3ParamsRet { cookie_out } = res;
+        Ok(cookie_out)
     }
     fn domain_migrate_perform3_params(
         &mut self,
-        args: binding::RemoteDomainMigratePerform3ParamsArgs,
-    ) -> Result<binding::RemoteDomainMigratePerform3ParamsRet, Error> {
+        dom: RemoteNonnullDomain,
+        dconnuri: Option<String>,
+        params: Vec<RemoteTypedParam>,
+        cookie_in: Vec<u8>,
+        flags: u32,
+    ) -> Result<Vec<u8>, Error> {
         trace!("{}", stringify!(domain_migrate_perform3_params));
-        let req: Option<binding::RemoteDomainMigratePerform3ParamsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMigratePerform3ParamsRet> = call(
+        let req: Option<RemoteDomainMigratePerform3ParamsArgs> =
+            Some(RemoteDomainMigratePerform3ParamsArgs {
+                dom,
+                dconnuri,
+                params,
+                cookie_in,
+                flags,
+            });
+        let res: Option<RemoteDomainMigratePerform3ParamsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigratePerform3Params,
+            RemoteProcedure::RemoteProcDomainMigratePerform3Params,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainMigratePerform3ParamsRet { cookie_out } = res;
+        Ok(cookie_out)
     }
     fn domain_migrate_finish3_params(
         &mut self,
-        args: binding::RemoteDomainMigrateFinish3ParamsArgs,
-    ) -> Result<binding::RemoteDomainMigrateFinish3ParamsRet, Error> {
+        params: Vec<RemoteTypedParam>,
+        cookie_in: Vec<u8>,
+        flags: u32,
+        cancelled: i32,
+    ) -> Result<(RemoteNonnullDomain, Vec<u8>), Error> {
         trace!("{}", stringify!(domain_migrate_finish3_params));
-        let req: Option<binding::RemoteDomainMigrateFinish3ParamsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMigrateFinish3ParamsRet> = call(
+        let req: Option<RemoteDomainMigrateFinish3ParamsArgs> =
+            Some(RemoteDomainMigrateFinish3ParamsArgs {
+                params,
+                cookie_in,
+                flags,
+                cancelled,
+            });
+        let res: Option<RemoteDomainMigrateFinish3ParamsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateFinish3Params,
+            RemoteProcedure::RemoteProcDomainMigrateFinish3Params,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainMigrateFinish3ParamsRet { dom, cookie_out } = res;
+        Ok((dom, cookie_out))
     }
     fn domain_migrate_confirm3_params(
         &mut self,
-        args: binding::RemoteDomainMigrateConfirm3ParamsArgs,
+        dom: RemoteNonnullDomain,
+        params: Vec<RemoteTypedParam>,
+        cookie_in: Vec<u8>,
+        flags: u32,
+        cancelled: i32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_migrate_confirm3_params));
-        let req: Option<binding::RemoteDomainMigrateConfirm3ParamsArgs> = Some(args);
+        let req: Option<RemoteDomainMigrateConfirm3ParamsArgs> =
+            Some(RemoteDomainMigrateConfirm3ParamsArgs {
+                dom,
+                params,
+                cookie_in,
+                flags,
+                cancelled,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateConfirm3Params,
+            RemoteProcedure::RemoteProcDomainMigrateConfirm3Params,
             req,
         )?;
         Ok(())
     }
     fn domain_set_memory_stats_period(
         &mut self,
-        args: binding::RemoteDomainSetMemoryStatsPeriodArgs,
+        dom: RemoteNonnullDomain,
+        period: i32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_memory_stats_period));
-        let req: Option<binding::RemoteDomainSetMemoryStatsPeriodArgs> = Some(args);
+        let req: Option<RemoteDomainSetMemoryStatsPeriodArgs> =
+            Some(RemoteDomainSetMemoryStatsPeriodArgs { dom, period, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetMemoryStatsPeriod,
+            RemoteProcedure::RemoteProcDomainSetMemoryStatsPeriod,
             req,
         )?;
         Ok(())
     }
     fn domain_create_xml_with_files(
         &mut self,
-        args: binding::RemoteDomainCreateXmlWithFilesArgs,
-    ) -> Result<binding::RemoteDomainCreateXmlWithFilesRet, Error> {
+        xml_desc: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_create_xml_with_files));
-        let req: Option<binding::RemoteDomainCreateXmlWithFilesArgs> = Some(args);
-        let res: Option<binding::RemoteDomainCreateXmlWithFilesRet> = call(
+        let req: Option<RemoteDomainCreateXmlWithFilesArgs> =
+            Some(RemoteDomainCreateXmlWithFilesArgs { xml_desc, flags });
+        let res: Option<RemoteDomainCreateXmlWithFilesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainCreateXmlWithFiles,
+            RemoteProcedure::RemoteProcDomainCreateXmlWithFiles,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainCreateXmlWithFilesRet { dom } = res;
+        Ok(dom)
     }
     fn domain_create_with_files(
         &mut self,
-        args: binding::RemoteDomainCreateWithFilesArgs,
-    ) -> Result<binding::RemoteDomainCreateWithFilesRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_create_with_files));
-        let req: Option<binding::RemoteDomainCreateWithFilesArgs> = Some(args);
-        let res: Option<binding::RemoteDomainCreateWithFilesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainCreateWithFiles,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainCreateWithFilesArgs> =
+            Some(RemoteDomainCreateWithFilesArgs { dom, flags });
+        let res: Option<RemoteDomainCreateWithFilesRet> =
+            call(self, RemoteProcedure::RemoteProcDomainCreateWithFiles, req)?;
+        let res = res.unwrap();
+        let RemoteDomainCreateWithFilesRet { dom } = res;
+        Ok(dom)
     }
     fn domain_event_device_removed(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_device_removed));
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventDeviceRemoved,
+            RemoteProcedure::RemoteProcDomainEventDeviceRemoved,
             req,
         )?;
         Ok(())
     }
     fn connect_get_cpu_model_names(
         &mut self,
-        args: binding::RemoteConnectGetCpuModelNamesArgs,
-    ) -> Result<binding::RemoteConnectGetCpuModelNamesRet, Error> {
+        arch: String,
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<String>, i32), Error> {
         trace!("{}", stringify!(connect_get_cpu_model_names));
-        let req: Option<binding::RemoteConnectGetCpuModelNamesArgs> = Some(args);
-        let res: Option<binding::RemoteConnectGetCpuModelNamesRet> = call(
+        let req: Option<RemoteConnectGetCpuModelNamesArgs> =
+            Some(RemoteConnectGetCpuModelNamesArgs {
+                arch,
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteConnectGetCpuModelNamesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectGetCpuModelNames,
+            RemoteProcedure::RemoteProcConnectGetCpuModelNames,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectGetCpuModelNamesRet { models, ret } = res;
+        Ok((models, ret))
     }
     fn connect_network_event_register_any(
         &mut self,
-        args: binding::RemoteConnectNetworkEventRegisterAnyArgs,
-    ) -> Result<binding::RemoteConnectNetworkEventRegisterAnyRet, Error> {
+        event_id: i32,
+        net: Option<RemoteNonnullNetwork>,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_network_event_register_any));
-        let req: Option<binding::RemoteConnectNetworkEventRegisterAnyArgs> = Some(args);
-        let res: Option<binding::RemoteConnectNetworkEventRegisterAnyRet> = call(
+        let req: Option<RemoteConnectNetworkEventRegisterAnyArgs> =
+            Some(RemoteConnectNetworkEventRegisterAnyArgs { event_id, net });
+        let res: Option<RemoteConnectNetworkEventRegisterAnyRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectNetworkEventRegisterAny,
+            RemoteProcedure::RemoteProcConnectNetworkEventRegisterAny,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectNetworkEventRegisterAnyRet { callback_id } = res;
+        Ok(callback_id)
     }
-    fn connect_network_event_deregister_any(
-        &mut self,
-        args: binding::RemoteConnectNetworkEventDeregisterAnyArgs,
-    ) -> Result<(), Error> {
+    fn connect_network_event_deregister_any(&mut self, callback_id: i32) -> Result<(), Error> {
         trace!("{}", stringify!(connect_network_event_deregister_any));
-        let req: Option<binding::RemoteConnectNetworkEventDeregisterAnyArgs> = Some(args);
+        let req: Option<RemoteConnectNetworkEventDeregisterAnyArgs> =
+            Some(RemoteConnectNetworkEventDeregisterAnyArgs { callback_id });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectNetworkEventDeregisterAny,
+            RemoteProcedure::RemoteProcConnectNetworkEventDeregisterAny,
             req,
         )?;
         Ok(())
@@ -3837,38 +4270,39 @@ pub trait Libvirt {
     fn network_event_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(network_event_lifecycle));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkEventLifecycle,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNetworkEventLifecycle, req)?;
         Ok(())
     }
     fn connect_domain_event_callback_register_any(
         &mut self,
-        args: binding::RemoteConnectDomainEventCallbackRegisterAnyArgs,
-    ) -> Result<binding::RemoteConnectDomainEventCallbackRegisterAnyRet, Error> {
+        event_id: i32,
+        dom: Option<RemoteNonnullDomain>,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_domain_event_callback_register_any));
-        let req: Option<binding::RemoteConnectDomainEventCallbackRegisterAnyArgs> = Some(args);
-        let res: Option<binding::RemoteConnectDomainEventCallbackRegisterAnyRet> = call(
+        let req: Option<RemoteConnectDomainEventCallbackRegisterAnyArgs> =
+            Some(RemoteConnectDomainEventCallbackRegisterAnyArgs { event_id, dom });
+        let res: Option<RemoteConnectDomainEventCallbackRegisterAnyRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectDomainEventCallbackRegisterAny,
+            RemoteProcedure::RemoteProcConnectDomainEventCallbackRegisterAny,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectDomainEventCallbackRegisterAnyRet { callback_id } = res;
+        Ok(callback_id)
     }
     fn connect_domain_event_callback_deregister_any(
         &mut self,
-        args: binding::RemoteConnectDomainEventCallbackDeregisterAnyArgs,
+        callback_id: i32,
     ) -> Result<(), Error> {
         trace!(
             "{}",
             stringify!(connect_domain_event_callback_deregister_any)
         );
-        let req: Option<binding::RemoteConnectDomainEventCallbackDeregisterAnyArgs> = Some(args);
+        let req: Option<RemoteConnectDomainEventCallbackDeregisterAnyArgs> =
+            Some(RemoteConnectDomainEventCallbackDeregisterAnyArgs { callback_id });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectDomainEventCallbackDeregisterAny,
+            RemoteProcedure::RemoteProcConnectDomainEventCallbackDeregisterAny,
             req,
         )?;
         Ok(())
@@ -3878,7 +4312,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackLifecycle,
+            RemoteProcedure::RemoteProcDomainEventCallbackLifecycle,
             req,
         )?;
         Ok(())
@@ -3888,7 +4322,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackReboot,
+            RemoteProcedure::RemoteProcDomainEventCallbackReboot,
             req,
         )?;
         Ok(())
@@ -3898,7 +4332,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackRtcChange,
+            RemoteProcedure::RemoteProcDomainEventCallbackRtcChange,
             req,
         )?;
         Ok(())
@@ -3908,7 +4342,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackWatchdog,
+            RemoteProcedure::RemoteProcDomainEventCallbackWatchdog,
             req,
         )?;
         Ok(())
@@ -3918,7 +4352,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackIoError,
+            RemoteProcedure::RemoteProcDomainEventCallbackIoError,
             req,
         )?;
         Ok(())
@@ -3928,7 +4362,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackGraphics,
+            RemoteProcedure::RemoteProcDomainEventCallbackGraphics,
             req,
         )?;
         Ok(())
@@ -3938,7 +4372,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackIoErrorReason,
+            RemoteProcedure::RemoteProcDomainEventCallbackIoErrorReason,
             req,
         )?;
         Ok(())
@@ -3948,7 +4382,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackControlError,
+            RemoteProcedure::RemoteProcDomainEventCallbackControlError,
             req,
         )?;
         Ok(())
@@ -3958,7 +4392,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackBlockJob,
+            RemoteProcedure::RemoteProcDomainEventCallbackBlockJob,
             req,
         )?;
         Ok(())
@@ -3968,7 +4402,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackDiskChange,
+            RemoteProcedure::RemoteProcDomainEventCallbackDiskChange,
             req,
         )?;
         Ok(())
@@ -3978,7 +4412,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackTrayChange,
+            RemoteProcedure::RemoteProcDomainEventCallbackTrayChange,
             req,
         )?;
         Ok(())
@@ -3988,7 +4422,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackPmwakeup,
+            RemoteProcedure::RemoteProcDomainEventCallbackPmwakeup,
             req,
         )?;
         Ok(())
@@ -3998,7 +4432,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackPmsuspend,
+            RemoteProcedure::RemoteProcDomainEventCallbackPmsuspend,
             req,
         )?;
         Ok(())
@@ -4008,7 +4442,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackBalloonChange,
+            RemoteProcedure::RemoteProcDomainEventCallbackBalloonChange,
             req,
         )?;
         Ok(())
@@ -4018,7 +4452,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackPmsuspendDisk,
+            RemoteProcedure::RemoteProcDomainEventCallbackPmsuspendDisk,
             req,
         )?;
         Ok(())
@@ -4028,146 +4462,218 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackDeviceRemoved,
+            RemoteProcedure::RemoteProcDomainEventCallbackDeviceRemoved,
             req,
         )?;
         Ok(())
     }
     fn domain_core_dump_with_format(
         &mut self,
-        args: binding::RemoteDomainCoreDumpWithFormatArgs,
+        dom: RemoteNonnullDomain,
+        to: String,
+        dumpformat: u32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_core_dump_with_format));
-        let req: Option<binding::RemoteDomainCoreDumpWithFormatArgs> = Some(args);
+        let req: Option<RemoteDomainCoreDumpWithFormatArgs> =
+            Some(RemoteDomainCoreDumpWithFormatArgs {
+                dom,
+                to,
+                dumpformat,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainCoreDumpWithFormat,
+            RemoteProcedure::RemoteProcDomainCoreDumpWithFormat,
             req,
         )?;
         Ok(())
     }
     fn domain_fsfreeze(
         &mut self,
-        args: binding::RemoteDomainFsfreezeArgs,
-    ) -> Result<binding::RemoteDomainFsfreezeRet, Error> {
+        dom: RemoteNonnullDomain,
+        mountpoints: Vec<String>,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_fsfreeze));
-        let req: Option<binding::RemoteDomainFsfreezeArgs> = Some(args);
-        let res: Option<binding::RemoteDomainFsfreezeRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainFsfreeze,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainFsfreezeArgs> = Some(RemoteDomainFsfreezeArgs {
+            dom,
+            mountpoints,
+            flags,
+        });
+        let res: Option<RemoteDomainFsfreezeRet> =
+            call(self, RemoteProcedure::RemoteProcDomainFsfreeze, req)?;
+        let res = res.unwrap();
+        let RemoteDomainFsfreezeRet { filesystems } = res;
+        Ok(filesystems)
     }
     fn domain_fsthaw(
         &mut self,
-        args: binding::RemoteDomainFsthawArgs,
-    ) -> Result<binding::RemoteDomainFsthawRet, Error> {
+        dom: RemoteNonnullDomain,
+        mountpoints: Vec<String>,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_fsthaw));
-        let req: Option<binding::RemoteDomainFsthawArgs> = Some(args);
-        let res: Option<binding::RemoteDomainFsthawRet> =
-            call(self, binding::RemoteProcedure::RemoteProcDomainFsthaw, req)?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainFsthawArgs> = Some(RemoteDomainFsthawArgs {
+            dom,
+            mountpoints,
+            flags,
+        });
+        let res: Option<RemoteDomainFsthawRet> =
+            call(self, RemoteProcedure::RemoteProcDomainFsthaw, req)?;
+        let res = res.unwrap();
+        let RemoteDomainFsthawRet { filesystems } = res;
+        Ok(filesystems)
     }
     fn domain_get_time(
         &mut self,
-        args: binding::RemoteDomainGetTimeArgs,
-    ) -> Result<binding::RemoteDomainGetTimeRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<(i64, u32), Error> {
         trace!("{}", stringify!(domain_get_time));
-        let req: Option<binding::RemoteDomainGetTimeArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetTimeRet> =
-            call(self, binding::RemoteProcedure::RemoteProcDomainGetTime, req)?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetTimeArgs> = Some(RemoteDomainGetTimeArgs { dom, flags });
+        let res: Option<RemoteDomainGetTimeRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetTime, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetTimeRet { seconds, nseconds } = res;
+        Ok((seconds, nseconds))
     }
-    fn domain_set_time(&mut self, args: binding::RemoteDomainSetTimeArgs) -> Result<(), Error> {
+    fn domain_set_time(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        seconds: i64,
+        nseconds: u32,
+        flags: u32,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_time));
-        let req: Option<binding::RemoteDomainSetTimeArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainSetTime, req)?;
+        let req: Option<RemoteDomainSetTimeArgs> = Some(RemoteDomainSetTimeArgs {
+            dom,
+            seconds,
+            nseconds,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetTime, req)?;
         Ok(())
     }
     fn domain_event_block_job2(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_block_job2));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainEventBlockJob2,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainEventBlockJob2, req)?;
         Ok(())
     }
     fn node_get_free_pages(
         &mut self,
-        args: binding::RemoteNodeGetFreePagesArgs,
-    ) -> Result<binding::RemoteNodeGetFreePagesRet, Error> {
+        pages: Vec<u32>,
+        start_cell: i32,
+        cell_count: u32,
+        flags: u32,
+    ) -> Result<Vec<u64>, Error> {
         trace!("{}", stringify!(node_get_free_pages));
-        let req: Option<binding::RemoteNodeGetFreePagesArgs> = Some(args);
-        let res: Option<binding::RemoteNodeGetFreePagesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeGetFreePages,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeGetFreePagesArgs> = Some(RemoteNodeGetFreePagesArgs {
+            pages,
+            start_cell,
+            cell_count,
+            flags,
+        });
+        let res: Option<RemoteNodeGetFreePagesRet> =
+            call(self, RemoteProcedure::RemoteProcNodeGetFreePages, req)?;
+        let res = res.unwrap();
+        let RemoteNodeGetFreePagesRet { counts } = res;
+        Ok(counts)
     }
     fn network_get_dhcp_leases(
         &mut self,
-        args: binding::RemoteNetworkGetDhcpLeasesArgs,
-    ) -> Result<binding::RemoteNetworkGetDhcpLeasesRet, Error> {
+        net: RemoteNonnullNetwork,
+        mac: Option<String>,
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNetworkDhcpLease>, u32), Error> {
         trace!("{}", stringify!(network_get_dhcp_leases));
-        let req: Option<binding::RemoteNetworkGetDhcpLeasesArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkGetDhcpLeasesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkGetDhcpLeases,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkGetDhcpLeasesArgs> = Some(RemoteNetworkGetDhcpLeasesArgs {
+            net,
+            mac,
+            need_results,
+            flags,
+        });
+        let res: Option<RemoteNetworkGetDhcpLeasesRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkGetDhcpLeases, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkGetDhcpLeasesRet { leases, ret } = res;
+        Ok((leases, ret))
     }
     fn connect_get_domain_capabilities(
         &mut self,
-        args: binding::RemoteConnectGetDomainCapabilitiesArgs,
-    ) -> Result<binding::RemoteConnectGetDomainCapabilitiesRet, Error> {
+        emulatorbin: Option<String>,
+        arch: Option<String>,
+        machine: Option<String>,
+        virttype: Option<String>,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_domain_capabilities));
-        let req: Option<binding::RemoteConnectGetDomainCapabilitiesArgs> = Some(args);
-        let res: Option<binding::RemoteConnectGetDomainCapabilitiesRet> = call(
+        let req: Option<RemoteConnectGetDomainCapabilitiesArgs> =
+            Some(RemoteConnectGetDomainCapabilitiesArgs {
+                emulatorbin,
+                arch,
+                machine,
+                virttype,
+                flags,
+            });
+        let res: Option<RemoteConnectGetDomainCapabilitiesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectGetDomainCapabilities,
+            RemoteProcedure::RemoteProcConnectGetDomainCapabilities,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectGetDomainCapabilitiesRet { capabilities } = res;
+        Ok(capabilities)
     }
     fn domain_open_graphics_fd(
         &mut self,
-        args: binding::RemoteDomainOpenGraphicsFdArgs,
+        dom: RemoteNonnullDomain,
+        idx: u32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_open_graphics_fd));
-        let req: Option<binding::RemoteDomainOpenGraphicsFdArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainOpenGraphicsFd,
-            req,
-        )?;
+        let req: Option<RemoteDomainOpenGraphicsFdArgs> =
+            Some(RemoteDomainOpenGraphicsFdArgs { dom, idx, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainOpenGraphicsFd, req)?;
         Ok(())
     }
     fn connect_get_all_domain_stats(
         &mut self,
-        args: binding::RemoteConnectGetAllDomainStatsArgs,
-    ) -> Result<binding::RemoteConnectGetAllDomainStatsRet, Error> {
+        doms: Vec<RemoteNonnullDomain>,
+        stats: u32,
+        flags: u32,
+    ) -> Result<Vec<RemoteDomainStatsRecord>, Error> {
         trace!("{}", stringify!(connect_get_all_domain_stats));
-        let req: Option<binding::RemoteConnectGetAllDomainStatsArgs> = Some(args);
-        let res: Option<binding::RemoteConnectGetAllDomainStatsRet> = call(
+        let req: Option<RemoteConnectGetAllDomainStatsArgs> =
+            Some(RemoteConnectGetAllDomainStatsArgs { doms, stats, flags });
+        let res: Option<RemoteConnectGetAllDomainStatsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectGetAllDomainStats,
+            RemoteProcedure::RemoteProcConnectGetAllDomainStats,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectGetAllDomainStatsRet { ret_stats } = res;
+        Ok(ret_stats)
     }
-    fn domain_block_copy(&mut self, args: binding::RemoteDomainBlockCopyArgs) -> Result<(), Error> {
+    fn domain_block_copy(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        path: String,
+        destxml: String,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_block_copy));
-        let req: Option<binding::RemoteDomainBlockCopyArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBlockCopy,
-            req,
-        )?;
+        let req: Option<RemoteDomainBlockCopyArgs> = Some(RemoteDomainBlockCopyArgs {
+            dom,
+            path,
+            destxml,
+            params,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainBlockCopy, req)?;
         Ok(())
     }
     fn domain_event_callback_tunable(&mut self) -> Result<(), Error> {
@@ -4175,164 +4681,200 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackTunable,
+            RemoteProcedure::RemoteProcDomainEventCallbackTunable,
             req,
         )?;
         Ok(())
     }
     fn node_alloc_pages(
         &mut self,
-        args: binding::RemoteNodeAllocPagesArgs,
-    ) -> Result<binding::RemoteNodeAllocPagesRet, Error> {
+        page_sizes: Vec<u32>,
+        page_counts: Vec<u64>,
+        start_cell: i32,
+        cell_count: u32,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(node_alloc_pages));
-        let req: Option<binding::RemoteNodeAllocPagesArgs> = Some(args);
-        let res: Option<binding::RemoteNodeAllocPagesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeAllocPages,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeAllocPagesArgs> = Some(RemoteNodeAllocPagesArgs {
+            page_sizes,
+            page_counts,
+            start_cell,
+            cell_count,
+            flags,
+        });
+        let res: Option<RemoteNodeAllocPagesRet> =
+            call(self, RemoteProcedure::RemoteProcNodeAllocPages, req)?;
+        let res = res.unwrap();
+        let RemoteNodeAllocPagesRet { ret } = res;
+        Ok(ret)
     }
     fn domain_event_callback_agent_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_agent_lifecycle));
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackAgentLifecycle,
+            RemoteProcedure::RemoteProcDomainEventCallbackAgentLifecycle,
             req,
         )?;
         Ok(())
     }
     fn domain_get_fsinfo(
         &mut self,
-        args: binding::RemoteDomainGetFsinfoArgs,
-    ) -> Result<binding::RemoteDomainGetFsinfoRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<(Vec<RemoteDomainFsinfo>, u32), Error> {
         trace!("{}", stringify!(domain_get_fsinfo));
-        let req: Option<binding::RemoteDomainGetFsinfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetFsinfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetFsinfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetFsinfoArgs> = Some(RemoteDomainGetFsinfoArgs { dom, flags });
+        let res: Option<RemoteDomainGetFsinfoRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetFsinfo, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetFsinfoRet { info, ret } = res;
+        Ok((info, ret))
     }
     fn domain_define_xml_flags(
         &mut self,
-        args: binding::RemoteDomainDefineXmlFlagsArgs,
-    ) -> Result<binding::RemoteDomainDefineXmlFlagsRet, Error> {
+        xml: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_define_xml_flags));
-        let req: Option<binding::RemoteDomainDefineXmlFlagsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainDefineXmlFlagsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainDefineXmlFlags,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainDefineXmlFlagsArgs> =
+            Some(RemoteDomainDefineXmlFlagsArgs { xml, flags });
+        let res: Option<RemoteDomainDefineXmlFlagsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainDefineXmlFlags, req)?;
+        let res = res.unwrap();
+        let RemoteDomainDefineXmlFlagsRet { dom } = res;
+        Ok(dom)
     }
     fn domain_get_iothread_info(
         &mut self,
-        args: binding::RemoteDomainGetIothreadInfoArgs,
-    ) -> Result<binding::RemoteDomainGetIothreadInfoRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<(Vec<RemoteDomainIothreadInfo>, u32), Error> {
         trace!("{}", stringify!(domain_get_iothread_info));
-        let req: Option<binding::RemoteDomainGetIothreadInfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetIothreadInfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetIothreadInfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetIothreadInfoArgs> =
+            Some(RemoteDomainGetIothreadInfoArgs { dom, flags });
+        let res: Option<RemoteDomainGetIothreadInfoRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetIothreadInfo, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetIothreadInfoRet { info, ret } = res;
+        Ok((info, ret))
     }
     fn domain_pin_iothread(
         &mut self,
-        args: binding::RemoteDomainPinIothreadArgs,
+        dom: RemoteNonnullDomain,
+        iothreads_id: u32,
+        cpumap: Vec<u8>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_pin_iothread));
-        let req: Option<binding::RemoteDomainPinIothreadArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainPinIothread,
-            req,
-        )?;
+        let req: Option<RemoteDomainPinIothreadArgs> = Some(RemoteDomainPinIothreadArgs {
+            dom,
+            iothreads_id,
+            cpumap,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainPinIothread, req)?;
         Ok(())
     }
     fn domain_interface_addresses(
         &mut self,
-        args: binding::RemoteDomainInterfaceAddressesArgs,
-    ) -> Result<binding::RemoteDomainInterfaceAddressesRet, Error> {
+        dom: RemoteNonnullDomain,
+        source: u32,
+        flags: u32,
+    ) -> Result<Vec<RemoteDomainInterface>, Error> {
         trace!("{}", stringify!(domain_interface_addresses));
-        let req: Option<binding::RemoteDomainInterfaceAddressesArgs> = Some(args);
-        let res: Option<binding::RemoteDomainInterfaceAddressesRet> = call(
+        let req: Option<RemoteDomainInterfaceAddressesArgs> =
+            Some(RemoteDomainInterfaceAddressesArgs { dom, source, flags });
+        let res: Option<RemoteDomainInterfaceAddressesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainInterfaceAddresses,
+            RemoteProcedure::RemoteProcDomainInterfaceAddresses,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainInterfaceAddressesRet { ifaces } = res;
+        Ok(ifaces)
     }
     fn domain_event_callback_device_added(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_device_added));
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackDeviceAdded,
+            RemoteProcedure::RemoteProcDomainEventCallbackDeviceAdded,
             req,
         )?;
         Ok(())
     }
     fn domain_add_iothread(
         &mut self,
-        args: binding::RemoteDomainAddIothreadArgs,
+        dom: RemoteNonnullDomain,
+        iothread_id: u32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_add_iothread));
-        let req: Option<binding::RemoteDomainAddIothreadArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainAddIothread,
-            req,
-        )?;
+        let req: Option<RemoteDomainAddIothreadArgs> = Some(RemoteDomainAddIothreadArgs {
+            dom,
+            iothread_id,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainAddIothread, req)?;
         Ok(())
     }
     fn domain_del_iothread(
         &mut self,
-        args: binding::RemoteDomainDelIothreadArgs,
+        dom: RemoteNonnullDomain,
+        iothread_id: u32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_del_iothread));
-        let req: Option<binding::RemoteDomainDelIothreadArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainDelIothread,
-            req,
-        )?;
+        let req: Option<RemoteDomainDelIothreadArgs> = Some(RemoteDomainDelIothreadArgs {
+            dom,
+            iothread_id,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainDelIothread, req)?;
         Ok(())
     }
     fn domain_set_user_password(
         &mut self,
-        args: binding::RemoteDomainSetUserPasswordArgs,
+        dom: RemoteNonnullDomain,
+        user: Option<String>,
+        password: Option<String>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_user_password));
-        let req: Option<binding::RemoteDomainSetUserPasswordArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetUserPassword,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetUserPasswordArgs> = Some(RemoteDomainSetUserPasswordArgs {
+            dom,
+            user,
+            password,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetUserPassword, req)?;
         Ok(())
     }
     fn domain_rename(
         &mut self,
-        args: binding::RemoteDomainRenameArgs,
-    ) -> Result<binding::RemoteDomainRenameRet, Error> {
+        dom: RemoteNonnullDomain,
+        new_name: Option<String>,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_rename));
-        let req: Option<binding::RemoteDomainRenameArgs> = Some(args);
-        let res: Option<binding::RemoteDomainRenameRet> =
-            call(self, binding::RemoteProcedure::RemoteProcDomainRename, req)?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainRenameArgs> = Some(RemoteDomainRenameArgs {
+            dom,
+            new_name,
+            flags,
+        });
+        let res: Option<RemoteDomainRenameRet> =
+            call(self, RemoteProcedure::RemoteProcDomainRename, req)?;
+        let res = res.unwrap();
+        let RemoteDomainRenameRet { retcode } = res;
+        Ok(retcode)
     }
     fn domain_event_callback_migration_iteration(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_migration_iteration));
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackMigrationIteration,
+            RemoteProcedure::RemoteProcDomainEventCallbackMigrationIteration,
             req,
         )?;
         Ok(())
@@ -4342,7 +4884,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectRegisterCloseCallback,
+            RemoteProcedure::RemoteProcConnectRegisterCloseCallback,
             req,
         )?;
         Ok(())
@@ -4352,7 +4894,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectUnregisterCloseCallback,
+            RemoteProcedure::RemoteProcConnectUnregisterCloseCallback,
             req,
         )?;
         Ok(())
@@ -4362,7 +4904,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectEventConnectionClosed,
+            RemoteProcedure::RemoteProcConnectEventConnectionClosed,
             req,
         )?;
         Ok(())
@@ -4372,48 +4914,50 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackJobCompleted,
+            RemoteProcedure::RemoteProcDomainEventCallbackJobCompleted,
             req,
         )?;
         Ok(())
     }
     fn domain_migrate_start_post_copy(
         &mut self,
-        args: binding::RemoteDomainMigrateStartPostCopyArgs,
+        dom: RemoteNonnullDomain,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_migrate_start_post_copy));
-        let req: Option<binding::RemoteDomainMigrateStartPostCopyArgs> = Some(args);
+        let req: Option<RemoteDomainMigrateStartPostCopyArgs> =
+            Some(RemoteDomainMigrateStartPostCopyArgs { dom, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateStartPostCopy,
+            RemoteProcedure::RemoteProcDomainMigrateStartPostCopy,
             req,
         )?;
         Ok(())
     }
     fn domain_get_perf_events(
         &mut self,
-        args: binding::RemoteDomainGetPerfEventsArgs,
-    ) -> Result<binding::RemoteDomainGetPerfEventsRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<Vec<RemoteTypedParam>, Error> {
         trace!("{}", stringify!(domain_get_perf_events));
-        let req: Option<binding::RemoteDomainGetPerfEventsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetPerfEventsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetPerfEvents,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetPerfEventsArgs> =
+            Some(RemoteDomainGetPerfEventsArgs { dom, flags });
+        let res: Option<RemoteDomainGetPerfEventsRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetPerfEvents, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetPerfEventsRet { params } = res;
+        Ok(params)
     }
     fn domain_set_perf_events(
         &mut self,
-        args: binding::RemoteDomainSetPerfEventsArgs,
+        dom: RemoteNonnullDomain,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_perf_events));
-        let req: Option<binding::RemoteDomainSetPerfEventsArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetPerfEvents,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetPerfEventsArgs> =
+            Some(RemoteDomainSetPerfEventsArgs { dom, params, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetPerfEvents, req)?;
         Ok(())
     }
     fn domain_event_callback_device_removal_failed(&mut self) -> Result<(), Error> {
@@ -4424,33 +4968,35 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackDeviceRemovalFailed,
+            RemoteProcedure::RemoteProcDomainEventCallbackDeviceRemovalFailed,
             req,
         )?;
         Ok(())
     }
     fn connect_storage_pool_event_register_any(
         &mut self,
-        args: binding::RemoteConnectStoragePoolEventRegisterAnyArgs,
-    ) -> Result<binding::RemoteConnectStoragePoolEventRegisterAnyRet, Error> {
+        event_id: i32,
+        pool: Option<RemoteNonnullStoragePool>,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_storage_pool_event_register_any));
-        let req: Option<binding::RemoteConnectStoragePoolEventRegisterAnyArgs> = Some(args);
-        let res: Option<binding::RemoteConnectStoragePoolEventRegisterAnyRet> = call(
+        let req: Option<RemoteConnectStoragePoolEventRegisterAnyArgs> =
+            Some(RemoteConnectStoragePoolEventRegisterAnyArgs { event_id, pool });
+        let res: Option<RemoteConnectStoragePoolEventRegisterAnyRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectStoragePoolEventRegisterAny,
+            RemoteProcedure::RemoteProcConnectStoragePoolEventRegisterAny,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectStoragePoolEventRegisterAnyRet { callback_id } = res;
+        Ok(callback_id)
     }
-    fn connect_storage_pool_event_deregister_any(
-        &mut self,
-        args: binding::RemoteConnectStoragePoolEventDeregisterAnyArgs,
-    ) -> Result<(), Error> {
+    fn connect_storage_pool_event_deregister_any(&mut self, callback_id: i32) -> Result<(), Error> {
         trace!("{}", stringify!(connect_storage_pool_event_deregister_any));
-        let req: Option<binding::RemoteConnectStoragePoolEventDeregisterAnyArgs> = Some(args);
+        let req: Option<RemoteConnectStoragePoolEventDeregisterAnyArgs> =
+            Some(RemoteConnectStoragePoolEventDeregisterAnyArgs { callback_id });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectStoragePoolEventDeregisterAny,
+            RemoteProcedure::RemoteProcConnectStoragePoolEventDeregisterAny,
             req,
         )?;
         Ok(())
@@ -4460,35 +5006,40 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolEventLifecycle,
+            RemoteProcedure::RemoteProcStoragePoolEventLifecycle,
             req,
         )?;
         Ok(())
     }
     fn domain_get_guest_vcpus(
         &mut self,
-        args: binding::RemoteDomainGetGuestVcpusArgs,
-    ) -> Result<binding::RemoteDomainGetGuestVcpusRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<Vec<RemoteTypedParam>, Error> {
         trace!("{}", stringify!(domain_get_guest_vcpus));
-        let req: Option<binding::RemoteDomainGetGuestVcpusArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetGuestVcpusRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetGuestVcpus,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetGuestVcpusArgs> =
+            Some(RemoteDomainGetGuestVcpusArgs { dom, flags });
+        let res: Option<RemoteDomainGetGuestVcpusRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetGuestVcpus, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetGuestVcpusRet { params } = res;
+        Ok(params)
     }
     fn domain_set_guest_vcpus(
         &mut self,
-        args: binding::RemoteDomainSetGuestVcpusArgs,
+        dom: RemoteNonnullDomain,
+        cpumap: String,
+        state: i32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_guest_vcpus));
-        let req: Option<binding::RemoteDomainSetGuestVcpusArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainSetGuestVcpus,
-            req,
-        )?;
+        let req: Option<RemoteDomainSetGuestVcpusArgs> = Some(RemoteDomainSetGuestVcpusArgs {
+            dom,
+            cpumap,
+            state,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetGuestVcpus, req)?;
         Ok(())
     }
     fn storage_pool_event_refresh(&mut self) -> Result<(), Error> {
@@ -4496,33 +5047,35 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolEventRefresh,
+            RemoteProcedure::RemoteProcStoragePoolEventRefresh,
             req,
         )?;
         Ok(())
     }
     fn connect_node_device_event_register_any(
         &mut self,
-        args: binding::RemoteConnectNodeDeviceEventRegisterAnyArgs,
-    ) -> Result<binding::RemoteConnectNodeDeviceEventRegisterAnyRet, Error> {
+        event_id: i32,
+        dev: Option<RemoteNonnullNodeDevice>,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_node_device_event_register_any));
-        let req: Option<binding::RemoteConnectNodeDeviceEventRegisterAnyArgs> = Some(args);
-        let res: Option<binding::RemoteConnectNodeDeviceEventRegisterAnyRet> = call(
+        let req: Option<RemoteConnectNodeDeviceEventRegisterAnyArgs> =
+            Some(RemoteConnectNodeDeviceEventRegisterAnyArgs { event_id, dev });
+        let res: Option<RemoteConnectNodeDeviceEventRegisterAnyRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectNodeDeviceEventRegisterAny,
+            RemoteProcedure::RemoteProcConnectNodeDeviceEventRegisterAny,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectNodeDeviceEventRegisterAnyRet { callback_id } = res;
+        Ok(callback_id)
     }
-    fn connect_node_device_event_deregister_any(
-        &mut self,
-        args: binding::RemoteConnectNodeDeviceEventDeregisterAnyArgs,
-    ) -> Result<(), Error> {
+    fn connect_node_device_event_deregister_any(&mut self, callback_id: i32) -> Result<(), Error> {
         trace!("{}", stringify!(connect_node_device_event_deregister_any));
-        let req: Option<binding::RemoteConnectNodeDeviceEventDeregisterAnyArgs> = Some(args);
+        let req: Option<RemoteConnectNodeDeviceEventDeregisterAnyArgs> =
+            Some(RemoteConnectNodeDeviceEventDeregisterAnyArgs { callback_id });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectNodeDeviceEventDeregisterAny,
+            RemoteProcedure::RemoteProcConnectNodeDeviceEventDeregisterAny,
             req,
         )?;
         Ok(())
@@ -4532,7 +5085,7 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceEventLifecycle,
+            RemoteProcedure::RemoteProcNodeDeviceEventLifecycle,
             req,
         )?;
         Ok(())
@@ -4540,58 +5093,61 @@ pub trait Libvirt {
     fn node_device_event_update(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_event_update));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceEventUpdate,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceEventUpdate, req)?;
         Ok(())
     }
     fn storage_vol_get_info_flags(
         &mut self,
-        args: binding::RemoteStorageVolGetInfoFlagsArgs,
-    ) -> Result<binding::RemoteStorageVolGetInfoFlagsRet, Error> {
+        vol: RemoteNonnullStorageVol,
+        flags: u32,
+    ) -> Result<(i8, u64, u64), Error> {
         trace!("{}", stringify!(storage_vol_get_info_flags));
-        let req: Option<binding::RemoteStorageVolGetInfoFlagsArgs> = Some(args);
-        let res: Option<binding::RemoteStorageVolGetInfoFlagsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcStorageVolGetInfoFlags,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteStorageVolGetInfoFlagsArgs> =
+            Some(RemoteStorageVolGetInfoFlagsArgs { vol, flags });
+        let res: Option<RemoteStorageVolGetInfoFlagsRet> =
+            call(self, RemoteProcedure::RemoteProcStorageVolGetInfoFlags, req)?;
+        let res = res.unwrap();
+        let RemoteStorageVolGetInfoFlagsRet {
+            r#type,
+            capacity,
+            allocation,
+        } = res;
+        Ok((r#type, capacity, allocation))
     }
     fn domain_event_callback_metadata_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_metadata_change));
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventCallbackMetadataChange,
+            RemoteProcedure::RemoteProcDomainEventCallbackMetadataChange,
             req,
         )?;
         Ok(())
     }
     fn connect_secret_event_register_any(
         &mut self,
-        args: binding::RemoteConnectSecretEventRegisterAnyArgs,
-    ) -> Result<binding::RemoteConnectSecretEventRegisterAnyRet, Error> {
+        event_id: i32,
+        secret: Option<RemoteNonnullSecret>,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_secret_event_register_any));
-        let req: Option<binding::RemoteConnectSecretEventRegisterAnyArgs> = Some(args);
-        let res: Option<binding::RemoteConnectSecretEventRegisterAnyRet> = call(
+        let req: Option<RemoteConnectSecretEventRegisterAnyArgs> =
+            Some(RemoteConnectSecretEventRegisterAnyArgs { event_id, secret });
+        let res: Option<RemoteConnectSecretEventRegisterAnyRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectSecretEventRegisterAny,
+            RemoteProcedure::RemoteProcConnectSecretEventRegisterAny,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectSecretEventRegisterAnyRet { callback_id } = res;
+        Ok(callback_id)
     }
-    fn connect_secret_event_deregister_any(
-        &mut self,
-        args: binding::RemoteConnectSecretEventDeregisterAnyArgs,
-    ) -> Result<(), Error> {
+    fn connect_secret_event_deregister_any(&mut self, callback_id: i32) -> Result<(), Error> {
         trace!("{}", stringify!(connect_secret_event_deregister_any));
-        let req: Option<binding::RemoteConnectSecretEventDeregisterAnyArgs> = Some(args);
+        let req: Option<RemoteConnectSecretEventDeregisterAnyArgs> =
+            Some(RemoteConnectSecretEventDeregisterAnyArgs { callback_id });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectSecretEventDeregisterAny,
+            RemoteProcedure::RemoteProcConnectSecretEventDeregisterAny,
             req,
         )?;
         Ok(())
@@ -4599,11 +5155,7 @@ pub trait Libvirt {
     fn secret_event_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(secret_event_lifecycle));
         let req: Option<()> = None;
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcSecretEventLifecycle,
-            req,
-        )?;
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcSecretEventLifecycle, req)?;
         Ok(())
     }
     fn secret_event_value_changed(&mut self) -> Result<(), Error> {
@@ -4611,15 +5163,26 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcSecretEventValueChanged,
+            RemoteProcedure::RemoteProcSecretEventValueChanged,
             req,
         )?;
         Ok(())
     }
-    fn domain_set_vcpu(&mut self, args: binding::RemoteDomainSetVcpuArgs) -> Result<(), Error> {
+    fn domain_set_vcpu(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        cpumap: String,
+        state: i32,
+        flags: u32,
+    ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_vcpu));
-        let req: Option<binding::RemoteDomainSetVcpuArgs> = Some(args);
-        let _res: Option<()> = call(self, binding::RemoteProcedure::RemoteProcDomainSetVcpu, req)?;
+        let req: Option<RemoteDomainSetVcpuArgs> = Some(RemoteDomainSetVcpuArgs {
+            dom,
+            cpumap,
+            state,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetVcpu, req)?;
         Ok(())
     }
     fn domain_event_block_threshold(&mut self) -> Result<(), Error> {
@@ -4627,1070 +5190,1416 @@ pub trait Libvirt {
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventBlockThreshold,
+            RemoteProcedure::RemoteProcDomainEventBlockThreshold,
             req,
         )?;
         Ok(())
     }
     fn domain_set_block_threshold(
         &mut self,
-        args: binding::RemoteDomainSetBlockThresholdArgs,
+        dom: RemoteNonnullDomain,
+        dev: String,
+        threshold: u64,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_block_threshold));
-        let req: Option<binding::RemoteDomainSetBlockThresholdArgs> = Some(args);
+        let req: Option<RemoteDomainSetBlockThresholdArgs> =
+            Some(RemoteDomainSetBlockThresholdArgs {
+                dom,
+                dev,
+                threshold,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetBlockThreshold,
+            RemoteProcedure::RemoteProcDomainSetBlockThreshold,
             req,
         )?;
         Ok(())
     }
     fn domain_migrate_get_max_downtime(
         &mut self,
-        args: binding::RemoteDomainMigrateGetMaxDowntimeArgs,
-    ) -> Result<binding::RemoteDomainMigrateGetMaxDowntimeRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<u64, Error> {
         trace!("{}", stringify!(domain_migrate_get_max_downtime));
-        let req: Option<binding::RemoteDomainMigrateGetMaxDowntimeArgs> = Some(args);
-        let res: Option<binding::RemoteDomainMigrateGetMaxDowntimeRet> = call(
+        let req: Option<RemoteDomainMigrateGetMaxDowntimeArgs> =
+            Some(RemoteDomainMigrateGetMaxDowntimeArgs { dom, flags });
+        let res: Option<RemoteDomainMigrateGetMaxDowntimeRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainMigrateGetMaxDowntime,
+            RemoteProcedure::RemoteProcDomainMigrateGetMaxDowntime,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainMigrateGetMaxDowntimeRet { downtime } = res;
+        Ok(downtime)
     }
     fn domain_managed_save_get_xml_desc(
         &mut self,
-        args: binding::RemoteDomainManagedSaveGetXmlDescArgs,
-    ) -> Result<binding::RemoteDomainManagedSaveGetXmlDescRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(domain_managed_save_get_xml_desc));
-        let req: Option<binding::RemoteDomainManagedSaveGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteDomainManagedSaveGetXmlDescRet> = call(
+        let req: Option<RemoteDomainManagedSaveGetXmlDescArgs> =
+            Some(RemoteDomainManagedSaveGetXmlDescArgs { dom, flags });
+        let res: Option<RemoteDomainManagedSaveGetXmlDescRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainManagedSaveGetXmlDesc,
+            RemoteProcedure::RemoteProcDomainManagedSaveGetXmlDesc,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainManagedSaveGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
     fn domain_managed_save_define_xml(
         &mut self,
-        args: binding::RemoteDomainManagedSaveDefineXmlArgs,
+        dom: RemoteNonnullDomain,
+        dxml: Option<String>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_managed_save_define_xml));
-        let req: Option<binding::RemoteDomainManagedSaveDefineXmlArgs> = Some(args);
+        let req: Option<RemoteDomainManagedSaveDefineXmlArgs> =
+            Some(RemoteDomainManagedSaveDefineXmlArgs { dom, dxml, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainManagedSaveDefineXml,
+            RemoteProcedure::RemoteProcDomainManagedSaveDefineXml,
             req,
         )?;
         Ok(())
     }
     fn domain_set_lifecycle_action(
         &mut self,
-        args: binding::RemoteDomainSetLifecycleActionArgs,
+        dom: RemoteNonnullDomain,
+        r#type: u32,
+        action: u32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_lifecycle_action));
-        let req: Option<binding::RemoteDomainSetLifecycleActionArgs> = Some(args);
+        let req: Option<RemoteDomainSetLifecycleActionArgs> =
+            Some(RemoteDomainSetLifecycleActionArgs {
+                dom,
+                r#type,
+                action,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetLifecycleAction,
+            RemoteProcedure::RemoteProcDomainSetLifecycleAction,
             req,
         )?;
         Ok(())
     }
     fn storage_pool_lookup_by_target_path(
         &mut self,
-        args: binding::RemoteStoragePoolLookupByTargetPathArgs,
-    ) -> Result<binding::RemoteStoragePoolLookupByTargetPathRet, Error> {
+        path: String,
+    ) -> Result<RemoteNonnullStoragePool, Error> {
         trace!("{}", stringify!(storage_pool_lookup_by_target_path));
-        let req: Option<binding::RemoteStoragePoolLookupByTargetPathArgs> = Some(args);
-        let res: Option<binding::RemoteStoragePoolLookupByTargetPathRet> = call(
+        let req: Option<RemoteStoragePoolLookupByTargetPathArgs> =
+            Some(RemoteStoragePoolLookupByTargetPathArgs { path });
+        let res: Option<RemoteStoragePoolLookupByTargetPathRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcStoragePoolLookupByTargetPath,
+            RemoteProcedure::RemoteProcStoragePoolLookupByTargetPath,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteStoragePoolLookupByTargetPathRet { pool } = res;
+        Ok(pool)
     }
     fn domain_detach_device_alias(
         &mut self,
-        args: binding::RemoteDomainDetachDeviceAliasArgs,
+        dom: RemoteNonnullDomain,
+        alias: String,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_detach_device_alias));
-        let req: Option<binding::RemoteDomainDetachDeviceAliasArgs> = Some(args);
+        let req: Option<RemoteDomainDetachDeviceAliasArgs> =
+            Some(RemoteDomainDetachDeviceAliasArgs { dom, alias, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainDetachDeviceAlias,
+            RemoteProcedure::RemoteProcDomainDetachDeviceAlias,
             req,
         )?;
         Ok(())
     }
     fn connect_compare_hypervisor_cpu(
         &mut self,
-        args: binding::RemoteConnectCompareHypervisorCpuArgs,
-    ) -> Result<binding::RemoteConnectCompareHypervisorCpuRet, Error> {
+        emulator: Option<String>,
+        arch: Option<String>,
+        machine: Option<String>,
+        virttype: Option<String>,
+        xml_cpu: String,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_compare_hypervisor_cpu));
-        let req: Option<binding::RemoteConnectCompareHypervisorCpuArgs> = Some(args);
-        let res: Option<binding::RemoteConnectCompareHypervisorCpuRet> = call(
+        let req: Option<RemoteConnectCompareHypervisorCpuArgs> =
+            Some(RemoteConnectCompareHypervisorCpuArgs {
+                emulator,
+                arch,
+                machine,
+                virttype,
+                xml_cpu,
+                flags,
+            });
+        let res: Option<RemoteConnectCompareHypervisorCpuRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectCompareHypervisorCpu,
+            RemoteProcedure::RemoteProcConnectCompareHypervisorCpu,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectCompareHypervisorCpuRet { result } = res;
+        Ok(result)
     }
     fn connect_baseline_hypervisor_cpu(
         &mut self,
-        args: binding::RemoteConnectBaselineHypervisorCpuArgs,
-    ) -> Result<binding::RemoteConnectBaselineHypervisorCpuRet, Error> {
+        emulator: Option<String>,
+        arch: Option<String>,
+        machine: Option<String>,
+        virttype: Option<String>,
+        xml_cpus: Vec<String>,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(connect_baseline_hypervisor_cpu));
-        let req: Option<binding::RemoteConnectBaselineHypervisorCpuArgs> = Some(args);
-        let res: Option<binding::RemoteConnectBaselineHypervisorCpuRet> = call(
+        let req: Option<RemoteConnectBaselineHypervisorCpuArgs> =
+            Some(RemoteConnectBaselineHypervisorCpuArgs {
+                emulator,
+                arch,
+                machine,
+                virttype,
+                xml_cpus,
+                flags,
+            });
+        let res: Option<RemoteConnectBaselineHypervisorCpuRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectBaselineHypervisorCpu,
+            RemoteProcedure::RemoteProcConnectBaselineHypervisorCpu,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectBaselineHypervisorCpuRet { cpu } = res;
+        Ok(cpu)
     }
     fn node_get_sev_info(
         &mut self,
-        args: binding::RemoteNodeGetSevInfoArgs,
-    ) -> Result<binding::RemoteNodeGetSevInfoRet, Error> {
+        nparams: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteTypedParam>, i32), Error> {
         trace!("{}", stringify!(node_get_sev_info));
-        let req: Option<binding::RemoteNodeGetSevInfoArgs> = Some(args);
-        let res: Option<binding::RemoteNodeGetSevInfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeGetSevInfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeGetSevInfoArgs> =
+            Some(RemoteNodeGetSevInfoArgs { nparams, flags });
+        let res: Option<RemoteNodeGetSevInfoRet> =
+            call(self, RemoteProcedure::RemoteProcNodeGetSevInfo, req)?;
+        let res = res.unwrap();
+        let RemoteNodeGetSevInfoRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn domain_get_launch_security_info(
         &mut self,
-        args: binding::RemoteDomainGetLaunchSecurityInfoArgs,
-    ) -> Result<binding::RemoteDomainGetLaunchSecurityInfoRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<Vec<RemoteTypedParam>, Error> {
         trace!("{}", stringify!(domain_get_launch_security_info));
-        let req: Option<binding::RemoteDomainGetLaunchSecurityInfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetLaunchSecurityInfoRet> = call(
+        let req: Option<RemoteDomainGetLaunchSecurityInfoArgs> =
+            Some(RemoteDomainGetLaunchSecurityInfoArgs { dom, flags });
+        let res: Option<RemoteDomainGetLaunchSecurityInfoRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainGetLaunchSecurityInfo,
+            RemoteProcedure::RemoteProcDomainGetLaunchSecurityInfo,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainGetLaunchSecurityInfoRet { params } = res;
+        Ok(params)
     }
     fn nwfilter_binding_lookup_by_port_dev(
         &mut self,
-        args: binding::RemoteNwfilterBindingLookupByPortDevArgs,
-    ) -> Result<binding::RemoteNwfilterBindingLookupByPortDevRet, Error> {
+        name: String,
+    ) -> Result<RemoteNonnullNwfilterBinding, Error> {
         trace!("{}", stringify!(nwfilter_binding_lookup_by_port_dev));
-        let req: Option<binding::RemoteNwfilterBindingLookupByPortDevArgs> = Some(args);
-        let res: Option<binding::RemoteNwfilterBindingLookupByPortDevRet> = call(
+        let req: Option<RemoteNwfilterBindingLookupByPortDevArgs> =
+            Some(RemoteNwfilterBindingLookupByPortDevArgs { name });
+        let res: Option<RemoteNwfilterBindingLookupByPortDevRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcNwfilterBindingLookupByPortDev,
+            RemoteProcedure::RemoteProcNwfilterBindingLookupByPortDev,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteNwfilterBindingLookupByPortDevRet { nwfilter } = res;
+        Ok(nwfilter)
     }
     fn nwfilter_binding_get_xml_desc(
         &mut self,
-        args: binding::RemoteNwfilterBindingGetXmlDescArgs,
-    ) -> Result<binding::RemoteNwfilterBindingGetXmlDescRet, Error> {
+        nwfilter: RemoteNonnullNwfilterBinding,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(nwfilter_binding_get_xml_desc));
-        let req: Option<binding::RemoteNwfilterBindingGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteNwfilterBindingGetXmlDescRet> = call(
+        let req: Option<RemoteNwfilterBindingGetXmlDescArgs> =
+            Some(RemoteNwfilterBindingGetXmlDescArgs { nwfilter, flags });
+        let res: Option<RemoteNwfilterBindingGetXmlDescRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcNwfilterBindingGetXmlDesc,
+            RemoteProcedure::RemoteProcNwfilterBindingGetXmlDesc,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteNwfilterBindingGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
     fn nwfilter_binding_create_xml(
         &mut self,
-        args: binding::RemoteNwfilterBindingCreateXmlArgs,
-    ) -> Result<binding::RemoteNwfilterBindingCreateXmlRet, Error> {
+        xml: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullNwfilterBinding, Error> {
         trace!("{}", stringify!(nwfilter_binding_create_xml));
-        let req: Option<binding::RemoteNwfilterBindingCreateXmlArgs> = Some(args);
-        let res: Option<binding::RemoteNwfilterBindingCreateXmlRet> = call(
+        let req: Option<RemoteNwfilterBindingCreateXmlArgs> =
+            Some(RemoteNwfilterBindingCreateXmlArgs { xml, flags });
+        let res: Option<RemoteNwfilterBindingCreateXmlRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcNwfilterBindingCreateXml,
+            RemoteProcedure::RemoteProcNwfilterBindingCreateXml,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteNwfilterBindingCreateXmlRet { nwfilter } = res;
+        Ok(nwfilter)
     }
     fn nwfilter_binding_delete(
         &mut self,
-        args: binding::RemoteNwfilterBindingDeleteArgs,
+        nwfilter: RemoteNonnullNwfilterBinding,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(nwfilter_binding_delete));
-        let req: Option<binding::RemoteNwfilterBindingDeleteArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNwfilterBindingDelete,
-            req,
-        )?;
+        let req: Option<RemoteNwfilterBindingDeleteArgs> =
+            Some(RemoteNwfilterBindingDeleteArgs { nwfilter });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNwfilterBindingDelete, req)?;
         Ok(())
     }
     fn connect_list_all_nwfilter_bindings(
         &mut self,
-        args: binding::RemoteConnectListAllNwfilterBindingsArgs,
-    ) -> Result<binding::RemoteConnectListAllNwfilterBindingsRet, Error> {
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullNwfilterBinding>, u32), Error> {
         trace!("{}", stringify!(connect_list_all_nwfilter_bindings));
-        let req: Option<binding::RemoteConnectListAllNwfilterBindingsArgs> = Some(args);
-        let res: Option<binding::RemoteConnectListAllNwfilterBindingsRet> = call(
+        let req: Option<RemoteConnectListAllNwfilterBindingsArgs> =
+            Some(RemoteConnectListAllNwfilterBindingsArgs {
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteConnectListAllNwfilterBindingsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectListAllNwfilterBindings,
+            RemoteProcedure::RemoteProcConnectListAllNwfilterBindings,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectListAllNwfilterBindingsRet { bindings, ret } = res;
+        Ok((bindings, ret))
     }
     fn domain_set_iothread_params(
         &mut self,
-        args: binding::RemoteDomainSetIothreadParamsArgs,
+        dom: RemoteNonnullDomain,
+        iothread_id: u32,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_iothread_params));
-        let req: Option<binding::RemoteDomainSetIothreadParamsArgs> = Some(args);
+        let req: Option<RemoteDomainSetIothreadParamsArgs> =
+            Some(RemoteDomainSetIothreadParamsArgs {
+                dom,
+                iothread_id,
+                params,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetIothreadParams,
+            RemoteProcedure::RemoteProcDomainSetIothreadParams,
             req,
         )?;
         Ok(())
     }
-    fn connect_get_storage_pool_capabilities(
-        &mut self,
-        args: binding::RemoteConnectGetStoragePoolCapabilitiesArgs,
-    ) -> Result<binding::RemoteConnectGetStoragePoolCapabilitiesRet, Error> {
+    fn connect_get_storage_pool_capabilities(&mut self, flags: u32) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_storage_pool_capabilities));
-        let req: Option<binding::RemoteConnectGetStoragePoolCapabilitiesArgs> = Some(args);
-        let res: Option<binding::RemoteConnectGetStoragePoolCapabilitiesRet> = call(
+        let req: Option<RemoteConnectGetStoragePoolCapabilitiesArgs> =
+            Some(RemoteConnectGetStoragePoolCapabilitiesArgs { flags });
+        let res: Option<RemoteConnectGetStoragePoolCapabilitiesRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcConnectGetStoragePoolCapabilities,
+            RemoteProcedure::RemoteProcConnectGetStoragePoolCapabilities,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteConnectGetStoragePoolCapabilitiesRet { capabilities } = res;
+        Ok(capabilities)
     }
     fn network_list_all_ports(
         &mut self,
-        args: binding::RemoteNetworkListAllPortsArgs,
-    ) -> Result<binding::RemoteNetworkListAllPortsRet, Error> {
+        network: RemoteNonnullNetwork,
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullNetworkPort>, u32), Error> {
         trace!("{}", stringify!(network_list_all_ports));
-        let req: Option<binding::RemoteNetworkListAllPortsArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkListAllPortsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkListAllPorts,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkListAllPortsArgs> = Some(RemoteNetworkListAllPortsArgs {
+            network,
+            need_results,
+            flags,
+        });
+        let res: Option<RemoteNetworkListAllPortsRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkListAllPorts, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkListAllPortsRet { ports, ret } = res;
+        Ok((ports, ret))
     }
     fn network_port_lookup_by_uuid(
         &mut self,
-        args: binding::RemoteNetworkPortLookupByUuidArgs,
-    ) -> Result<binding::RemoteNetworkPortLookupByUuidRet, Error> {
+        network: RemoteNonnullNetwork,
+        uuid: [u8; VIR_UUID_BUFLEN as usize],
+    ) -> Result<RemoteNonnullNetworkPort, Error> {
         trace!("{}", stringify!(network_port_lookup_by_uuid));
-        let req: Option<binding::RemoteNetworkPortLookupByUuidArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkPortLookupByUuidRet> = call(
+        let req: Option<RemoteNetworkPortLookupByUuidArgs> =
+            Some(RemoteNetworkPortLookupByUuidArgs { network, uuid });
+        let res: Option<RemoteNetworkPortLookupByUuidRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcNetworkPortLookupByUuid,
+            RemoteProcedure::RemoteProcNetworkPortLookupByUuid,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteNetworkPortLookupByUuidRet { port } = res;
+        Ok(port)
     }
     fn network_port_create_xml(
         &mut self,
-        args: binding::RemoteNetworkPortCreateXmlArgs,
-    ) -> Result<binding::RemoteNetworkPortCreateXmlRet, Error> {
+        network: RemoteNonnullNetwork,
+        xml: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullNetworkPort, Error> {
         trace!("{}", stringify!(network_port_create_xml));
-        let req: Option<binding::RemoteNetworkPortCreateXmlArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkPortCreateXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkPortCreateXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkPortCreateXmlArgs> = Some(RemoteNetworkPortCreateXmlArgs {
+            network,
+            xml,
+            flags,
+        });
+        let res: Option<RemoteNetworkPortCreateXmlRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkPortCreateXml, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkPortCreateXmlRet { port } = res;
+        Ok(port)
     }
     fn network_port_get_parameters(
         &mut self,
-        args: binding::RemoteNetworkPortGetParametersArgs,
-    ) -> Result<binding::RemoteNetworkPortGetParametersRet, Error> {
+        port: RemoteNonnullNetworkPort,
+        nparams: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteTypedParam>, i32), Error> {
         trace!("{}", stringify!(network_port_get_parameters));
-        let req: Option<binding::RemoteNetworkPortGetParametersArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkPortGetParametersRet> = call(
+        let req: Option<RemoteNetworkPortGetParametersArgs> =
+            Some(RemoteNetworkPortGetParametersArgs {
+                port,
+                nparams,
+                flags,
+            });
+        let res: Option<RemoteNetworkPortGetParametersRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcNetworkPortGetParameters,
+            RemoteProcedure::RemoteProcNetworkPortGetParameters,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteNetworkPortGetParametersRet { params, nparams } = res;
+        Ok((params, nparams))
     }
     fn network_port_set_parameters(
         &mut self,
-        args: binding::RemoteNetworkPortSetParametersArgs,
+        port: RemoteNonnullNetworkPort,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(network_port_set_parameters));
-        let req: Option<binding::RemoteNetworkPortSetParametersArgs> = Some(args);
+        let req: Option<RemoteNetworkPortSetParametersArgs> =
+            Some(RemoteNetworkPortSetParametersArgs {
+                port,
+                params,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcNetworkPortSetParameters,
+            RemoteProcedure::RemoteProcNetworkPortSetParameters,
             req,
         )?;
         Ok(())
     }
     fn network_port_get_xml_desc(
         &mut self,
-        args: binding::RemoteNetworkPortGetXmlDescArgs,
-    ) -> Result<binding::RemoteNetworkPortGetXmlDescRet, Error> {
+        port: RemoteNonnullNetworkPort,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(network_port_get_xml_desc));
-        let req: Option<binding::RemoteNetworkPortGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkPortGetXmlDescRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkPortGetXmlDesc,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkPortGetXmlDescArgs> =
+            Some(RemoteNetworkPortGetXmlDescArgs { port, flags });
+        let res: Option<RemoteNetworkPortGetXmlDescRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkPortGetXmlDesc, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkPortGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
     fn network_port_delete(
         &mut self,
-        args: binding::RemoteNetworkPortDeleteArgs,
+        port: RemoteNonnullNetworkPort,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(network_port_delete));
-        let req: Option<binding::RemoteNetworkPortDeleteArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkPortDelete,
-            req,
-        )?;
+        let req: Option<RemoteNetworkPortDeleteArgs> =
+            Some(RemoteNetworkPortDeleteArgs { port, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNetworkPortDelete, req)?;
         Ok(())
     }
     fn domain_checkpoint_create_xml(
         &mut self,
-        args: binding::RemoteDomainCheckpointCreateXmlArgs,
-    ) -> Result<binding::RemoteDomainCheckpointCreateXmlRet, Error> {
+        dom: RemoteNonnullDomain,
+        xml_desc: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomainCheckpoint, Error> {
         trace!("{}", stringify!(domain_checkpoint_create_xml));
-        let req: Option<binding::RemoteDomainCheckpointCreateXmlArgs> = Some(args);
-        let res: Option<binding::RemoteDomainCheckpointCreateXmlRet> = call(
+        let req: Option<RemoteDomainCheckpointCreateXmlArgs> =
+            Some(RemoteDomainCheckpointCreateXmlArgs {
+                dom,
+                xml_desc,
+                flags,
+            });
+        let res: Option<RemoteDomainCheckpointCreateXmlRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainCheckpointCreateXml,
+            RemoteProcedure::RemoteProcDomainCheckpointCreateXml,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainCheckpointCreateXmlRet { checkpoint } = res;
+        Ok(checkpoint)
     }
     fn domain_checkpoint_get_xml_desc(
         &mut self,
-        args: binding::RemoteDomainCheckpointGetXmlDescArgs,
-    ) -> Result<binding::RemoteDomainCheckpointGetXmlDescRet, Error> {
+        checkpoint: RemoteNonnullDomainCheckpoint,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(domain_checkpoint_get_xml_desc));
-        let req: Option<binding::RemoteDomainCheckpointGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteDomainCheckpointGetXmlDescRet> = call(
+        let req: Option<RemoteDomainCheckpointGetXmlDescArgs> =
+            Some(RemoteDomainCheckpointGetXmlDescArgs { checkpoint, flags });
+        let res: Option<RemoteDomainCheckpointGetXmlDescRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainCheckpointGetXmlDesc,
+            RemoteProcedure::RemoteProcDomainCheckpointGetXmlDesc,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainCheckpointGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
     fn domain_list_all_checkpoints(
         &mut self,
-        args: binding::RemoteDomainListAllCheckpointsArgs,
-    ) -> Result<binding::RemoteDomainListAllCheckpointsRet, Error> {
+        dom: RemoteNonnullDomain,
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullDomainCheckpoint>, i32), Error> {
         trace!("{}", stringify!(domain_list_all_checkpoints));
-        let req: Option<binding::RemoteDomainListAllCheckpointsArgs> = Some(args);
-        let res: Option<binding::RemoteDomainListAllCheckpointsRet> = call(
+        let req: Option<RemoteDomainListAllCheckpointsArgs> =
+            Some(RemoteDomainListAllCheckpointsArgs {
+                dom,
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteDomainListAllCheckpointsRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainListAllCheckpoints,
+            RemoteProcedure::RemoteProcDomainListAllCheckpoints,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainListAllCheckpointsRet { checkpoints, ret } = res;
+        Ok((checkpoints, ret))
     }
     fn domain_checkpoint_list_all_children(
         &mut self,
-        args: binding::RemoteDomainCheckpointListAllChildrenArgs,
-    ) -> Result<binding::RemoteDomainCheckpointListAllChildrenRet, Error> {
+        checkpoint: RemoteNonnullDomainCheckpoint,
+        need_results: i32,
+        flags: u32,
+    ) -> Result<(Vec<RemoteNonnullDomainCheckpoint>, i32), Error> {
         trace!("{}", stringify!(domain_checkpoint_list_all_children));
-        let req: Option<binding::RemoteDomainCheckpointListAllChildrenArgs> = Some(args);
-        let res: Option<binding::RemoteDomainCheckpointListAllChildrenRet> = call(
+        let req: Option<RemoteDomainCheckpointListAllChildrenArgs> =
+            Some(RemoteDomainCheckpointListAllChildrenArgs {
+                checkpoint,
+                need_results,
+                flags,
+            });
+        let res: Option<RemoteDomainCheckpointListAllChildrenRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainCheckpointListAllChildren,
+            RemoteProcedure::RemoteProcDomainCheckpointListAllChildren,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainCheckpointListAllChildrenRet { checkpoints, ret } = res;
+        Ok((checkpoints, ret))
     }
     fn domain_checkpoint_lookup_by_name(
         &mut self,
-        args: binding::RemoteDomainCheckpointLookupByNameArgs,
-    ) -> Result<binding::RemoteDomainCheckpointLookupByNameRet, Error> {
+        dom: RemoteNonnullDomain,
+        name: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomainCheckpoint, Error> {
         trace!("{}", stringify!(domain_checkpoint_lookup_by_name));
-        let req: Option<binding::RemoteDomainCheckpointLookupByNameArgs> = Some(args);
-        let res: Option<binding::RemoteDomainCheckpointLookupByNameRet> = call(
+        let req: Option<RemoteDomainCheckpointLookupByNameArgs> =
+            Some(RemoteDomainCheckpointLookupByNameArgs { dom, name, flags });
+        let res: Option<RemoteDomainCheckpointLookupByNameRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainCheckpointLookupByName,
+            RemoteProcedure::RemoteProcDomainCheckpointLookupByName,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainCheckpointLookupByNameRet { checkpoint } = res;
+        Ok(checkpoint)
     }
     fn domain_checkpoint_get_parent(
         &mut self,
-        args: binding::RemoteDomainCheckpointGetParentArgs,
-    ) -> Result<binding::RemoteDomainCheckpointGetParentRet, Error> {
+        checkpoint: RemoteNonnullDomainCheckpoint,
+        flags: u32,
+    ) -> Result<RemoteNonnullDomainCheckpoint, Error> {
         trace!("{}", stringify!(domain_checkpoint_get_parent));
-        let req: Option<binding::RemoteDomainCheckpointGetParentArgs> = Some(args);
-        let res: Option<binding::RemoteDomainCheckpointGetParentRet> = call(
+        let req: Option<RemoteDomainCheckpointGetParentArgs> =
+            Some(RemoteDomainCheckpointGetParentArgs { checkpoint, flags });
+        let res: Option<RemoteDomainCheckpointGetParentRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainCheckpointGetParent,
+            RemoteProcedure::RemoteProcDomainCheckpointGetParent,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainCheckpointGetParentRet { parent } = res;
+        Ok(parent)
     }
     fn domain_checkpoint_delete(
         &mut self,
-        args: binding::RemoteDomainCheckpointDeleteArgs,
+        checkpoint: RemoteNonnullDomainCheckpoint,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_checkpoint_delete));
-        let req: Option<binding::RemoteDomainCheckpointDeleteArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainCheckpointDelete,
-            req,
-        )?;
+        let req: Option<RemoteDomainCheckpointDeleteArgs> =
+            Some(RemoteDomainCheckpointDeleteArgs { checkpoint, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainCheckpointDelete, req)?;
         Ok(())
     }
     fn domain_get_guest_info(
         &mut self,
-        args: binding::RemoteDomainGetGuestInfoArgs,
-    ) -> Result<binding::RemoteDomainGetGuestInfoRet, Error> {
+        dom: RemoteNonnullDomain,
+        types: u32,
+        flags: u32,
+    ) -> Result<Vec<RemoteTypedParam>, Error> {
         trace!("{}", stringify!(domain_get_guest_info));
-        let req: Option<binding::RemoteDomainGetGuestInfoArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetGuestInfoRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetGuestInfo,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetGuestInfoArgs> =
+            Some(RemoteDomainGetGuestInfoArgs { dom, types, flags });
+        let res: Option<RemoteDomainGetGuestInfoRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetGuestInfo, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetGuestInfoRet { params } = res;
+        Ok(params)
     }
     fn connect_set_identity(
         &mut self,
-        args: binding::RemoteConnectSetIdentityArgs,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(connect_set_identity));
-        let req: Option<binding::RemoteConnectSetIdentityArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcConnectSetIdentity,
-            req,
-        )?;
+        let req: Option<RemoteConnectSetIdentityArgs> =
+            Some(RemoteConnectSetIdentityArgs { params, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcConnectSetIdentity, req)?;
         Ok(())
     }
     fn domain_agent_set_response_timeout(
         &mut self,
-        args: binding::RemoteDomainAgentSetResponseTimeoutArgs,
-    ) -> Result<binding::RemoteDomainAgentSetResponseTimeoutRet, Error> {
+        dom: RemoteNonnullDomain,
+        timeout: i32,
+        flags: u32,
+    ) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_agent_set_response_timeout));
-        let req: Option<binding::RemoteDomainAgentSetResponseTimeoutArgs> = Some(args);
-        let res: Option<binding::RemoteDomainAgentSetResponseTimeoutRet> = call(
+        let req: Option<RemoteDomainAgentSetResponseTimeoutArgs> =
+            Some(RemoteDomainAgentSetResponseTimeoutArgs {
+                dom,
+                timeout,
+                flags,
+            });
+        let res: Option<RemoteDomainAgentSetResponseTimeoutRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainAgentSetResponseTimeout,
+            RemoteProcedure::RemoteProcDomainAgentSetResponseTimeout,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainAgentSetResponseTimeoutRet { result } = res;
+        Ok(result)
     }
     fn domain_backup_begin(
         &mut self,
-        args: binding::RemoteDomainBackupBeginArgs,
+        dom: RemoteNonnullDomain,
+        backup_xml: String,
+        checkpoint_xml: Option<String>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_backup_begin));
-        let req: Option<binding::RemoteDomainBackupBeginArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBackupBegin,
-            req,
-        )?;
+        let req: Option<RemoteDomainBackupBeginArgs> = Some(RemoteDomainBackupBeginArgs {
+            dom,
+            backup_xml,
+            checkpoint_xml,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainBackupBegin, req)?;
         Ok(())
     }
     fn domain_backup_get_xml_desc(
         &mut self,
-        args: binding::RemoteDomainBackupGetXmlDescArgs,
-    ) -> Result<binding::RemoteDomainBackupGetXmlDescRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<String, Error> {
         trace!("{}", stringify!(domain_backup_get_xml_desc));
-        let req: Option<binding::RemoteDomainBackupGetXmlDescArgs> = Some(args);
-        let res: Option<binding::RemoteDomainBackupGetXmlDescRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainBackupGetXmlDesc,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainBackupGetXmlDescArgs> =
+            Some(RemoteDomainBackupGetXmlDescArgs { dom, flags });
+        let res: Option<RemoteDomainBackupGetXmlDescRet> =
+            call(self, RemoteProcedure::RemoteProcDomainBackupGetXmlDesc, req)?;
+        let res = res.unwrap();
+        let RemoteDomainBackupGetXmlDescRet { xml } = res;
+        Ok(xml)
     }
     fn domain_event_memory_failure(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_memory_failure));
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventMemoryFailure,
+            RemoteProcedure::RemoteProcDomainEventMemoryFailure,
             req,
         )?;
         Ok(())
     }
     fn domain_authorized_ssh_keys_get(
         &mut self,
-        args: binding::RemoteDomainAuthorizedSshKeysGetArgs,
-    ) -> Result<binding::RemoteDomainAuthorizedSshKeysGetRet, Error> {
+        dom: RemoteNonnullDomain,
+        user: String,
+        flags: u32,
+    ) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(domain_authorized_ssh_keys_get));
-        let req: Option<binding::RemoteDomainAuthorizedSshKeysGetArgs> = Some(args);
-        let res: Option<binding::RemoteDomainAuthorizedSshKeysGetRet> = call(
+        let req: Option<RemoteDomainAuthorizedSshKeysGetArgs> =
+            Some(RemoteDomainAuthorizedSshKeysGetArgs { dom, user, flags });
+        let res: Option<RemoteDomainAuthorizedSshKeysGetRet> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainAuthorizedSshKeysGet,
+            RemoteProcedure::RemoteProcDomainAuthorizedSshKeysGet,
             req,
         )?;
-        Ok(res.unwrap())
+        let res = res.unwrap();
+        let RemoteDomainAuthorizedSshKeysGetRet { keys } = res;
+        Ok(keys)
     }
     fn domain_authorized_ssh_keys_set(
         &mut self,
-        args: binding::RemoteDomainAuthorizedSshKeysSetArgs,
+        dom: RemoteNonnullDomain,
+        user: String,
+        keys: Vec<String>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_authorized_ssh_keys_set));
-        let req: Option<binding::RemoteDomainAuthorizedSshKeysSetArgs> = Some(args);
+        let req: Option<RemoteDomainAuthorizedSshKeysSetArgs> =
+            Some(RemoteDomainAuthorizedSshKeysSetArgs {
+                dom,
+                user,
+                keys,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainAuthorizedSshKeysSet,
+            RemoteProcedure::RemoteProcDomainAuthorizedSshKeysSet,
             req,
         )?;
         Ok(())
     }
     fn domain_get_messages(
         &mut self,
-        args: binding::RemoteDomainGetMessagesArgs,
-    ) -> Result<binding::RemoteDomainGetMessagesRet, Error> {
+        dom: RemoteNonnullDomain,
+        flags: u32,
+    ) -> Result<Vec<String>, Error> {
         trace!("{}", stringify!(domain_get_messages));
-        let req: Option<binding::RemoteDomainGetMessagesArgs> = Some(args);
-        let res: Option<binding::RemoteDomainGetMessagesRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcDomainGetMessages,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteDomainGetMessagesArgs> =
+            Some(RemoteDomainGetMessagesArgs { dom, flags });
+        let res: Option<RemoteDomainGetMessagesRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetMessages, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetMessagesRet { msgs } = res;
+        Ok(msgs)
     }
     fn domain_start_dirty_rate_calc(
         &mut self,
-        args: binding::RemoteDomainStartDirtyRateCalcArgs,
+        dom: RemoteNonnullDomain,
+        seconds: i32,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_start_dirty_rate_calc));
-        let req: Option<binding::RemoteDomainStartDirtyRateCalcArgs> = Some(args);
+        let req: Option<RemoteDomainStartDirtyRateCalcArgs> =
+            Some(RemoteDomainStartDirtyRateCalcArgs {
+                dom,
+                seconds,
+                flags,
+            });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainStartDirtyRateCalc,
+            RemoteProcedure::RemoteProcDomainStartDirtyRateCalc,
             req,
         )?;
         Ok(())
     }
     fn node_device_define_xml(
         &mut self,
-        args: binding::RemoteNodeDeviceDefineXmlArgs,
-    ) -> Result<binding::RemoteNodeDeviceDefineXmlRet, Error> {
+        xml_desc: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullNodeDevice, Error> {
         trace!("{}", stringify!(node_device_define_xml));
-        let req: Option<binding::RemoteNodeDeviceDefineXmlArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceDefineXmlRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceDefineXml,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeDeviceDefineXmlArgs> =
+            Some(RemoteNodeDeviceDefineXmlArgs { xml_desc, flags });
+        let res: Option<RemoteNodeDeviceDefineXmlRet> =
+            call(self, RemoteProcedure::RemoteProcNodeDeviceDefineXml, req)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceDefineXmlRet { dev } = res;
+        Ok(dev)
     }
-    fn node_device_undefine(
-        &mut self,
-        args: binding::RemoteNodeDeviceUndefineArgs,
-    ) -> Result<(), Error> {
+    fn node_device_undefine(&mut self, name: String, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_undefine));
-        let req: Option<binding::RemoteNodeDeviceUndefineArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceUndefine,
-            req,
-        )?;
+        let req: Option<RemoteNodeDeviceUndefineArgs> =
+            Some(RemoteNodeDeviceUndefineArgs { name, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceUndefine, req)?;
         Ok(())
     }
-    fn node_device_create(
-        &mut self,
-        args: binding::RemoteNodeDeviceCreateArgs,
-    ) -> Result<(), Error> {
+    fn node_device_create(&mut self, name: String, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_create));
-        let req: Option<binding::RemoteNodeDeviceCreateArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceCreate,
-            req,
-        )?;
+        let req: Option<RemoteNodeDeviceCreateArgs> =
+            Some(RemoteNodeDeviceCreateArgs { name, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceCreate, req)?;
         Ok(())
     }
     fn nwfilter_define_xml_flags(
         &mut self,
-        args: binding::RemoteNwfilterDefineXmlFlagsArgs,
-    ) -> Result<binding::RemoteNwfilterDefineXmlFlagsRet, Error> {
+        xml: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullNwfilter, Error> {
         trace!("{}", stringify!(nwfilter_define_xml_flags));
-        let req: Option<binding::RemoteNwfilterDefineXmlFlagsArgs> = Some(args);
-        let res: Option<binding::RemoteNwfilterDefineXmlFlagsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNwfilterDefineXmlFlags,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNwfilterDefineXmlFlagsArgs> =
+            Some(RemoteNwfilterDefineXmlFlagsArgs { xml, flags });
+        let res: Option<RemoteNwfilterDefineXmlFlagsRet> =
+            call(self, RemoteProcedure::RemoteProcNwfilterDefineXmlFlags, req)?;
+        let res = res.unwrap();
+        let RemoteNwfilterDefineXmlFlagsRet { nwfilter } = res;
+        Ok(nwfilter)
     }
     fn network_define_xml_flags(
         &mut self,
-        args: binding::RemoteNetworkDefineXmlFlagsArgs,
-    ) -> Result<binding::RemoteNetworkDefineXmlFlagsRet, Error> {
+        xml: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullNetwork, Error> {
         trace!("{}", stringify!(network_define_xml_flags));
-        let req: Option<binding::RemoteNetworkDefineXmlFlagsArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkDefineXmlFlagsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkDefineXmlFlags,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkDefineXmlFlagsArgs> =
+            Some(RemoteNetworkDefineXmlFlagsArgs { xml, flags });
+        let res: Option<RemoteNetworkDefineXmlFlagsRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkDefineXmlFlags, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkDefineXmlFlagsRet { net } = res;
+        Ok(net)
     }
-    fn node_device_get_autostart(
-        &mut self,
-        args: binding::RemoteNodeDeviceGetAutostartArgs,
-    ) -> Result<binding::RemoteNodeDeviceGetAutostartRet, Error> {
+    fn node_device_get_autostart(&mut self, name: String) -> Result<i32, Error> {
         trace!("{}", stringify!(node_device_get_autostart));
-        let req: Option<binding::RemoteNodeDeviceGetAutostartArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceGetAutostartRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceGetAutostart,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeDeviceGetAutostartArgs> =
+            Some(RemoteNodeDeviceGetAutostartArgs { name });
+        let res: Option<RemoteNodeDeviceGetAutostartRet> =
+            call(self, RemoteProcedure::RemoteProcNodeDeviceGetAutostart, req)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceGetAutostartRet { autostart } = res;
+        Ok(autostart)
     }
-    fn node_device_set_autostart(
-        &mut self,
-        args: binding::RemoteNodeDeviceSetAutostartArgs,
-    ) -> Result<(), Error> {
+    fn node_device_set_autostart(&mut self, name: String, autostart: i32) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_set_autostart));
-        let req: Option<binding::RemoteNodeDeviceSetAutostartArgs> = Some(args);
-        let _res: Option<()> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceSetAutostart,
-            req,
-        )?;
+        let req: Option<RemoteNodeDeviceSetAutostartArgs> =
+            Some(RemoteNodeDeviceSetAutostartArgs { name, autostart });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceSetAutostart, req)?;
         Ok(())
     }
-    fn node_device_is_persistent(
-        &mut self,
-        args: binding::RemoteNodeDeviceIsPersistentArgs,
-    ) -> Result<binding::RemoteNodeDeviceIsPersistentRet, Error> {
+    fn node_device_is_persistent(&mut self, name: String) -> Result<i32, Error> {
         trace!("{}", stringify!(node_device_is_persistent));
-        let req: Option<binding::RemoteNodeDeviceIsPersistentArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceIsPersistentRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceIsPersistent,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeDeviceIsPersistentArgs> =
+            Some(RemoteNodeDeviceIsPersistentArgs { name });
+        let res: Option<RemoteNodeDeviceIsPersistentRet> =
+            call(self, RemoteProcedure::RemoteProcNodeDeviceIsPersistent, req)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceIsPersistentRet { persistent } = res;
+        Ok(persistent)
     }
-    fn node_device_is_active(
-        &mut self,
-        args: binding::RemoteNodeDeviceIsActiveArgs,
-    ) -> Result<binding::RemoteNodeDeviceIsActiveRet, Error> {
+    fn node_device_is_active(&mut self, name: String) -> Result<i32, Error> {
         trace!("{}", stringify!(node_device_is_active));
-        let req: Option<binding::RemoteNodeDeviceIsActiveArgs> = Some(args);
-        let res: Option<binding::RemoteNodeDeviceIsActiveRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNodeDeviceIsActive,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNodeDeviceIsActiveArgs> = Some(RemoteNodeDeviceIsActiveArgs { name });
+        let res: Option<RemoteNodeDeviceIsActiveRet> =
+            call(self, RemoteProcedure::RemoteProcNodeDeviceIsActive, req)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceIsActiveRet { active } = res;
+        Ok(active)
     }
     fn network_create_xml_flags(
         &mut self,
-        args: binding::RemoteNetworkCreateXmlFlagsArgs,
-    ) -> Result<binding::RemoteNetworkCreateXmlFlagsRet, Error> {
+        xml: String,
+        flags: u32,
+    ) -> Result<RemoteNonnullNetwork, Error> {
         trace!("{}", stringify!(network_create_xml_flags));
-        let req: Option<binding::RemoteNetworkCreateXmlFlagsArgs> = Some(args);
-        let res: Option<binding::RemoteNetworkCreateXmlFlagsRet> = call(
-            self,
-            binding::RemoteProcedure::RemoteProcNetworkCreateXmlFlags,
-            req,
-        )?;
-        Ok(res.unwrap())
+        let req: Option<RemoteNetworkCreateXmlFlagsArgs> =
+            Some(RemoteNetworkCreateXmlFlagsArgs { xml, flags });
+        let res: Option<RemoteNetworkCreateXmlFlagsRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkCreateXmlFlags, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkCreateXmlFlagsRet { net } = res;
+        Ok(net)
     }
     fn domain_event_memory_device_size_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_memory_device_size_change));
         let req: Option<()> = None;
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainEventMemoryDeviceSizeChange,
+            RemoteProcedure::RemoteProcDomainEventMemoryDeviceSizeChange,
             req,
         )?;
         Ok(())
     }
     fn domain_set_launch_security_state(
         &mut self,
-        args: binding::RemoteDomainSetLaunchSecurityStateArgs,
+        dom: RemoteNonnullDomain,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_launch_security_state));
-        let req: Option<binding::RemoteDomainSetLaunchSecurityStateArgs> = Some(args);
+        let req: Option<RemoteDomainSetLaunchSecurityStateArgs> =
+            Some(RemoteDomainSetLaunchSecurityStateArgs { dom, params, flags });
         let _res: Option<()> = call(
             self,
-            binding::RemoteProcedure::RemoteProcDomainSetLaunchSecurityState,
+            RemoteProcedure::RemoteProcDomainSetLaunchSecurityState,
             req,
         )?;
         Ok(())
     }
-    fn domain_event_lifecycle_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventLifecycleMsg, Error> {
-        trace!("{}", stringify!(domain_event_lifecycle_msg));
-        let res: Option<binding::RemoteDomainEventLifecycleMsg> = msg(self)?;
-        Ok(res.unwrap())
+    fn connect_event_connection_closed_msg(&mut self) -> Result<i32, Error> {
+        trace!("{}", stringify!(connect_event_connection_closed_msg));
+        let res: Option<RemoteConnectEventConnectionClosedMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteConnectEventConnectionClosedMsg { reason } = res;
+        Ok(reason)
     }
-    fn domain_event_callback_lifecycle_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackLifecycleMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_lifecycle_msg));
-        let res: Option<binding::RemoteDomainEventCallbackLifecycleMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_reboot_msg(&mut self) -> Result<binding::RemoteDomainEventRebootMsg, Error> {
-        trace!("{}", stringify!(domain_event_reboot_msg));
-        let res: Option<binding::RemoteDomainEventRebootMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_reboot_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackRebootMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_reboot_msg));
-        let res: Option<binding::RemoteDomainEventCallbackRebootMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_rtc_change_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventRtcChangeMsg, Error> {
-        trace!("{}", stringify!(domain_event_rtc_change_msg));
-        let res: Option<binding::RemoteDomainEventRtcChangeMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_rtc_change_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackRtcChangeMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_rtc_change_msg));
-        let res: Option<binding::RemoteDomainEventCallbackRtcChangeMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_watchdog_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventWatchdogMsg, Error> {
-        trace!("{}", stringify!(domain_event_watchdog_msg));
-        let res: Option<binding::RemoteDomainEventWatchdogMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_watchdog_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackWatchdogMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_watchdog_msg));
-        let res: Option<binding::RemoteDomainEventCallbackWatchdogMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_io_error_msg(&mut self) -> Result<binding::RemoteDomainEventIoErrorMsg, Error> {
-        trace!("{}", stringify!(domain_event_io_error_msg));
-        let res: Option<binding::RemoteDomainEventIoErrorMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_io_error_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackIoErrorMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_io_error_msg));
-        let res: Option<binding::RemoteDomainEventCallbackIoErrorMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_io_error_reason_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventIoErrorReasonMsg, Error> {
-        trace!("{}", stringify!(domain_event_io_error_reason_msg));
-        let res: Option<binding::RemoteDomainEventIoErrorReasonMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_io_error_reason_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackIoErrorReasonMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_io_error_reason_msg));
-        let res: Option<binding::RemoteDomainEventCallbackIoErrorReasonMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_graphics_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventGraphicsMsg, Error> {
-        trace!("{}", stringify!(domain_event_graphics_msg));
-        let res: Option<binding::RemoteDomainEventGraphicsMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_graphics_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackGraphicsMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_graphics_msg));
-        let res: Option<binding::RemoteDomainEventCallbackGraphicsMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_block_job_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventBlockJobMsg, Error> {
-        trace!("{}", stringify!(domain_event_block_job_msg));
-        let res: Option<binding::RemoteDomainEventBlockJobMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_block_job_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackBlockJobMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_block_job_msg));
-        let res: Option<binding::RemoteDomainEventCallbackBlockJobMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_disk_change_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventDiskChangeMsg, Error> {
-        trace!("{}", stringify!(domain_event_disk_change_msg));
-        let res: Option<binding::RemoteDomainEventDiskChangeMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_disk_change_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackDiskChangeMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_disk_change_msg));
-        let res: Option<binding::RemoteDomainEventCallbackDiskChangeMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_tray_change_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventTrayChangeMsg, Error> {
-        trace!("{}", stringify!(domain_event_tray_change_msg));
-        let res: Option<binding::RemoteDomainEventTrayChangeMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_tray_change_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackTrayChangeMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_tray_change_msg));
-        let res: Option<binding::RemoteDomainEventCallbackTrayChangeMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_pmwakeup_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventPmwakeupMsg, Error> {
-        trace!("{}", stringify!(domain_event_pmwakeup_msg));
-        let res: Option<binding::RemoteDomainEventPmwakeupMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_pmwakeup_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackPmwakeupMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_pmwakeup_msg));
-        let res: Option<binding::RemoteDomainEventCallbackPmwakeupMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_pmsuspend_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventPmsuspendMsg, Error> {
-        trace!("{}", stringify!(domain_event_pmsuspend_msg));
-        let res: Option<binding::RemoteDomainEventPmsuspendMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_pmsuspend_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackPmsuspendMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_pmsuspend_msg));
-        let res: Option<binding::RemoteDomainEventCallbackPmsuspendMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_balloon_change_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventBalloonChangeMsg, Error> {
+    fn domain_event_balloon_change_msg(&mut self) -> Result<(RemoteNonnullDomain, u64), Error> {
         trace!("{}", stringify!(domain_event_balloon_change_msg));
-        let res: Option<binding::RemoteDomainEventBalloonChangeMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_balloon_change_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackBalloonChangeMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_balloon_change_msg));
-        let res: Option<binding::RemoteDomainEventCallbackBalloonChangeMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_pmsuspend_disk_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventPmsuspendDiskMsg, Error> {
-        trace!("{}", stringify!(domain_event_pmsuspend_disk_msg));
-        let res: Option<binding::RemoteDomainEventPmsuspendDiskMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_pmsuspend_disk_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackPmsuspendDiskMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_pmsuspend_disk_msg));
-        let res: Option<binding::RemoteDomainEventCallbackPmsuspendDiskMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_control_error_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventControlErrorMsg, Error> {
-        trace!("{}", stringify!(domain_event_control_error_msg));
-        let res: Option<binding::RemoteDomainEventControlErrorMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_control_error_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackControlErrorMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_control_error_msg));
-        let res: Option<binding::RemoteDomainEventCallbackControlErrorMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_device_removed_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventDeviceRemovedMsg, Error> {
-        trace!("{}", stringify!(domain_event_device_removed_msg));
-        let res: Option<binding::RemoteDomainEventDeviceRemovedMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_device_removed_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackDeviceRemovedMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_device_removed_msg));
-        let res: Option<binding::RemoteDomainEventCallbackDeviceRemovedMsg> = msg(self)?;
-        Ok(res.unwrap())
+        let res: Option<RemoteDomainEventBalloonChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventBalloonChangeMsg { dom, actual } = res;
+        Ok((dom, actual))
     }
     fn domain_event_block_job2_msg(
         &mut self,
-    ) -> Result<binding::RemoteDomainEventBlockJob2Msg, Error> {
+    ) -> Result<(i32, RemoteNonnullDomain, String, i32, i32), Error> {
         trace!("{}", stringify!(domain_event_block_job2_msg));
-        let res: Option<binding::RemoteDomainEventBlockJob2Msg> = msg(self)?;
-        Ok(res.unwrap())
+        let res: Option<RemoteDomainEventBlockJob2Msg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventBlockJob2Msg {
+            callback_id,
+            dom,
+            dst,
+            r#type,
+            status,
+        } = res;
+        Ok((callback_id, dom, dst, r#type, status))
+    }
+    fn domain_event_block_job_msg(
+        &mut self,
+    ) -> Result<(RemoteNonnullDomain, String, i32, i32), Error> {
+        trace!("{}", stringify!(domain_event_block_job_msg));
+        let res: Option<RemoteDomainEventBlockJobMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventBlockJobMsg {
+            dom,
+            path,
+            r#type,
+            status,
+        } = res;
+        Ok((dom, path, r#type, status))
     }
     fn domain_event_block_threshold_msg(
         &mut self,
-    ) -> Result<binding::RemoteDomainEventBlockThresholdMsg, Error> {
+    ) -> Result<RemoteDomainEventBlockThresholdMsg, Error> {
         trace!("{}", stringify!(domain_event_block_threshold_msg));
-        let res: Option<binding::RemoteDomainEventBlockThresholdMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_tunable_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackTunableMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_tunable_msg));
-        let res: Option<binding::RemoteDomainEventCallbackTunableMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn domain_event_callback_device_added_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackDeviceAddedMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_device_added_msg));
-        let res: Option<binding::RemoteDomainEventCallbackDeviceAddedMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn connect_event_connection_closed_msg(
-        &mut self,
-    ) -> Result<binding::RemoteConnectEventConnectionClosedMsg, Error> {
-        trace!("{}", stringify!(connect_event_connection_closed_msg));
-        let res: Option<binding::RemoteConnectEventConnectionClosedMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn network_event_lifecycle_msg(
-        &mut self,
-    ) -> Result<binding::RemoteNetworkEventLifecycleMsg, Error> {
-        trace!("{}", stringify!(network_event_lifecycle_msg));
-        let res: Option<binding::RemoteNetworkEventLifecycleMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn storage_pool_event_lifecycle_msg(
-        &mut self,
-    ) -> Result<binding::RemoteStoragePoolEventLifecycleMsg, Error> {
-        trace!("{}", stringify!(storage_pool_event_lifecycle_msg));
-        let res: Option<binding::RemoteStoragePoolEventLifecycleMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn storage_pool_event_refresh_msg(
-        &mut self,
-    ) -> Result<binding::RemoteStoragePoolEventRefreshMsg, Error> {
-        trace!("{}", stringify!(storage_pool_event_refresh_msg));
-        let res: Option<binding::RemoteStoragePoolEventRefreshMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn node_device_event_lifecycle_msg(
-        &mut self,
-    ) -> Result<binding::RemoteNodeDeviceEventLifecycleMsg, Error> {
-        trace!("{}", stringify!(node_device_event_lifecycle_msg));
-        let res: Option<binding::RemoteNodeDeviceEventLifecycleMsg> = msg(self)?;
-        Ok(res.unwrap())
-    }
-    fn node_device_event_update_msg(
-        &mut self,
-    ) -> Result<binding::RemoteNodeDeviceEventUpdateMsg, Error> {
-        trace!("{}", stringify!(node_device_event_update_msg));
-        let res: Option<binding::RemoteNodeDeviceEventUpdateMsg> = msg(self)?;
+        let res: Option<RemoteDomainEventBlockThresholdMsg> = msg(self)?;
         Ok(res.unwrap())
     }
     fn domain_event_callback_agent_lifecycle_msg(
         &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackAgentLifecycleMsg, Error> {
+    ) -> Result<(i32, RemoteNonnullDomain, i32, i32), Error> {
         trace!("{}", stringify!(domain_event_callback_agent_lifecycle_msg));
-        let res: Option<binding::RemoteDomainEventCallbackAgentLifecycleMsg> = msg(self)?;
-        Ok(res.unwrap())
+        let res: Option<RemoteDomainEventCallbackAgentLifecycleMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackAgentLifecycleMsg {
+            callback_id,
+            dom,
+            state,
+            reason,
+        } = res;
+        Ok((callback_id, dom, state, reason))
     }
-    fn domain_event_callback_migration_iteration_msg(
+    fn domain_event_callback_balloon_change_msg(
         &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackMigrationIterationMsg, Error> {
-        trace!(
-            "{}",
-            stringify!(domain_event_callback_migration_iteration_msg)
-        );
-        let res: Option<binding::RemoteDomainEventCallbackMigrationIterationMsg> = msg(self)?;
-        Ok(res.unwrap())
+    ) -> Result<(i32, RemoteDomainEventBalloonChangeMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_balloon_change_msg));
+        let res: Option<RemoteDomainEventCallbackBalloonChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackBalloonChangeMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
     }
-    fn domain_event_callback_job_completed_msg(
+    fn domain_event_callback_block_job_msg(
         &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackJobCompletedMsg, Error> {
-        trace!("{}", stringify!(domain_event_callback_job_completed_msg));
-        let res: Option<binding::RemoteDomainEventCallbackJobCompletedMsg> = msg(self)?;
-        Ok(res.unwrap())
+    ) -> Result<(i32, RemoteDomainEventBlockJobMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_block_job_msg));
+        let res: Option<RemoteDomainEventCallbackBlockJobMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackBlockJobMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_callback_control_error_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventControlErrorMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_control_error_msg));
+        let res: Option<RemoteDomainEventCallbackControlErrorMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackControlErrorMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_callback_device_added_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullDomain, String), Error> {
+        trace!("{}", stringify!(domain_event_callback_device_added_msg));
+        let res: Option<RemoteDomainEventCallbackDeviceAddedMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackDeviceAddedMsg {
+            callback_id,
+            dom,
+            dev_alias,
+        } = res;
+        Ok((callback_id, dom, dev_alias))
     }
     fn domain_event_callback_device_removal_failed_msg(
         &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackDeviceRemovalFailedMsg, Error> {
+    ) -> Result<(i32, RemoteNonnullDomain, String), Error> {
         trace!(
             "{}",
             stringify!(domain_event_callback_device_removal_failed_msg)
         );
-        let res: Option<binding::RemoteDomainEventCallbackDeviceRemovalFailedMsg> = msg(self)?;
-        Ok(res.unwrap())
+        let res: Option<RemoteDomainEventCallbackDeviceRemovalFailedMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackDeviceRemovalFailedMsg {
+            callback_id,
+            dom,
+            dev_alias,
+        } = res;
+        Ok((callback_id, dom, dev_alias))
+    }
+    fn domain_event_callback_device_removed_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventDeviceRemovedMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_device_removed_msg));
+        let res: Option<RemoteDomainEventCallbackDeviceRemovedMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackDeviceRemovedMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_callback_disk_change_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventDiskChangeMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_disk_change_msg));
+        let res: Option<RemoteDomainEventCallbackDiskChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackDiskChangeMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_callback_graphics_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventGraphicsMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_graphics_msg));
+        let res: Option<RemoteDomainEventCallbackGraphicsMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackGraphicsMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_callback_io_error_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventIoErrorMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_io_error_msg));
+        let res: Option<RemoteDomainEventCallbackIoErrorMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackIoErrorMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_callback_io_error_reason_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventIoErrorReasonMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_io_error_reason_msg));
+        let res: Option<RemoteDomainEventCallbackIoErrorReasonMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackIoErrorReasonMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_callback_job_completed_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullDomain, Vec<RemoteTypedParam>), Error> {
+        trace!("{}", stringify!(domain_event_callback_job_completed_msg));
+        let res: Option<RemoteDomainEventCallbackJobCompletedMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackJobCompletedMsg {
+            callback_id,
+            dom,
+            params,
+        } = res;
+        Ok((callback_id, dom, params))
+    }
+    fn domain_event_callback_lifecycle_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventLifecycleMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_lifecycle_msg));
+        let res: Option<RemoteDomainEventCallbackLifecycleMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackLifecycleMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
     }
     fn domain_event_callback_metadata_change_msg(
         &mut self,
-    ) -> Result<binding::RemoteDomainEventCallbackMetadataChangeMsg, Error> {
+    ) -> Result<(i32, RemoteNonnullDomain, i32, Option<String>), Error> {
         trace!("{}", stringify!(domain_event_callback_metadata_change_msg));
-        let res: Option<binding::RemoteDomainEventCallbackMetadataChangeMsg> = msg(self)?;
+        let res: Option<RemoteDomainEventCallbackMetadataChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackMetadataChangeMsg {
+            callback_id,
+            dom,
+            r#type,
+            nsuri,
+        } = res;
+        Ok((callback_id, dom, r#type, nsuri))
+    }
+    fn domain_event_callback_migration_iteration_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullDomain, i32), Error> {
+        trace!(
+            "{}",
+            stringify!(domain_event_callback_migration_iteration_msg)
+        );
+        let res: Option<RemoteDomainEventCallbackMigrationIterationMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackMigrationIterationMsg {
+            callback_id,
+            dom,
+            iteration,
+        } = res;
+        Ok((callback_id, dom, iteration))
+    }
+    fn domain_event_callback_pmsuspend_disk_msg(
+        &mut self,
+    ) -> Result<(i32, i32, RemoteDomainEventPmsuspendDiskMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_pmsuspend_disk_msg));
+        let res: Option<RemoteDomainEventCallbackPmsuspendDiskMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackPmsuspendDiskMsg {
+            callback_id,
+            reason,
+            msg,
+        } = res;
+        Ok((callback_id, reason, msg))
+    }
+    fn domain_event_callback_pmsuspend_msg(
+        &mut self,
+    ) -> Result<(i32, i32, RemoteDomainEventPmsuspendMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_pmsuspend_msg));
+        let res: Option<RemoteDomainEventCallbackPmsuspendMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackPmsuspendMsg {
+            callback_id,
+            reason,
+            msg,
+        } = res;
+        Ok((callback_id, reason, msg))
+    }
+    fn domain_event_callback_pmwakeup_msg(
+        &mut self,
+    ) -> Result<(i32, i32, RemoteDomainEventPmwakeupMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_pmwakeup_msg));
+        let res: Option<RemoteDomainEventCallbackPmwakeupMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackPmwakeupMsg {
+            callback_id,
+            reason,
+            msg,
+        } = res;
+        Ok((callback_id, reason, msg))
+    }
+    fn domain_event_callback_reboot_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventRebootMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_reboot_msg));
+        let res: Option<RemoteDomainEventCallbackRebootMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackRebootMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_callback_rtc_change_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventRtcChangeMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_rtc_change_msg));
+        let res: Option<RemoteDomainEventCallbackRtcChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackRtcChangeMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_callback_tray_change_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventTrayChangeMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_tray_change_msg));
+        let res: Option<RemoteDomainEventCallbackTrayChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackTrayChangeMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_callback_tunable_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullDomain, Vec<RemoteTypedParam>), Error> {
+        trace!("{}", stringify!(domain_event_callback_tunable_msg));
+        let res: Option<RemoteDomainEventCallbackTunableMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackTunableMsg {
+            callback_id,
+            dom,
+            params,
+        } = res;
+        Ok((callback_id, dom, params))
+    }
+    fn domain_event_callback_watchdog_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteDomainEventWatchdogMsg), Error> {
+        trace!("{}", stringify!(domain_event_callback_watchdog_msg));
+        let res: Option<RemoteDomainEventCallbackWatchdogMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventCallbackWatchdogMsg { callback_id, msg } = res;
+        Ok((callback_id, msg))
+    }
+    fn domain_event_control_error_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
+        trace!("{}", stringify!(domain_event_control_error_msg));
+        let res: Option<RemoteDomainEventControlErrorMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventControlErrorMsg { dom } = res;
+        Ok(dom)
+    }
+    fn domain_event_device_removed_msg(&mut self) -> Result<(RemoteNonnullDomain, String), Error> {
+        trace!("{}", stringify!(domain_event_device_removed_msg));
+        let res: Option<RemoteDomainEventDeviceRemovedMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventDeviceRemovedMsg { dom, dev_alias } = res;
+        Ok((dom, dev_alias))
+    }
+    fn domain_event_disk_change_msg(&mut self) -> Result<RemoteDomainEventDiskChangeMsg, Error> {
+        trace!("{}", stringify!(domain_event_disk_change_msg));
+        let res: Option<RemoteDomainEventDiskChangeMsg> = msg(self)?;
         Ok(res.unwrap())
     }
-    fn domain_event_memory_failure_msg(
-        &mut self,
-    ) -> Result<binding::RemoteDomainEventMemoryFailureMsg, Error> {
-        trace!("{}", stringify!(domain_event_memory_failure_msg));
-        let res: Option<binding::RemoteDomainEventMemoryFailureMsg> = msg(self)?;
+    fn domain_event_graphics_msg(&mut self) -> Result<RemoteDomainEventGraphicsMsg, Error> {
+        trace!("{}", stringify!(domain_event_graphics_msg));
+        let res: Option<RemoteDomainEventGraphicsMsg> = msg(self)?;
         Ok(res.unwrap())
     }
-    fn secret_event_lifecycle_msg(
+    fn domain_event_io_error_msg(
         &mut self,
-    ) -> Result<binding::RemoteSecretEventLifecycleMsg, Error> {
-        trace!("{}", stringify!(secret_event_lifecycle_msg));
-        let res: Option<binding::RemoteSecretEventLifecycleMsg> = msg(self)?;
-        Ok(res.unwrap())
+    ) -> Result<(RemoteNonnullDomain, String, String, i32), Error> {
+        trace!("{}", stringify!(domain_event_io_error_msg));
+        let res: Option<RemoteDomainEventIoErrorMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventIoErrorMsg {
+            dom,
+            src_path,
+            dev_alias,
+            action,
+        } = res;
+        Ok((dom, src_path, dev_alias, action))
     }
-    fn secret_event_value_changed_msg(
+    fn domain_event_io_error_reason_msg(
         &mut self,
-    ) -> Result<binding::RemoteSecretEventValueChangedMsg, Error> {
-        trace!("{}", stringify!(secret_event_value_changed_msg));
-        let res: Option<binding::RemoteSecretEventValueChangedMsg> = msg(self)?;
-        Ok(res.unwrap())
+    ) -> Result<(RemoteNonnullDomain, String, String, i32, String), Error> {
+        trace!("{}", stringify!(domain_event_io_error_reason_msg));
+        let res: Option<RemoteDomainEventIoErrorReasonMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventIoErrorReasonMsg {
+            dom,
+            src_path,
+            dev_alias,
+            action,
+            reason,
+        } = res;
+        Ok((dom, src_path, dev_alias, action, reason))
+    }
+    fn domain_event_lifecycle_msg(&mut self) -> Result<(RemoteNonnullDomain, i32, i32), Error> {
+        trace!("{}", stringify!(domain_event_lifecycle_msg));
+        let res: Option<RemoteDomainEventLifecycleMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventLifecycleMsg { dom, event, detail } = res;
+        Ok((dom, event, detail))
     }
     fn domain_event_memory_device_size_change_msg(
         &mut self,
-    ) -> Result<binding::RemoteDomainEventMemoryDeviceSizeChangeMsg, Error> {
+    ) -> Result<(i32, RemoteNonnullDomain, String, u64), Error> {
         trace!("{}", stringify!(domain_event_memory_device_size_change_msg));
-        let res: Option<binding::RemoteDomainEventMemoryDeviceSizeChangeMsg> = msg(self)?;
-        Ok(res.unwrap())
+        let res: Option<RemoteDomainEventMemoryDeviceSizeChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventMemoryDeviceSizeChangeMsg {
+            callback_id,
+            dom,
+            alias,
+            size,
+        } = res;
+        Ok((callback_id, dom, alias, size))
+    }
+    fn domain_event_memory_failure_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullDomain, i32, i32, u32), Error> {
+        trace!("{}", stringify!(domain_event_memory_failure_msg));
+        let res: Option<RemoteDomainEventMemoryFailureMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventMemoryFailureMsg {
+            callback_id,
+            dom,
+            recipient,
+            action,
+            flags,
+        } = res;
+        Ok((callback_id, dom, recipient, action, flags))
+    }
+    fn domain_event_pmsuspend_disk_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
+        trace!("{}", stringify!(domain_event_pmsuspend_disk_msg));
+        let res: Option<RemoteDomainEventPmsuspendDiskMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventPmsuspendDiskMsg { dom } = res;
+        Ok(dom)
+    }
+    fn domain_event_pmsuspend_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
+        trace!("{}", stringify!(domain_event_pmsuspend_msg));
+        let res: Option<RemoteDomainEventPmsuspendMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventPmsuspendMsg { dom } = res;
+        Ok(dom)
+    }
+    fn domain_event_pmwakeup_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
+        trace!("{}", stringify!(domain_event_pmwakeup_msg));
+        let res: Option<RemoteDomainEventPmwakeupMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventPmwakeupMsg { dom } = res;
+        Ok(dom)
+    }
+    fn domain_event_reboot_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
+        trace!("{}", stringify!(domain_event_reboot_msg));
+        let res: Option<RemoteDomainEventRebootMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventRebootMsg { dom } = res;
+        Ok(dom)
+    }
+    fn domain_event_rtc_change_msg(&mut self) -> Result<(RemoteNonnullDomain, i64), Error> {
+        trace!("{}", stringify!(domain_event_rtc_change_msg));
+        let res: Option<RemoteDomainEventRtcChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventRtcChangeMsg { dom, offset } = res;
+        Ok((dom, offset))
+    }
+    fn domain_event_tray_change_msg(
+        &mut self,
+    ) -> Result<(RemoteNonnullDomain, String, i32), Error> {
+        trace!("{}", stringify!(domain_event_tray_change_msg));
+        let res: Option<RemoteDomainEventTrayChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventTrayChangeMsg {
+            dom,
+            dev_alias,
+            reason,
+        } = res;
+        Ok((dom, dev_alias, reason))
+    }
+    fn domain_event_watchdog_msg(&mut self) -> Result<(RemoteNonnullDomain, i32), Error> {
+        trace!("{}", stringify!(domain_event_watchdog_msg));
+        let res: Option<RemoteDomainEventWatchdogMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventWatchdogMsg { dom, action } = res;
+        Ok((dom, action))
+    }
+    fn network_event_lifecycle_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullNetwork, i32, i32), Error> {
+        trace!("{}", stringify!(network_event_lifecycle_msg));
+        let res: Option<RemoteNetworkEventLifecycleMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteNetworkEventLifecycleMsg {
+            callback_id,
+            net,
+            event,
+            detail,
+        } = res;
+        Ok((callback_id, net, event, detail))
+    }
+    fn node_device_event_lifecycle_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullNodeDevice, i32, i32), Error> {
+        trace!("{}", stringify!(node_device_event_lifecycle_msg));
+        let res: Option<RemoteNodeDeviceEventLifecycleMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceEventLifecycleMsg {
+            callback_id,
+            dev,
+            event,
+            detail,
+        } = res;
+        Ok((callback_id, dev, event, detail))
+    }
+    fn node_device_event_update_msg(&mut self) -> Result<(i32, RemoteNonnullNodeDevice), Error> {
+        trace!("{}", stringify!(node_device_event_update_msg));
+        let res: Option<RemoteNodeDeviceEventUpdateMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteNodeDeviceEventUpdateMsg { callback_id, dev } = res;
+        Ok((callback_id, dev))
+    }
+    fn secret_event_lifecycle_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullSecret, i32, i32), Error> {
+        trace!("{}", stringify!(secret_event_lifecycle_msg));
+        let res: Option<RemoteSecretEventLifecycleMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteSecretEventLifecycleMsg {
+            callback_id,
+            secret,
+            event,
+            detail,
+        } = res;
+        Ok((callback_id, secret, event, detail))
+    }
+    fn secret_event_value_changed_msg(&mut self) -> Result<(i32, RemoteNonnullSecret), Error> {
+        trace!("{}", stringify!(secret_event_value_changed_msg));
+        let res: Option<RemoteSecretEventValueChangedMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteSecretEventValueChangedMsg {
+            callback_id,
+            secret,
+        } = res;
+        Ok((callback_id, secret))
+    }
+    fn storage_pool_event_lifecycle_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullStoragePool, i32, i32), Error> {
+        trace!("{}", stringify!(storage_pool_event_lifecycle_msg));
+        let res: Option<RemoteStoragePoolEventLifecycleMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteStoragePoolEventLifecycleMsg {
+            callback_id,
+            pool,
+            event,
+            detail,
+        } = res;
+        Ok((callback_id, pool, event, detail))
+    }
+    fn storage_pool_event_refresh_msg(&mut self) -> Result<(i32, RemoteNonnullStoragePool), Error> {
+        trace!("{}", stringify!(storage_pool_event_refresh_msg));
+        let res: Option<RemoteStoragePoolEventRefreshMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteStoragePoolEventRefreshMsg { callback_id, pool } = res;
+        Ok((callback_id, pool))
     }
 }
 fn call<S, D>(
     client: &mut (impl Libvirt + ?Sized),
-    procedure: binding::RemoteProcedure,
+    procedure: RemoteProcedure,
     args: Option<S>,
 ) -> Result<Option<D>, Error>
 where
@@ -5700,8 +6609,8 @@ where
     client.serial_add(1);
     let mut req_len: u32 = 4;
     let req_header = protocol::VirNetMessageHeader {
-        prog: binding::REMOTE_PROGRAM,
-        vers: binding::REMOTE_PROTOCOL_VERSION,
+        prog: REMOTE_PROGRAM,
+        vers: REMOTE_PROTOCOL_VERSION,
         proc: procedure as i32,
         r#type: protocol::VirNetMessageType::VirNetCall,
         serial: client.serial(),
@@ -5729,57 +6638,54 @@ where
             .write_all(args_bytes)
             .map_err(Error::SendError)?;
     }
-    let mut res_len_bytes = [0; 4];
-    client
-        .inner()
-        .read_exact(&mut res_len_bytes)
-        .map_err(Error::ReceiveError)?;
-    let res_len = u32::from_be_bytes(res_len_bytes) as usize;
-    let mut res_header_bytes = [0; 24];
-    client
-        .inner()
-        .read_exact(&mut res_header_bytes)
-        .map_err(Error::ReceiveError)?;
-    let res_header = serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
-        .map_err(Error::DeserializeError)?;
-    if res_len == (4 + res_header_bytes.len()) {
+    let res_len = read_pkt_len(client)?;
+    let res_header = read_res_header(client)?;
+    let body_len = res_len - 28;
+    if body_len == 0 {
         return Ok(None);
     }
-    let mut res_body_bytes = vec![0u8; res_len - 4 - res_header_bytes.len()];
-    client
-        .inner()
-        .read_exact(&mut res_body_bytes)
-        .map_err(Error::ReceiveError)?;
-    if res_header.status == protocol::VirNetMessageStatus::VirNetError {
-        let res = serde_xdr::from_bytes::<protocol::VirNetMessageError>(&res_body_bytes)
-            .map_err(Error::DeserializeError)?;
-        Err(Error::ProtocolError(res))
-    } else {
-        let res = serde_xdr::from_bytes::<D>(&res_body_bytes).map_err(Error::DeserializeError)?;
-        Ok(Some(res))
-    }
+    read_res_body(client, &res_header, body_len)
 }
 fn msg<D>(client: &mut (impl Libvirt + ?Sized)) -> Result<Option<D>, Error>
 where
     D: DeserializeOwned,
 {
+    let res_len = read_pkt_len(client)?;
+    let res_header = read_res_header(client)?;
+    let body_len = res_len - 28;
+    if body_len == 0 {
+        return Ok(None);
+    }
+    read_res_body(client, &res_header, body_len)
+}
+fn read_pkt_len(client: &mut (impl Libvirt + ?Sized)) -> Result<usize, Error> {
     let mut res_len_bytes = [0; 4];
     client
         .inner()
         .read_exact(&mut res_len_bytes)
         .map_err(Error::ReceiveError)?;
-    let res_len = u32::from_be_bytes(res_len_bytes) as usize;
+    Ok(u32::from_be_bytes(res_len_bytes) as usize)
+}
+fn read_res_header(
+    client: &mut (impl Libvirt + ?Sized),
+) -> Result<protocol::VirNetMessageHeader, Error> {
     let mut res_header_bytes = [0; 24];
     client
         .inner()
         .read_exact(&mut res_header_bytes)
         .map_err(Error::ReceiveError)?;
-    let res_header = serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
-        .map_err(Error::DeserializeError)?;
-    if res_len == (4 + res_header_bytes.len()) {
-        return Ok(None);
-    }
-    let mut res_body_bytes = vec![0u8; res_len - 4 - res_header_bytes.len()];
+    serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
+        .map_err(Error::DeserializeError)
+}
+fn read_res_body<D>(
+    client: &mut (impl Libvirt + ?Sized),
+    res_header: &protocol::VirNetMessageHeader,
+    size: usize,
+) -> Result<Option<D>, Error>
+where
+    D: DeserializeOwned,
+{
+    let mut res_body_bytes = vec![0u8; size];
     client
         .inner()
         .read_exact(&mut res_body_bytes)

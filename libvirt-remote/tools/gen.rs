@@ -1,103 +1,53 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::fs;
 use std::str::FromStr;
 use syn;
 
+const UN_DECONSTRUCTING: [&str; 7] = [
+    "RemoteDomainEventBlockThresholdMsg",
+    "RemoteDomainEventDiskChangeMsg",
+    "RemoteDomainEventGraphicsMsg",
+    "RemoteDomainGetJobInfoRet",
+    "RemoteDomainInterfaceStatsRet",
+    "RemoteDomainMigratePerform3Args",
+    "RemoteNodeGetInfoRet",
+];
+
 fn main() -> Result<(), Box<dyn Error>> {
     let path = env::args().nth(1).ok_or("Not specify file path")?;
     let contents = fs::read_to_string(&path)?;
 
     let source = TokenStream::from_str(&contents)?;
-    let client = gen(source)?;
+    let client = gen(source, false)?;
 
     println!("{}", client);
     Ok(())
 }
 
-fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
-    let file: syn::File = syn::parse2(stream)?;
-
-    let mut models = vec![];
-    let mut procedures = None;
-    for item in &file.items {
-        if let syn::Item::Struct(model) = item {
-            models.push(format!("{}", model.ident));
-        }
-
-        if let syn::Item::Enum(e) = item {
-            if e.ident == "RemoteProcedure" {
-                procedures = Some(e);
-            }
-        }
-    }
-
-    let procedures = procedures.ok_or("Not found `RemoteProcedure`.")?;
-
-    let mut procs = vec![];
-    for procedure in &procedures.variants {
-        let method_str = format!("{}", procedure.ident);
-        if let Some(method) = method_str.strip_prefix("RemoteProc") {
-            let method_ret = models
-                .iter()
-                .find(|&m| m == &format!("Remote{}Ret", method));
-            let method_args = models
-                .iter()
-                .find(|&m| m == &format!("Remote{}Args", method));
-            procs.push((method.to_string(), method_args, method_ret));
-        }
-    }
+fn gen(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>> {
+    let (procedures, models) = parse_file(stream)?;
 
     let mut calls = vec![];
-    for proc in procs {
-        let method_name = format_ident!("{}", snake_case(&proc.0));
-        let flag = format_ident!("RemoteProc{}", proc.0);
+    for (name, args, ret) in parse_call_method(&procedures, &models) {
+        let method_name = format_ident!("{}", snake_case(&name));
+        let flag = format_ident!("RemoteProc{}", &name);
 
-        let fn_stmt = if let Some(arg) = proc.1 {
-            let args_type = format_ident!("{}", arg);
-            quote! {
-                #method_name(&mut self, args: binding::#args_type)
-            }
-        } else {
-            quote! {
-                #method_name(&mut self)
-            }
-        };
-
-        let req_stmt = if let Some(arg) = proc.1 {
-            let args_type = format_ident!("{}", arg);
-            quote! {
-                let req: Option<binding::#args_type> = Some(args);
-            }
-        } else {
-            quote! {
-                let req: Option<()> = None;
-            }
-        };
-
-        let ret_stmt = if let Some(ret) = proc.2 {
-            let ret_type = format_ident!("{}", ret);
-            quote! { binding::#ret_type }
-        } else {
-            quote! { () }
-        };
-
-        let proc_stmt = if let Some(_) = proc.2 {
-            quote! {
-                let res: Option<#ret_stmt> = call(self, binding::RemoteProcedure::#flag, req)?;
-                Ok(res.unwrap())
-            }
-        } else {
-            quote! {
-                let _res: Option<()> = call(self, binding::RemoteProcedure::#flag, req)?;
-                Ok(())
-            }
-        };
+        let fn_args = gen_fn_args(&method_name, args.as_deref(), wrapped, &models);
+        let res_type = gen_res_type(ret.as_deref(), wrapped, &models);
+        let req_stmt = gen_req_stmt(args.as_deref(), wrapped, &models);
+        let proc_stmt = gen_proc_stmt(
+            quote! { call(self, RemoteProcedure::#flag, req)? },
+            ret.as_deref(),
+            wrapped,
+            &models,
+        );
 
         calls.push(quote! {
-            fn #fn_stmt -> Result<#ret_stmt, Error> {
+            fn #fn_args -> Result<#res_type, Error> {
                 trace!("{}", stringify!(#method_name));
                 #req_stmt
                 #proc_stmt
@@ -106,27 +56,15 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
     }
 
     let mut msgs = vec![];
-    for model in models {
-        if !model.ends_with("Msg") {
-            continue;
-        }
+    for (name, ret) in parse_msg_method(&models) {
+        let method_name = format_ident!("{}", snake_case(&name));
 
-        let method_name = format_ident!("{}", snake_case(&model.strip_prefix("Remote").unwrap()));
-
-        let fn_stmt = quote! {
-            #method_name(&mut self)
-        };
-
-        let ret_type = format_ident!("{}", model);
-        let ret_stmt = quote! { binding::#ret_type };
-
-        let proc_stmt = quote! {
-            let res: Option<#ret_stmt> = msg(self)?;
-            Ok(res.unwrap())
-        };
+        let fn_args = gen_fn_args(&method_name, None, wrapped, &models);
+        let res_type = gen_res_type(Some(&ret), wrapped, &models);
+        let proc_stmt = gen_proc_stmt(quote! { msg(self)? }, Some(&ret), wrapped, &models);
 
         msgs.push(quote! {
-            fn #fn_stmt -> Result<#ret_stmt, Error> {
+            fn #fn_args -> Result<#res_type, Error> {
                 trace!("{}", stringify!(#method_name));
                 #proc_stmt
             }
@@ -134,7 +72,7 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
     }
 
     let client = quote! {
-        use crate::binding;
+        use crate::binding::*;
         use crate::error::Error;
         use crate::protocol;
         use log::trace;
@@ -191,7 +129,7 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
 
         fn call<S, D>(
             client: &mut (impl Libvirt + ?Sized),
-            procedure: binding::RemoteProcedure,
+            procedure: RemoteProcedure,
             args: Option<S>,
         ) -> Result<Option<D>, Error>
         where
@@ -203,8 +141,8 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
             let mut req_len: u32 = 4;
 
             let req_header = protocol::VirNetMessageHeader {
-                prog: binding::REMOTE_PROGRAM,
-                vers: binding::REMOTE_PROTOCOL_VERSION,
+                prog: REMOTE_PROGRAM,
+                vers: REMOTE_PROTOCOL_VERSION,
                 proc: procedure as i32,
                 r#type: protocol::VirNetMessageType::VirNetCall,
                 serial: client.serial(),
@@ -235,38 +173,15 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
                     .map_err(Error::SendError)?;
             }
 
-            let mut res_len_bytes = [0; 4];
-            client
-                .inner()
-                .read_exact(&mut res_len_bytes)
-                .map_err(Error::ReceiveError)?;
-            let res_len = u32::from_be_bytes(res_len_bytes) as usize;
+            let res_len = read_pkt_len(client)?;
+            let res_header = read_res_header(client)?;
 
-            let mut res_header_bytes = [0; 24];
-            client
-                .inner()
-                .read_exact(&mut res_header_bytes)
-                .map_err(Error::ReceiveError)?;
-            let res_header = serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
-                .map_err(Error::DeserializeError)?;
-
-            if res_len == (4 + res_header_bytes.len()) {
+            let body_len = res_len - 28;
+            if body_len == 0 {
                 return Ok(None);
             }
 
-            let mut res_body_bytes = vec![0u8; res_len - 4 - res_header_bytes.len()];
-            client
-                .inner()
-                .read_exact(&mut res_body_bytes)
-                .map_err(Error::ReceiveError)?;
-            if res_header.status == protocol::VirNetMessageStatus::VirNetError {
-                let res = serde_xdr::from_bytes::<protocol::VirNetMessageError>(&res_body_bytes)
-                    .map_err(Error::DeserializeError)?;
-                Err(Error::ProtocolError(res))
-            } else {
-                let res = serde_xdr::from_bytes::<D>(&res_body_bytes).map_err(Error::DeserializeError)?;
-                Ok(Some(res))
-            }
+            read_res_body(client, &res_header, body_len)
         }
 
         fn msg<D>(
@@ -275,26 +190,45 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
         where
             D: DeserializeOwned,
         {
+            let res_len = read_pkt_len(client)?;
+            let res_header = read_res_header(client)?;
+
+            let body_len = res_len - 28;
+            if body_len == 0 {
+                return Ok(None);
+            }
+
+            read_res_body(client, &res_header, body_len)
+        }
+
+        fn read_pkt_len(client: &mut (impl Libvirt + ?Sized)) -> Result<usize, Error> {
             let mut res_len_bytes = [0; 4];
             client
                 .inner()
                 .read_exact(&mut res_len_bytes)
                 .map_err(Error::ReceiveError)?;
-            let res_len = u32::from_be_bytes(res_len_bytes) as usize;
+            Ok(u32::from_be_bytes(res_len_bytes) as usize)
+        }
 
+        fn read_res_header(client: &mut (impl Libvirt + ?Sized)) -> Result<protocol::VirNetMessageHeader, Error> {
             let mut res_header_bytes = [0; 24];
             client
                 .inner()
                 .read_exact(&mut res_header_bytes)
                 .map_err(Error::ReceiveError)?;
-            let res_header = serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
-                .map_err(Error::DeserializeError)?;
+            serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
+                .map_err(Error::DeserializeError)
+        }
 
-            if res_len == (4 + res_header_bytes.len()) {
-                return Ok(None);
-            }
-
-            let mut res_body_bytes = vec![0u8; res_len - 4 - res_header_bytes.len()];
+        fn read_res_body<D>(
+            client: &mut (impl Libvirt + ?Sized),
+            res_header: &protocol::VirNetMessageHeader,
+            size: usize,
+        ) -> Result<Option<D>, Error>
+        where
+            D: DeserializeOwned,
+        {
+            let mut res_body_bytes = vec![0u8; size];
             client
                 .inner()
                 .read_exact(&mut res_body_bytes)
@@ -311,6 +245,227 @@ fn gen(stream: TokenStream) -> Result<String, Box<dyn Error>> {
     };
 
     Ok(client.to_string())
+}
+
+fn parse_file(
+    stream: TokenStream,
+) -> Result<(syn::ItemEnum, HashMap<String, syn::ItemStruct>), Box<dyn Error>> {
+    let file: syn::File = syn::parse2(stream)?;
+
+    let mut models = HashMap::new();
+    let mut procedures = None;
+    for item in &file.items {
+        if let syn::Item::Struct(model) = item {
+            models.insert(format!("{}", model.ident), model.clone());
+        }
+
+        if let syn::Item::Enum(e) = item {
+            if e.ident == "RemoteProcedure" {
+                procedures = Some(e);
+            }
+        }
+    }
+
+    let procedures = procedures.ok_or("Not found `RemoteProcedure`.")?.clone();
+
+    Ok((procedures, models))
+}
+
+fn parse_call_method(
+    procedures: &syn::ItemEnum,
+    models: &HashMap<String, syn::ItemStruct>,
+) -> Vec<(String, Option<String>, Option<String>)> {
+    let mut procs = vec![];
+    for procedure in &procedures.variants {
+        let method_str = format!("{}", procedure.ident);
+        if let Some(method) = method_str.strip_prefix("RemoteProc") {
+            let method_args = models
+                .keys()
+                .find(|&m| m == &format!("Remote{}Args", method))
+                .cloned();
+            let method_ret = models
+                .keys()
+                .find(|&m| m == &format!("Remote{}Ret", method))
+                .cloned();
+            procs.push((method.to_string(), method_args, method_ret));
+        }
+    }
+    procs
+}
+
+fn parse_msg_method(models: &HashMap<String, syn::ItemStruct>) -> Vec<(String, String)> {
+    let mut procs = vec![];
+    for model in models.keys() {
+        if !model.ends_with("Msg") {
+            continue;
+        }
+
+        procs.push((
+            model.strip_prefix("Remote").unwrap().to_string(),
+            model.to_string(),
+        ));
+    }
+    procs.sort_by_key(|m| m.1.clone());
+    procs
+}
+
+fn gen_fn_args(
+    name: &Ident,
+    model: Option<&str>,
+    wrapped: bool,
+    models: &HashMap<String, syn::ItemStruct>,
+) -> TokenStream {
+    if let Some(model) = model {
+        if wrapped || undeconstructing(model) {
+            let model_ident = format_ident!("{}", model);
+            quote! {
+                #name(&mut self, args: #model_ident)
+            }
+        } else {
+            let model = models.get(model).unwrap();
+            let params = syn_fields_to_sig_params(model);
+            quote! {
+                #name(&mut self, #(#params),* )
+            }
+        }
+    } else {
+        quote! {
+            #name(&mut self)
+        }
+    }
+}
+
+fn gen_res_type(
+    model: Option<&str>,
+    wrapped: bool,
+    models: &HashMap<String, syn::ItemStruct>,
+) -> TokenStream {
+    if let Some(model) = model {
+        if wrapped || undeconstructing(model) {
+            let model_ident = format_ident!("{}", model);
+            quote! { #model_ident }
+        } else {
+            let model = models.get(model).unwrap();
+            let types = syn_fields_to_sig_types(model);
+            if types.len() > 1 {
+                quote! { (#(#types),*) }
+            } else {
+                quote! { #(#types),* }
+            }
+        }
+    } else {
+        quote! { () }
+    }
+}
+
+fn gen_req_stmt(
+    model: Option<&str>,
+    wrapped: bool,
+    models: &HashMap<String, syn::ItemStruct>,
+) -> TokenStream {
+    if let Some(model) = model {
+        let model_ident = format_ident!("{}", model);
+
+        if wrapped || undeconstructing(model) {
+            quote! {
+                let req: Option<#model_ident> = Some(args);
+            }
+        } else {
+            let model = models.get(model).unwrap();
+            let fields = syn_fields_to_sig_fields(model);
+            quote! {
+                let req: Option<#model_ident> = Some(#model_ident {
+                    #(#fields),*
+                });
+            }
+        }
+    } else {
+        quote! {
+            let req: Option<()> = None;
+        }
+    }
+}
+
+fn gen_proc_stmt(
+    proc: TokenStream,
+    model: Option<&str>,
+    wrapped: bool,
+    models: &HashMap<String, syn::ItemStruct>,
+) -> TokenStream {
+    if let Some(model) = model {
+        let model_ident = format_ident!("{}", model);
+
+        if wrapped || undeconstructing(model) {
+            quote! {
+                let res: Option<#model_ident> = #proc;
+                Ok(res.unwrap())
+            }
+        } else {
+            let model = models.get(model).unwrap();
+            let fields = syn_fields_to_sig_fields(model);
+
+            let call_stmt = quote! {
+                let res: Option<#model_ident> = #proc;
+                let res = res.unwrap();
+                let #model_ident { #(#fields),* } = res;
+            };
+
+            if fields.len() > 1 {
+                quote! {
+                    #call_stmt
+                    Ok((#(#fields),*))
+                }
+            } else {
+                quote! {
+                    #call_stmt
+                    Ok(#(#fields),*)
+                }
+            }
+        }
+    } else {
+        quote! {
+            let _res: Option<()> = #proc;
+            Ok(())
+        }
+    }
+}
+
+fn syn_fields_to_sig_fields(model: &syn::ItemStruct) -> Vec<TokenStream> {
+    let mut args = vec![];
+    if let syn::Fields::Named(fields) = &model.fields {
+        for field in fields.named.iter() {
+            let ident = field.ident.as_ref().unwrap();
+            args.push(quote! { #ident });
+        }
+    }
+    args
+}
+
+fn syn_fields_to_sig_types(model: &syn::ItemStruct) -> Vec<TokenStream> {
+    let mut args = vec![];
+    if let syn::Fields::Named(fields) = &model.fields {
+        for field in fields.named.iter() {
+            let ty = &field.ty;
+            args.push(quote! { #ty });
+        }
+    }
+    args
+}
+
+fn syn_fields_to_sig_params(model: &syn::ItemStruct) -> Vec<TokenStream> {
+    let mut args = vec![];
+    if let syn::Fields::Named(fields) = &model.fields {
+        for field in fields.named.iter() {
+            let ident = field.ident.as_ref().unwrap();
+            let ty = &field.ty;
+            args.push(quote! { #ident: #ty });
+        }
+    }
+    args
+}
+
+fn undeconstructing(model: &str) -> bool {
+    UN_DECONSTRUCTING.iter().any(|&m| m == model)
 }
 
 fn capitalize(value: &str) -> String {

@@ -2,7 +2,6 @@ use super::error::Error;
 use super::locale::Locale;
 use super::table_view::TableView;
 use clap::{Arg, ArgMatches, Command};
-use libvirt_remote::binding::{RemoteConnectListAllInterfacesArgs, RemoteInterfaceIsActiveArgs};
 use libvirt_remote::client::Libvirt;
 
 const VIR_CONNECT_LIST_INTERFACES_INACTIVE: u32 = 1;
@@ -28,22 +27,15 @@ pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) ->
         VIR_CONNECT_LIST_INTERFACES_ACTIVE
     };
 
-    let args = RemoteConnectListAllInterfacesArgs {
-        need_results: -1,
-        flags,
-    };
-    let ret = client.connect_list_all_interfaces(args)?;
+    let (ifaces, _) = client.connect_list_all_interfaces(-1, flags)?;
 
     let mut view = TableView::new(vec![
         &locale.get_message("Name"),
         &locale.get_message("State"),
         &locale.get_message("MacAddress"),
     ]);
-    for iface in ret.ifaces {
-        let args = RemoteInterfaceIsActiveArgs {
-            iface: iface.clone(),
-        };
-        let active = match client.interface_is_active(args)?.active {
+    for iface in ifaces {
+        let active = match client.interface_is_active(iface.clone())? {
             0 => locale.get_message("Inactive"),
             _ => locale.get_message("Active"),
         };

@@ -2,10 +2,6 @@ use super::error::Error;
 use super::locale::Locale;
 use chrono::Utc;
 use clap::{Arg, ArgMatches, Command};
-use libvirt_remote::binding::{
-    RemoteConnectStoragePoolEventDeregisterAnyArgs, RemoteConnectStoragePoolEventRegisterAnyArgs,
-    RemoteStoragePoolLookupByNameArgs,
-};
 use libvirt_remote::client::Libvirt;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -55,19 +51,13 @@ pub fn run(
 
     let pool = match args.value_of("pool") {
         Some(name) => {
-            let lookup_args = RemoteStoragePoolLookupByNameArgs {
-                name: name.to_string(),
-            };
-            let ret = client.storage_pool_lookup_by_name(lookup_args)?;
-            Some(ret.pool)
+            let pool = client.storage_pool_lookup_by_name(name.to_string())?;
+            Some(pool)
         }
         _ => None,
     };
 
-    let reg_args = RemoteConnectStoragePoolEventRegisterAnyArgs { event_id, pool };
-    let callback_id = client
-        .connect_storage_pool_event_register_any(reg_args)?
-        .callback_id;
+    let callback_id = client.connect_storage_pool_event_register_any(event_id, pool)?;
 
     // TODO: timeout
     loop {
@@ -90,25 +80,21 @@ pub fn run(
         }
     }
 
-    let dereg_args = RemoteConnectStoragePoolEventDeregisterAnyArgs { callback_id };
-    client.connect_storage_pool_event_deregister_any(dereg_args)?;
+    client.connect_storage_pool_event_deregister_any(callback_id)?;
 
     Ok(())
 }
 
 fn handle_lifecycle_event(client: &mut Box<dyn Libvirt>) -> Result<String, Error> {
-    let msg = client.storage_pool_event_lifecycle_msg()?;
-    let id = LIFECYCLE_EVENTS.get(&msg.event).unwrap();
+    let (_, pool, event, _) = client.storage_pool_event_lifecycle_msg()?;
+    let id = LIFECYCLE_EVENTS.get(&event).unwrap();
     Ok(format!(
         "event 'lifecycle' for storage pool {}: {}",
-        msg.pool.name, id
+        pool.name, id
     ))
 }
 
 fn handle_refresh_event(client: &mut Box<dyn Libvirt>) -> Result<String, Error> {
-    let msg = client.storage_pool_event_refresh_msg()?;
-    Ok(format!(
-        "event 'refresh' for storage pool {}",
-        msg.pool.name
-    ))
+    let (_, pool) = client.storage_pool_event_refresh_msg()?;
+    Ok(format!("event 'refresh' for storage pool {}", pool.name))
 }

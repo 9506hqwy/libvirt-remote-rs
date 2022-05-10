@@ -10,7 +10,6 @@ mod version;
 
 use clap::{Arg, Command};
 use error::Error;
-use libvirt_remote::binding::RemoteConnectOpenArgs;
 use libvirt_remote::client::{Client, Libvirt};
 use log::trace;
 use std::net::TcpStream;
@@ -81,11 +80,7 @@ fn connect(uri: Url, readonly: bool) -> Result<Box<dyn Libvirt>, Error> {
     let name = format!("{}://{}", schemes[0], uri.path());
     trace!("connecting {} readonly={}", &name, readonly);
 
-    let args = RemoteConnectOpenArgs {
-        name: Some(name),
-        flags: if readonly { 1 } else { 0 },
-    };
-    client.connect_open(args)?;
+    client.connect_open(Some(name), if readonly { 1 } else { 0 })?;
 
     Ok(client)
 }

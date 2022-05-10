@@ -10,7 +10,7 @@ pub fn cmd() -> Command<'static> {
 
 pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale) -> Result<(), Error> {
     let hv_type = match client.connect_get_type() {
-        Ok(ret) => Some(ret.r#type),
+        Ok(ret) => Some(ret),
         Err(e) => {
             eprintln!("{}", e);
             None
@@ -18,7 +18,7 @@ pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale) -> Result<(), Error> 
     };
 
     let hv_ver = match client.connect_get_version() {
-        Ok(ret) => Some(version_string(ret.hv_ver)),
+        Ok(ret) => Some(version_string(ret)),
         Err(e) => {
             eprintln!("{}", e);
             None
@@ -26,7 +26,7 @@ pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale) -> Result<(), Error> 
     };
 
     let lib_ver = match client.connect_get_lib_version() {
-        Ok(ret) => Some(version_string(ret.lib_ver)),
+        Ok(ret) => Some(version_string(ret)),
         Err(e) => {
             error!("{}", e);
             None
