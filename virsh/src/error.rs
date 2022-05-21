@@ -3,6 +3,7 @@ use std::string;
 
 #[derive(Debug)]
 pub enum Error {
+    Arg(String),
     Encoding(string::FromUtf8Error),
     Io(io::Error),
     Libvirt(Box<libvirt_remote::error::Error>),

@@ -12,6 +12,7 @@ LabelCpuSocketNum = CPU socket(s):
 LabelCpuThreadNum = Thread(s) per core:
 LabelMemoryNumaCellNum = NUMA cell(s):
 LabelMemorySize = Memory size:
+LabelTotal = Total:
 Name = Name
 MacAddress = MAC Address
 State = State

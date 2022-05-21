@@ -1,3 +1,4 @@
+mod cpu_stats;
 mod error;
 mod iface_list;
 mod kv_view;
@@ -29,6 +30,7 @@ fn main() -> Result<(), Error> {
     let mut client = connect(uri, gargs.is_present("readonly"))?;
 
     let ret = match gargs.subcommand() {
+        Some(("cpu-stats", args)) => cpu_stats::run(&mut client, &locale, args),
         Some(("iface-list", args)) => iface_list::run(&mut client, &locale, args),
         Some(("nodeinfo", _)) => nodeinfo::run(&mut client, &locale),
         Some(("pool-event", args)) => pool_event::run(&mut client, &locale, args),
@@ -66,6 +68,7 @@ fn cmd() -> Command<'static> {
                 .takes_value(false)
                 .help("connect readonly"),
         )
+        .subcommand(cpu_stats::cmd())
         .subcommand(iface_list::cmd())
         .subcommand(nodeinfo::cmd())
         .subcommand(pool_event::cmd())

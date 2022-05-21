@@ -12,6 +12,7 @@ LabelCpuSocketNum = CPU ソケット数:
 LabelCpuThreadNum = コアあたりのスレッド数:
 LabelMemoryNumaCellNum = NUMA セル数:
 LabelMemorySize = メモリー容量:
+LabelTotal = 合計:
 Name = 名前
 MacAddress = MAC アドレス
 State = 状態
