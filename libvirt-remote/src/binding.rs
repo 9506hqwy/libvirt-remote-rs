@@ -48,6 +48,7 @@ pub const REMOTE_DOMAIN_GET_CPU_STATS_MAX: u32 = 2048u32;
 pub const REMOTE_DOMAIN_DISK_ERRORS_MAX: u32 = 256u32;
 pub const REMOTE_NODE_MEMORY_PARAMETERS_MAX: u32 = 64u32;
 pub const REMOTE_DOMAIN_MIGRATE_PARAM_LIST_MAX: u32 = 64u32;
+pub const REMOTE_DOMAIN_SAVE_PARAMS_MAX: u32 = 64u32;
 pub const REMOTE_DOMAIN_JOB_STATS_MAX: u32 = 64u32;
 pub const REMOTE_CONNECT_CPU_MODELS_MAX: u32 = 8192u32;
 pub const REMOTE_DOMAIN_FSFREEZE_MOUNTPOINTS_MAX: u32 = 256u32;
@@ -714,6 +715,12 @@ pub struct RemoteDomainSaveFlagsArgs {
     pub flags: u32,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainSaveParamsArgs {
+    pub dom: RemoteNonnullDomain,
+    pub params: Vec<RemoteTypedParam>,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainRestoreArgs {
     pub from: String,
 }
@@ -721,6 +728,11 @@ pub struct RemoteDomainRestoreArgs {
 pub struct RemoteDomainRestoreFlagsArgs {
     pub from: String,
     pub dxml: Option<String>,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainRestoreParamsArgs {
+    pub params: Vec<RemoteTypedParam>,
     pub flags: u32,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -4088,6 +4100,8 @@ pub enum RemoteProcedure {
     RemoteProcNetworkCreateXmlFlags = 437i32,
     RemoteProcDomainEventMemoryDeviceSizeChange = 438i32,
     RemoteProcDomainSetLaunchSecurityState = 439i32,
+    RemoteProcDomainSaveParams = 440i32,
+    RemoteProcDomainRestoreParams = 441i32,
 }
 impl Default for RemoteProcedure {
     fn default() -> Self {

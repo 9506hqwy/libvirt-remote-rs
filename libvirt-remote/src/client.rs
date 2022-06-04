@@ -6088,6 +6088,29 @@ pub trait Libvirt {
         )?;
         Ok(())
     }
+    fn domain_save_params(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
+    ) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_save_params));
+        let req: Option<RemoteDomainSaveParamsArgs> =
+            Some(RemoteDomainSaveParamsArgs { dom, params, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSaveParams, req)?;
+        Ok(())
+    }
+    fn domain_restore_params(
+        &mut self,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
+    ) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_restore_params));
+        let req: Option<RemoteDomainRestoreParamsArgs> =
+            Some(RemoteDomainRestoreParamsArgs { params, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainRestoreParams, req)?;
+        Ok(())
+    }
     fn connect_event_connection_closed_msg(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_event_connection_closed_msg));
         let res: Option<RemoteConnectEventConnectionClosedMsg> = msg(self)?;
