@@ -1,5 +1,5 @@
-use super::error::Error;
-use super::locale::Locale;
+use crate::error::Error;
+use crate::locale::Locale;
 use clap::{Arg, ArgMatches, Command};
 use libvirt_remote::client::Libvirt;
 use std::fs;

@@ -1,6 +1,6 @@
-use super::error::Error;
-use super::kv_view::KeyValueView;
-use super::locale::Locale;
+use crate::error::Error;
+use crate::kv_view::KeyValueView;
+use crate::locale::Locale;
 use clap::Command;
 use libvirt_remote::client::Libvirt;
 

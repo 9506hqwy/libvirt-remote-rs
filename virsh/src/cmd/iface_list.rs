@@ -1,6 +1,6 @@
-use super::error::Error;
-use super::locale::Locale;
-use super::table_view::TableView;
+use crate::error::Error;
+use crate::locale::Locale;
+use crate::table_view::TableView;
 use clap::{Arg, ArgMatches, Command};
 use libvirt_remote::client::Libvirt;
 

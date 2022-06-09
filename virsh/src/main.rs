@@ -1,17 +1,10 @@
-mod cpu_stats;
+mod cmd;
 mod error;
-mod iface_list;
 mod kv_view;
 mod locale;
-mod nodeinfo;
-mod pool_event;
 mod table_view;
 mod util;
-mod version;
-mod vol_download;
-mod vol_upload;
 
-use clap::{Arg, Command};
 use error::Error;
 use libvirt_remote::client::{Client, Libvirt};
 use log::trace;
@@ -24,57 +17,16 @@ fn main() -> Result<(), Error> {
     env_logger::init();
     let locale = locale::setup()?;
 
-    let gargs = cmd().get_matches();
+    let gargs = cmd::app().get_matches();
 
     let uri = Url::parse(gargs.value_of("connect").unwrap())?;
     let mut client = connect(uri, gargs.is_present("readonly"))?;
 
-    let ret = match gargs.subcommand() {
-        Some(("cpu-stats", args)) => cpu_stats::run(&mut client, &locale, args),
-        Some(("iface-list", args)) => iface_list::run(&mut client, &locale, args),
-        Some(("nodeinfo", _)) => nodeinfo::run(&mut client, &locale),
-        Some(("pool-event", args)) => pool_event::run(&mut client, &locale, args),
-        Some(("version", _)) => version::run(&mut client, &locale),
-        Some(("vol-download", args)) => vol_download::run(&mut client, &locale, args),
-        Some(("vol-upload", args)) => vol_upload::run(&mut client, &locale, args),
-        _ => cmd().print_long_help().map_err(Error::from),
-    };
+    let ret = cmd::run(&mut client, &locale, &gargs);
 
     client.connect_close()?;
 
     ret
-}
-
-fn cmd() -> Command<'static> {
-    Command::new("Libvirt Client")
-        .version("0.2.0")
-        .arg(
-            Arg::new("connect")
-                .short('c')
-                .long("connect")
-                .default_value(if cfg!(unix) {
-                    "qemu+unix:///system"
-                } else {
-                    "qemu+tcp:///system"
-                })
-                .value_name("URI")
-                .help("hypvervisor connection URI"),
-        )
-        .arg(
-            Arg::new("readonly")
-                .short('r')
-                .long("readonly")
-                .value_name("readonly")
-                .takes_value(false)
-                .help("connect readonly"),
-        )
-        .subcommand(cpu_stats::cmd())
-        .subcommand(iface_list::cmd())
-        .subcommand(nodeinfo::cmd())
-        .subcommand(pool_event::cmd())
-        .subcommand(version::cmd())
-        .subcommand(vol_download::cmd())
-        .subcommand(vol_upload::cmd())
 }
 
 fn connect(uri: Url, readonly: bool) -> Result<Box<dyn Libvirt>, Error> {
