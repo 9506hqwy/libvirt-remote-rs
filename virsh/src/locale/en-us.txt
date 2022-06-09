@@ -1,5 +1,7 @@
 Active = active
 FormatCompiledLibrary = Compiled against library: libvirt { $version }
+FormatDomainDestroyed = Domain '{ $name }' destroyed
+FormatDomainStarted = Domain '{ $name }' started
 FormatRunningHypervisor = Running hypervisor: { $type } { $version }
 FormatUsingAPI = Using API: { $type } { $version }
 FormatUsingLibrary = Using library: libvirt { $version }

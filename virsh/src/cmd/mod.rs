@@ -1,7 +1,9 @@
 mod cpu_stats;
+mod destroy;
 mod iface_list;
 mod nodeinfo;
 mod pool_event;
+mod start;
 mod version;
 mod vol_download;
 mod vol_upload;
@@ -35,9 +37,11 @@ pub fn app() -> Command<'static> {
                 .help("connect readonly"),
         )
         .subcommand(cpu_stats::cmd())
+        .subcommand(destroy::cmd())
         .subcommand(iface_list::cmd())
         .subcommand(nodeinfo::cmd())
         .subcommand(pool_event::cmd())
+        .subcommand(start::cmd())
         .subcommand(version::cmd())
         .subcommand(vol_download::cmd())
         .subcommand(vol_upload::cmd())
@@ -50,9 +54,11 @@ pub fn run(
 ) -> Result<(), Error> {
     match gargs.subcommand() {
         Some(("cpu-stats", args)) => cpu_stats::run(client, locale, args),
+        Some(("destroy", args)) => destroy::run(client, locale, args),
         Some(("iface-list", args)) => iface_list::run(client, locale, args),
         Some(("nodeinfo", _)) => nodeinfo::run(client, locale),
         Some(("pool-event", args)) => pool_event::run(client, locale, args),
+        Some(("start", args)) => start::run(client, locale, args),
         Some(("version", _)) => version::run(client, locale),
         Some(("vol-download", args)) => vol_download::run(client, locale, args),
         Some(("vol-upload", args)) => vol_upload::run(client, locale, args),

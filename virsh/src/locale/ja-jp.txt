@@ -1,5 +1,7 @@
 Active = 動作中
 FormatCompiledLibrary = コンパイル時に使用したライブラリ: libvirt { $version }
+FormatDomainDestroyed = Domain '{ $name }' destroyed
+FormatDomainStarted = Domain '{ $name }' started
 FormatRunningHypervisor = 実行中のハイパーバイザー: { $type } { $version }
 FormatUsingAPI = 使用中の API: { $type } { $version }
 FormatUsingLibrary = 使用中のライブラリ: libvirt { $version }
