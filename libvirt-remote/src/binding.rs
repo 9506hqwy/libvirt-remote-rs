@@ -2202,6 +2202,11 @@ pub struct RemoteDomainAbortJobArgs {
     pub dom: RemoteNonnullDomain,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainAbortJobFlagsArgs {
+    pub dom: RemoteNonnullDomain,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateGetMaxDowntimeArgs {
     pub dom: RemoteNonnullDomain,
     pub flags: u32,
@@ -4102,6 +4107,7 @@ pub enum RemoteProcedure {
     RemoteProcDomainSetLaunchSecurityState = 439i32,
     RemoteProcDomainSaveParams = 440i32,
     RemoteProcDomainRestoreParams = 441i32,
+    RemoteProcDomainAbortJobFlags = 442i32,
 }
 impl Default for RemoteProcedure {
     fn default() -> Self {
