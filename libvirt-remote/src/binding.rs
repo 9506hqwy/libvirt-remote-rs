@@ -196,7 +196,7 @@ pub enum RemoteTypedParamValue {
 }
 impl Default for RemoteTypedParamValue {
     fn default() -> Self {
-        RemoteTypedParamValue::VirTypedParamInt(i32::default())
+        RemoteTypedParamValue::VirTypedParamInt(Default::default())
     }
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
