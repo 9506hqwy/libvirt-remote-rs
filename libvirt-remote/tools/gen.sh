@@ -3,7 +3,7 @@
 set -eu
 
 VERSION="v8.6.0"
-TOOL_VERSION="0.3.0"
+TOOL_VERSION="0.4.0"
 PROTO_URL="https://raw.githubusercontent.com/libvirt/libvirt/${VERSION}/src/rpc/virnetprotocol.x"
 REMOTE_URL="https://raw.githubusercontent.com/libvirt/libvirt/${VERSION}/src/remote/remote_protocol.x"
 RPCGEN_BIN="https://github.com/9506hqwy/xdr-rs/releases/download/${TOOL_VERSION}/rpcgen-${TOOL_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
