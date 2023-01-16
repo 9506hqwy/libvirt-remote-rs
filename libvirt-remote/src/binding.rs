@@ -3662,6 +3662,12 @@ pub struct RemoteDomainEventMemoryDeviceSizeChangeMsg {
     pub alias: String,
     pub size: u64,
 }
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainFdAssociateArgs {
+    pub dom: RemoteNonnullDomain,
+    pub name: String,
+    pub flags: u32,
+}
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[repr(i32)]
 pub enum RemoteProcedure {
@@ -4108,6 +4114,7 @@ pub enum RemoteProcedure {
     RemoteProcDomainSaveParams = 440i32,
     RemoteProcDomainRestoreParams = 441i32,
     RemoteProcDomainAbortJobFlags = 442i32,
+    RemoteProcDomainFdAssociate = 443i32,
 }
 impl Default for RemoteProcedure {
     fn default() -> Self {

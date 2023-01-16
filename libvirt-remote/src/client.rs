@@ -6122,6 +6122,18 @@ pub trait Libvirt {
         let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainAbortJobFlags, req)?;
         Ok(())
     }
+    fn domain_fd_associate(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        name: String,
+        flags: u32,
+    ) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_fd_associate));
+        let req: Option<RemoteDomainFdAssociateArgs> =
+            Some(RemoteDomainFdAssociateArgs { dom, name, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainFdAssociate, req)?;
+        Ok(())
+    }
     fn connect_event_connection_closed_msg(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_event_connection_closed_msg));
         let res: Option<RemoteConnectEventConnectionClosedMsg> = msg(self)?;
