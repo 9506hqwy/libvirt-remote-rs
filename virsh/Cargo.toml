@@ -12,7 +12,7 @@ categories = ["command-line-utilities"]
 [dependencies]
 chrono = "0.4.19"
 clap = "4.3.19"
-env_logger = "0.9.0"
+env_logger = "0.10.0"
 fluent = "0.16.0"
 fluent-langneg = "0.13.0"
 libvirt_remote = { path="../libvirt-remote" }
