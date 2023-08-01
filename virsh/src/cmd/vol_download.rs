@@ -6,14 +6,14 @@ use log::trace;
 use std::fs;
 use std::io::{BufWriter, Seek, SeekFrom, Write};
 
-pub fn cmd() -> Command<'static> {
+pub fn cmd() -> Command {
     Command::new("vol-download")
         .arg(Arg::new("vol").value_name("vol").index(1))
         .arg(Arg::new("file").value_name("file").index(2))
         .arg(Arg::new("pool").long("pool").value_name("string"))
         .arg(Arg::new("offset").long("offset").value_name("number"))
         .arg(Arg::new("length").long("length").value_name("number"))
-        .arg(Arg::new("sparse").long("sparse").takes_value(false))
+        .arg(Arg::new("sparse").long("sparse").num_args(0))
 }
 
 pub fn run(
@@ -21,10 +21,10 @@ pub fn run(
     _locale: &Locale,
     args: &ArgMatches,
 ) -> Result<(), Error> {
-    let vol = args.value_of("vol").expect("must specify vol.");
-    let file = args.value_of("file").expect("must specify file");
+    let vol = args.get_one::<String>("vol").expect("must specify vol.");
+    let file = args.get_one::<String>("file").expect("must specify file");
 
-    let volume = match args.value_of("pool") {
+    let volume = match args.get_one::<String>("pool") {
         Some(pool) => {
             let pool = client.storage_pool_lookup_by_name(pool.to_string())?;
             client.storage_vol_lookup_by_name(pool, vol.to_string())?
@@ -33,16 +33,16 @@ pub fn run(
     };
 
     let offset = args
-        .value_of("offset")
-        .unwrap_or("0")
+        .get_one::<String>("offset")
+        .unwrap_or(&"0".to_string())
         .parse()
         .expect("offset is number.");
     let length = args
-        .value_of("length")
-        .unwrap_or("0")
+        .get_one::<String>("length")
+        .unwrap_or(&"0".to_string())
         .parse()
         .expect("length is numner.");
-    let flags = if args.is_present("sparse") { 1 } else { 0 };
+    let flags = if args.get_flag("sparse") { 1 } else { 0 };
 
     client.storage_vol_download(volume, offset, length, flags)?;
 

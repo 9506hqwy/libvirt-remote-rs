@@ -24,14 +24,14 @@ static LIFECYCLE_EVENTS: Lazy<HashMap<i32, &str>> = Lazy::new(|| {
     e
 });
 
-pub fn cmd() -> Command<'static> {
+pub fn cmd() -> Command {
     Command::new("pool-event")
         .arg(Arg::new("pool").long("pool").value_name("string"))
         .arg(Arg::new("event").long("event").value_name("string"))
-        .arg(Arg::new("loop").long("loop").takes_value(false))
+        .arg(Arg::new("loop").long("loop").num_args(0))
         .arg(Arg::new("timeout").long("timeout").value_name("number"))
-        .arg(Arg::new("list").long("list").takes_value(false))
-        .arg(Arg::new("timestamp").long("timestamp").takes_value(false))
+        .arg(Arg::new("list").long("list").num_args(0))
+        .arg(Arg::new("timestamp").long("timestamp").num_args(0))
 }
 
 pub fn run(
@@ -39,17 +39,21 @@ pub fn run(
     _locale: &Locale,
     args: &ArgMatches,
 ) -> Result<(), Error> {
-    if args.is_present("list") {
+    if args.get_flag("list") {
         for e in EVENTS.keys() {
             println!("{}", e);
         }
         return Ok(());
     }
 
-    let event_name = args.value_of("event").expect("must specify --event.");
-    let event_id = *EVENTS.get(event_name).expect("not found event name.");
+    let event_name = args
+        .get_one::<String>("event")
+        .expect("must specify --event.");
+    let event_id = *EVENTS
+        .get(event_name.as_str())
+        .expect("not found event name.");
 
-    let pool = match args.value_of("pool") {
+    let pool = match args.get_one::<String>("pool") {
         Some(name) => {
             let pool = client.storage_pool_lookup_by_name(name.to_string())?;
             Some(pool)
@@ -67,7 +71,7 @@ pub fn run(
             _ => unreachable!(),
         };
 
-        let time = if args.is_present("timestamp") {
+        let time = if args.get_flag("timestamp") {
             format!("{}: ", Utc::now().format("%Y-%m-%d %H:%M:%S%.3f%z"))
         } else {
             "".to_string()
@@ -75,7 +79,7 @@ pub fn run(
 
         println!("{}{}", time, msg);
 
-        if !args.is_present("loop") {
+        if !args.get_flag("loop") {
             break;
         }
     }

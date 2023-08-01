@@ -7,21 +7,21 @@ use libvirt_remote::client::Libvirt;
 const VIR_CONNECT_LIST_INTERFACES_INACTIVE: u32 = 1;
 const VIR_CONNECT_LIST_INTERFACES_ACTIVE: u32 = 2;
 
-pub fn cmd() -> Command<'static> {
+pub fn cmd() -> Command {
     Command::new("iface-list")
-        .arg(Arg::new("inactive").long("inactive").takes_value(false))
+        .arg(Arg::new("inactive").long("inactive").num_args(0))
         .arg(
             Arg::new("all")
                 .long("all")
-                .takes_value(false)
+                .num_args(0)
                 .conflicts_with("inactive"),
         )
 }
 
 pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) -> Result<(), Error> {
-    let flags = if args.is_present("inactive") {
+    let flags = if args.get_flag("inactive") {
         VIR_CONNECT_LIST_INTERFACES_INACTIVE
-    } else if args.is_present("all") {
+    } else if args.get_flag("all") {
         VIR_CONNECT_LIST_INTERFACES_INACTIVE | VIR_CONNECT_LIST_INTERFACES_ACTIVE
     } else {
         VIR_CONNECT_LIST_INTERFACES_ACTIVE

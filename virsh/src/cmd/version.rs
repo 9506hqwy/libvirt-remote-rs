@@ -4,7 +4,7 @@ use clap::Command;
 use libvirt_remote::client::Libvirt;
 use log::error;
 
-pub fn cmd() -> Command<'static> {
+pub fn cmd() -> Command {
     Command::new("version")
 }
 

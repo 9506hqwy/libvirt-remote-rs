@@ -4,7 +4,7 @@ use crate::locale::Locale;
 use clap::Command;
 use libvirt_remote::client::Libvirt;
 
-pub fn cmd() -> Command<'static> {
+pub fn cmd() -> Command {
     Command::new("nodeinfo")
 }
 

@@ -5,38 +5,34 @@ use libvirt_remote::binding::{RemoteTypedParam, RemoteTypedParamValue};
 use libvirt_remote::client::Libvirt;
 use std::str::FromStr;
 
-pub fn cmd() -> Command<'static> {
+pub fn cmd() -> Command {
     Command::new("cpu-stats")
         .arg(Arg::new("domain").value_name("domain").required(true))
-        .arg(Arg::new("total").long("total").takes_value(false))
+        .arg(Arg::new("total").long("total").num_args(0))
         .arg(
             Arg::new("start")
                 .long("start")
                 .value_name("number")
-                .validator(check_type::<i32>),
+                .value_parser(check_type::<i32>),
         )
         .arg(
             Arg::new("count")
                 .long("count")
                 .value_name("number")
-                .validator(check_type::<u32>),
+                .value_parser(check_type::<u32>),
         )
 }
 
 pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) -> Result<(), Error> {
-    let domain = args.value_of("domain").unwrap();
-    let show_total = args.is_present("total");
-    let start = args.value_of("start").unwrap_or("0").parse().unwrap();
-    let count = args
-        .value_of("count")
-        .unwrap_or("-1")
-        .parse::<i32>()
-        .unwrap();
+    let domain = args.get_one::<String>("domain").unwrap();
+    let show_total = args.get_flag("total");
+    let start = *args.get_one::<i32>("start").unwrap_or(&0);
+    let count = *args.get_one::<i32>("count").unwrap_or(&-1);
 
     let dom = client.domain_lookup_by_name(domain.to_string())?;
 
     let (_, max_cpu_num) = client.domain_get_cpu_stats(dom.clone(), 0, 0, 0, 0)?;
-    if args.is_present("start") && max_cpu_num <= start {
+    if args.get_flag("start") && max_cpu_num <= start {
         return Err(Error::Arg(format!("start={}", max_cpu_num)));
     }
 
@@ -73,12 +69,11 @@ pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) ->
     Ok(())
 }
 
-fn check_type<T>(value: &str) -> Result<(), String>
+fn check_type<T>(value: &str) -> Result<T, String>
 where
     T: FromStr,
 {
-    value.parse::<T>().map_err(|_| value)?;
-    Ok(())
+    Ok(value.parse::<T>().map_err(|_| value)?)
 }
 
 fn print_ulong(param: &RemoteTypedParam) {

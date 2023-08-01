@@ -19,8 +19,8 @@ fn main() -> Result<(), Error> {
 
     let gargs = cmd::app().get_matches();
 
-    let uri = Url::parse(gargs.value_of("connect").unwrap())?;
-    let mut client = connect(uri, gargs.is_present("readonly"))?;
+    let uri = Url::parse(gargs.get_one::<String>("connect").unwrap())?;
+    let mut client = connect(uri, gargs.get_flag("readonly"))?;
 
     let ret = cmd::run(&mut client, &locale, &gargs);
 

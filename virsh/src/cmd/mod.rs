@@ -13,7 +13,7 @@ use crate::locale::Locale;
 use clap::{Arg, ArgMatches, Command};
 use libvirt_remote::client::Libvirt;
 
-pub fn app() -> Command<'static> {
+pub fn app() -> Command {
     Command::new("Libvirt Client")
         .version("0.2.0")
         .arg(
@@ -33,7 +33,7 @@ pub fn app() -> Command<'static> {
                 .short('r')
                 .long("readonly")
                 .value_name("readonly")
-                .takes_value(false)
+                .num_args(0)
                 .help("connect readonly"),
         )
         .subcommand(cpu_stats::cmd())

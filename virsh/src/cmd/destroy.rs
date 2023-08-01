@@ -5,7 +5,7 @@ use libvirt_remote::client::Libvirt;
 
 const DOMAIN_DESTROY_GRACEFUL: u32 = 1 << 0;
 
-pub fn cmd() -> Command<'static> {
+pub fn cmd() -> Command {
     Command::new("destroy")
         .arg(
             Arg::new("domain")
@@ -13,12 +13,12 @@ pub fn cmd() -> Command<'static> {
                 .required(true)
                 .index(1),
         )
-        .arg(Arg::new("graceful").long("graceful").takes_value(false))
+        .arg(Arg::new("graceful").long("graceful").num_args(0))
 }
 
 pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) -> Result<(), Error> {
-    let domain = args.value_of("domain").unwrap();
-    let graceful = args.is_present("graceful");
+    let domain = args.get_one::<String>("domain").unwrap();
+    let graceful = args.get_flag("graceful");
 
     let dom = client.domain_lookup_by_name(domain.to_string())?;
 
