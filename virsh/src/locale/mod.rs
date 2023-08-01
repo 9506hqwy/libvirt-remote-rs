@@ -99,7 +99,7 @@ fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
     // https://docs.microsoft.com/ja-jp/windows/win32/intl/user-interface-language-management
 
     let mut count: u32 = 0;
-    let langs = PWSTR::default();
+    let langs = PWSTR::null();
     let mut langs_len: u32 = 0;
     unsafe {
         GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, langs, &mut langs_len)

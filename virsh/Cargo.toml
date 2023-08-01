@@ -26,9 +26,8 @@ url = "2.2.2"
 version = "0.2.125"
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.36.1"
+version = "0.48.0"
 features = [
-    "alloc",
     "Win32_Foundation",
     "Win32_Globalization",
 ]
