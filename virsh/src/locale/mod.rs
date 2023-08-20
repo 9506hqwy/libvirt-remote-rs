@@ -129,7 +129,7 @@ fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
 fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
     if let Ok(lang) = env::var("LANG") {
         let lang = lang.split('.').next().unwrap();
-        return Ok(convert_vec_str_to_langids_lossy(&[lang]));
+        return Ok(convert_vec_str_to_langids_lossy([lang]));
     }
 
     Ok(langids!("en-us"))

@@ -127,7 +127,7 @@ fn parse_sparse_file(file: &mut fs::File, length: usize) -> Vec<(SparseType, usi
 
     let mut remain = length;
     while remain > 0 {
-        let current = file.seek(SeekFrom::Current(0)).unwrap() as usize;
+        let current = file.stream_position().unwrap() as usize;
         if let Some(next_hole_offset) = seek_next_hole(file, current).unwrap() {
             match next_hole_offset - current {
                 0 => match seek_next_data(file, current).unwrap() {
