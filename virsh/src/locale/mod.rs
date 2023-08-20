@@ -103,7 +103,6 @@ fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
     let mut langs_len: u32 = 0;
     unsafe {
         GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, langs, &mut langs_len)
-            .ok()
             .map_err(|_| Error::Locale)
     }?;
 
@@ -115,7 +114,6 @@ fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
     let langs = PWSTR(buffer.as_mut_ptr());
     unsafe {
         GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, langs, &mut langs_len)
-            .ok()
             .map_err(|_| Error::Locale)
     }?;
 
