@@ -40,7 +40,6 @@ fn to_utf8_str(value: &[i8]) -> Result<String, Error> {
     let bytes: Vec<u8> = value
         .iter()
         .map(|&c| c as u8)
-        .into_iter()
         .take_while(|&c| c != 0)
         .collect();
     String::from_utf8(bytes).map_err(Error::from)

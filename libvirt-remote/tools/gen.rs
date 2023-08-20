@@ -5,7 +5,6 @@ use std::env;
 use std::error::Error;
 use std::fs;
 use std::str::FromStr;
-use syn;
 
 const UN_DECONSTRUCTING: [&str; 7] = [
     "RemoteDomainEventBlockThresholdMsg",
@@ -19,7 +18,7 @@ const UN_DECONSTRUCTING: [&str; 7] = [
 
 fn main() -> Result<(), Box<dyn Error>> {
     let path = env::args().nth(1).ok_or("Not specify file path")?;
-    let contents = fs::read_to_string(&path)?;
+    let contents = fs::read_to_string(path)?;
 
     let source = TokenStream::from_str(&contents)?;
     let client = gen(source, false)?;

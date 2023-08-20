@@ -88,5 +88,5 @@ fn version_string(version: u64) -> String {
     let major = (version / 1000000) % 1000;
     let minor = (version / 1000) % 1000;
     let release = version % 1000;
-    return format!("{}.{}.{}", major, minor, release);
+    format!("{}.{}.{}", major, minor, release)
 }

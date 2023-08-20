@@ -53,7 +53,7 @@ impl TableView {
     pub fn add_row(&mut self, cells: Vec<&str>) {
         let mut row = TableRow::default();
 
-        for (idx, mut column) in self.columns.iter_mut().enumerate() {
+        for (idx, column) in self.columns.iter_mut().enumerate() {
             let cell = cells[idx];
 
             row.cells.push(cell.to_string());
