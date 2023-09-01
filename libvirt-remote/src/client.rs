@@ -6134,6 +6134,47 @@ pub trait Libvirt {
         let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainFdAssociate, req)?;
         Ok(())
     }
+    fn network_set_metadata(
+        &mut self,
+        network: RemoteNonnullNetwork,
+        r#type: i32,
+        metadata: Option<String>,
+        key: Option<String>,
+        uri: Option<String>,
+        flags: u32,
+    ) -> Result<(), Error> {
+        trace!("{}", stringify!(network_set_metadata));
+        let req: Option<RemoteNetworkSetMetadataArgs> = Some(RemoteNetworkSetMetadataArgs {
+            network,
+            r#type,
+            metadata,
+            key,
+            uri,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNetworkSetMetadata, req)?;
+        Ok(())
+    }
+    fn network_get_metadata(
+        &mut self,
+        network: RemoteNonnullNetwork,
+        r#type: i32,
+        uri: Option<String>,
+        flags: u32,
+    ) -> Result<String, Error> {
+        trace!("{}", stringify!(network_get_metadata));
+        let req: Option<RemoteNetworkGetMetadataArgs> = Some(RemoteNetworkGetMetadataArgs {
+            network,
+            r#type,
+            uri,
+            flags,
+        });
+        let res: Option<RemoteNetworkGetMetadataRet> =
+            call(self, RemoteProcedure::RemoteProcNetworkGetMetadata, req)?;
+        let res = res.unwrap();
+        let RemoteNetworkGetMetadataRet { metadata } = res;
+        Ok(metadata)
+    }
     fn connect_event_connection_closed_msg(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_event_connection_closed_msg));
         let res: Option<RemoteConnectEventConnectionClosedMsg> = msg(self)?;

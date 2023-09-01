@@ -3062,6 +3062,26 @@ pub struct RemoteNetworkEventLifecycleMsg {
     pub detail: i32,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteNetworkSetMetadataArgs {
+    pub network: RemoteNonnullNetwork,
+    pub r#type: i32,
+    pub metadata: Option<String>,
+    pub key: Option<String>,
+    pub uri: Option<String>,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteNetworkGetMetadataArgs {
+    pub network: RemoteNonnullNetwork,
+    pub r#type: i32,
+    pub uri: Option<String>,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteNetworkGetMetadataRet {
+    pub metadata: String,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectStoragePoolEventRegisterAnyArgs {
     pub event_id: i32,
     pub pool: Option<RemoteNonnullStoragePool>,
@@ -4115,6 +4135,8 @@ pub enum RemoteProcedure {
     RemoteProcDomainRestoreParams = 441i32,
     RemoteProcDomainAbortJobFlags = 442i32,
     RemoteProcDomainFdAssociate = 443i32,
+    RemoteProcNetworkSetMetadata = 444i32,
+    RemoteProcNetworkGetMetadata = 445i32,
 }
 impl Default for RemoteProcedure {
     fn default() -> Self {
