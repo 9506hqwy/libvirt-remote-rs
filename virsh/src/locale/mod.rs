@@ -1,10 +1,10 @@
 use super::error::Error;
 use fluent::{FluentArgs, FluentBundle, FluentResource};
 use fluent_langneg::{convert_vec_str_to_langids_lossy, negotiate_languages, NegotiationStrategy};
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
 #[cfg(target_family = "unix")]
 use std::env;
+use std::sync::OnceLock;
 use unic_langid::{langid, langids, LanguageIdentifier};
 #[cfg(target_family = "windows")]
 use windows::{
@@ -12,12 +12,14 @@ use windows::{
     Win32::Globalization::{GetUserPreferredUILanguages, MUI_LANGUAGE_NAME},
 };
 
-static RESOURCES: Lazy<HashMap<LanguageIdentifier, &str>> = Lazy::new(|| {
+static RESOURCES: OnceLock<HashMap<LanguageIdentifier, &'static str>> = OnceLock::new();
+
+fn init_resources() -> HashMap<LanguageIdentifier, &'static str> {
     let mut r = HashMap::new();
     r.insert(langid!("en-us"), include_str!("en-us.txt"));
     r.insert(langid!("ja-jp"), include_str!("ja-jp.txt"));
     r
-});
+}
 
 pub struct Locale {
     bundle: FluentBundle<FluentResource>,
@@ -67,7 +69,7 @@ pub fn setup() -> Result<Locale, Error> {
 fn current_bundle(id: LanguageIdentifier) -> Result<FluentBundle<FluentResource>, Error> {
     let mut bundle = FluentBundle::new(vec![id.clone()]);
 
-    let resource = RESOURCES.get(&id).unwrap();
+    let resource = RESOURCES.get_or_init(init_resources).get(&id).unwrap();
     let res = FluentResource::try_new(resource.to_string()).map_err(|_| Error::Locale)?;
     bundle.add_resource(res).map_err(|_| Error::Locale)?;
 
@@ -91,7 +93,11 @@ fn current_locale() -> Result<LanguageIdentifier, Error> {
 }
 
 fn get_available_locales() -> Result<Vec<LanguageIdentifier>, Error> {
-    Ok(RESOURCES.keys().cloned().collect())
+    Ok(RESOURCES
+        .get_or_init(init_resources)
+        .keys()
+        .cloned()
+        .collect())
 }
 
 #[cfg(target_family = "windows")]

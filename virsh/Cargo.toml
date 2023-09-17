@@ -3,7 +3,7 @@ name = "virsh"
 version = "0.2.0"
 authors = ["9506hqwy"]
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.70"
 repository = "https://github.com/9506hqwy/libvirt-remote-rs"
 license = "MIT OR Apache-2.0"
 keywords = ["libvirt"]
@@ -17,7 +17,6 @@ fluent = "0.16.0"
 fluent-langneg = "0.13.0"
 libvirt_remote = { path="../libvirt-remote" }
 log = "0.4.20"
-once_cell = "1.18.0"
 unic-langid = { version="0.9.1", features=["macros"] }
 unicode-width = "0.1.10"
 url = "2.4.0"

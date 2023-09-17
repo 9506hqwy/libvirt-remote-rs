@@ -3,17 +3,21 @@ use crate::locale::Locale;
 use chrono::Utc;
 use clap::{Arg, ArgMatches, Command};
 use libvirt_remote::client::Libvirt;
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
-static EVENTS: Lazy<HashMap<&str, i32>> = Lazy::new(|| {
+static EVENTS: OnceLock<HashMap<&'static str, i32>> = OnceLock::new();
+
+fn init_events() -> HashMap<&'static str, i32> {
     let mut e = HashMap::new();
     e.insert("lifecycle", 0);
     e.insert("refresh", 1);
     e
-});
+}
 
-static LIFECYCLE_EVENTS: Lazy<HashMap<i32, &str>> = Lazy::new(|| {
+static LIFECYCLE_EVENTS: OnceLock<HashMap<i32, &'static str>> = OnceLock::new();
+
+fn init_lifecycle_events() -> HashMap<i32, &'static str> {
     let mut e = HashMap::new();
     e.insert(0, "Defined");
     e.insert(1, "Undefined");
@@ -22,7 +26,7 @@ static LIFECYCLE_EVENTS: Lazy<HashMap<i32, &str>> = Lazy::new(|| {
     e.insert(4, "Created");
     e.insert(5, "Deleted");
     e
-});
+}
 
 pub fn cmd() -> Command {
     Command::new("pool-event")
@@ -40,7 +44,7 @@ pub fn run(
     args: &ArgMatches,
 ) -> Result<(), Error> {
     if args.get_flag("list") {
-        for e in EVENTS.keys() {
+        for e in EVENTS.get_or_init(init_events).keys() {
             println!("{}", e);
         }
         return Ok(());
@@ -50,6 +54,7 @@ pub fn run(
         .get_one::<String>("event")
         .expect("must specify --event.");
     let event_id = *EVENTS
+        .get_or_init(init_events)
         .get(event_name.as_str())
         .expect("not found event name.");
 
@@ -91,7 +96,10 @@ pub fn run(
 
 fn handle_lifecycle_event(client: &mut Box<dyn Libvirt>) -> Result<String, Error> {
     let (_, pool, event, _) = client.storage_pool_event_lifecycle_msg()?;
-    let id = LIFECYCLE_EVENTS.get(&event).unwrap();
+    let id = LIFECYCLE_EVENTS
+        .get_or_init(init_lifecycle_events)
+        .get(&event)
+        .unwrap();
     Ok(format!(
         "event 'lifecycle' for storage pool {}: {}",
         pool.name, id
