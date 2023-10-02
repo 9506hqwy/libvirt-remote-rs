@@ -6175,6 +6175,16 @@ pub trait Libvirt {
         let RemoteNetworkGetMetadataRet { metadata } = res;
         Ok(metadata)
     }
+    fn network_event_callback_metadata_change(&mut self) -> Result<(), Error> {
+        trace!("{}", stringify!(network_event_callback_metadata_change));
+        let req: Option<()> = None;
+        let _res: Option<()> = call(
+            self,
+            RemoteProcedure::RemoteProcNetworkEventCallbackMetadataChange,
+            req,
+        )?;
+        Ok(())
+    }
     fn connect_event_connection_closed_msg(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_event_connection_closed_msg));
         let res: Option<RemoteConnectEventConnectionClosedMsg> = msg(self)?;
@@ -6623,6 +6633,20 @@ pub trait Libvirt {
         let res = res.unwrap();
         let RemoteDomainEventWatchdogMsg { dom, action } = res;
         Ok((dom, action))
+    }
+    fn network_event_callback_metadata_change_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullNetwork, i32, Option<String>), Error> {
+        trace!("{}", stringify!(network_event_callback_metadata_change_msg));
+        let res: Option<RemoteNetworkEventCallbackMetadataChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteNetworkEventCallbackMetadataChangeMsg {
+            callback_id,
+            net,
+            r#type,
+            nsuri,
+        } = res;
+        Ok((callback_id, net, r#type, nsuri))
     }
     fn network_event_lifecycle_msg(
         &mut self,

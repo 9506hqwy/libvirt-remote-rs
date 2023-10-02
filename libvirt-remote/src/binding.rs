@@ -3062,6 +3062,13 @@ pub struct RemoteNetworkEventLifecycleMsg {
     pub detail: i32,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteNetworkEventCallbackMetadataChangeMsg {
+    pub callback_id: i32,
+    pub net: RemoteNonnullNetwork,
+    pub r#type: i32,
+    pub nsuri: Option<String>,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNetworkSetMetadataArgs {
     pub network: RemoteNonnullNetwork,
     pub r#type: i32,
@@ -4137,6 +4144,7 @@ pub enum RemoteProcedure {
     RemoteProcDomainFdAssociate = 443i32,
     RemoteProcNetworkSetMetadata = 444i32,
     RemoteProcNetworkGetMetadata = 445i32,
+    RemoteProcNetworkEventCallbackMetadataChange = 446i32,
 }
 impl Default for RemoteProcedure {
     fn default() -> Self {
