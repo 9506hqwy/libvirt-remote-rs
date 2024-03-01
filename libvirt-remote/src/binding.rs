@@ -1968,6 +1968,12 @@ pub struct RemoteNodeDeviceIsActiveRet {
     pub active: i32,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteNodeDeviceUpdateArgs {
+    pub name: String,
+    pub xml_desc: String,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteConnectDomainEventRegisterRet {
     pub cb_registered: i32,
 }
@@ -4145,6 +4151,7 @@ pub enum RemoteProcedure {
     RemoteProcNetworkSetMetadata = 444i32,
     RemoteProcNetworkGetMetadata = 445i32,
     RemoteProcNetworkEventCallbackMetadataChange = 446i32,
+    RemoteProcNodeDeviceUpdate = 447i32,
 }
 impl Default for RemoteProcedure {
     fn default() -> Self {

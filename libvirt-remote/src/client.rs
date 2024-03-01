@@ -6185,6 +6185,21 @@ pub trait Libvirt {
         )?;
         Ok(())
     }
+    fn node_device_update(
+        &mut self,
+        name: String,
+        xml_desc: String,
+        flags: u32,
+    ) -> Result<(), Error> {
+        trace!("{}", stringify!(node_device_update));
+        let req: Option<RemoteNodeDeviceUpdateArgs> = Some(RemoteNodeDeviceUpdateArgs {
+            name,
+            xml_desc,
+            flags,
+        });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceUpdate, req)?;
+        Ok(())
+    }
     fn connect_event_connection_closed_msg(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_event_connection_closed_msg));
         let res: Option<RemoteConnectEventConnectionClosedMsg> = msg(self)?;
