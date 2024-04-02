@@ -6200,6 +6200,18 @@ pub trait Libvirt {
         let _res: Option<()> = call(self, RemoteProcedure::RemoteProcNodeDeviceUpdate, req)?;
         Ok(())
     }
+    fn domain_graphics_reload(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        r#type: u32,
+        flags: u32,
+    ) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_graphics_reload));
+        let req: Option<RemoteDomainGraphicsReloadArgs> =
+            Some(RemoteDomainGraphicsReloadArgs { dom, r#type, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainGraphicsReload, req)?;
+        Ok(())
+    }
     fn connect_event_connection_closed_msg(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_event_connection_closed_msg));
         let res: Option<RemoteConnectEventConnectionClosedMsg> = msg(self)?;

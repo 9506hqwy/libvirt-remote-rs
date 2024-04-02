@@ -3689,6 +3689,12 @@ pub struct RemoteDomainStartDirtyRateCalcArgs {
     pub flags: u32,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainGraphicsReloadArgs {
+    pub dom: RemoteNonnullDomain,
+    pub r#type: u32,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainEventMemoryDeviceSizeChangeMsg {
     pub callback_id: i32,
     pub dom: RemoteNonnullDomain,
@@ -4152,6 +4158,7 @@ pub enum RemoteProcedure {
     RemoteProcNetworkGetMetadata = 445i32,
     RemoteProcNetworkEventCallbackMetadataChange = 446i32,
     RemoteProcNodeDeviceUpdate = 447i32,
+    RemoteProcDomainGraphicsReload = 448i32,
 }
 impl Default for RemoteProcedure {
     fn default() -> Self {
