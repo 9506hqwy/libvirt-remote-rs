@@ -1223,6 +1223,19 @@ pub struct RemoteDomainGetBlockIoTuneRet {
     pub nparams: i32,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainSetThrottleGroupArgs {
+    pub dom: RemoteNonnullDomain,
+    pub group: String,
+    pub params: Vec<RemoteTypedParam>,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainDelThrottleGroupArgs {
+    pub dom: RemoteNonnullDomain,
+    pub group: Option<String>,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainGetCpuStatsArgs {
     pub dom: RemoteNonnullDomain,
     pub nparams: u32,
@@ -3707,6 +3720,27 @@ pub struct RemoteDomainFdAssociateArgs {
     pub name: String,
     pub flags: u32,
 }
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainGetAutostartOnceArgs {
+    pub dom: RemoteNonnullDomain,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainGetAutostartOnceRet {
+    pub autostart: i32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainSetAutostartOnceArgs {
+    pub dom: RemoteNonnullDomain,
+    pub autostart: i32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainEventNicMacChangeMsg {
+    pub callback_id: i32,
+    pub dom: RemoteNonnullDomain,
+    pub alias: String,
+    pub old_mac: String,
+    pub new_mac: String,
+}
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[repr(i32)]
 pub enum RemoteProcedure {
@@ -4159,6 +4193,11 @@ pub enum RemoteProcedure {
     RemoteProcNetworkEventCallbackMetadataChange = 446i32,
     RemoteProcNodeDeviceUpdate = 447i32,
     RemoteProcDomainGraphicsReload = 448i32,
+    RemoteProcDomainGetAutostartOnce = 449i32,
+    RemoteProcDomainSetAutostartOnce = 450i32,
+    RemoteProcDomainSetThrottleGroup = 451i32,
+    RemoteProcDomainDelThrottleGroup = 452i32,
+    RemoteProcDomainEventNicMacChange = 453i32,
 }
 impl Default for RemoteProcedure {
     fn default() -> Self {

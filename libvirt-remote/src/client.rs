@@ -6212,6 +6212,67 @@ pub trait Libvirt {
         let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainGraphicsReload, req)?;
         Ok(())
     }
+    fn domain_get_autostart_once(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
+        trace!("{}", stringify!(domain_get_autostart_once));
+        let req: Option<RemoteDomainGetAutostartOnceArgs> =
+            Some(RemoteDomainGetAutostartOnceArgs { dom });
+        let res: Option<RemoteDomainGetAutostartOnceRet> =
+            call(self, RemoteProcedure::RemoteProcDomainGetAutostartOnce, req)?;
+        let res = res.unwrap();
+        let RemoteDomainGetAutostartOnceRet { autostart } = res;
+        Ok(autostart)
+    }
+    fn domain_set_autostart_once(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        autostart: i32,
+    ) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_set_autostart_once));
+        let req: Option<RemoteDomainSetAutostartOnceArgs> =
+            Some(RemoteDomainSetAutostartOnceArgs { dom, autostart });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetAutostartOnce, req)?;
+        Ok(())
+    }
+    fn domain_set_throttle_group(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        group: String,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
+    ) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_set_throttle_group));
+        let req: Option<RemoteDomainSetThrottleGroupArgs> =
+            Some(RemoteDomainSetThrottleGroupArgs {
+                dom,
+                group,
+                params,
+                flags,
+            });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainSetThrottleGroup, req)?;
+        Ok(())
+    }
+    fn domain_del_throttle_group(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        group: Option<String>,
+        flags: u32,
+    ) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_del_throttle_group));
+        let req: Option<RemoteDomainDelThrottleGroupArgs> =
+            Some(RemoteDomainDelThrottleGroupArgs { dom, group, flags });
+        let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainDelThrottleGroup, req)?;
+        Ok(())
+    }
+    fn domain_event_nic_mac_change(&mut self) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_event_nic_mac_change));
+        let req: Option<()> = None;
+        let _res: Option<()> = call(
+            self,
+            RemoteProcedure::RemoteProcDomainEventNicMacChange,
+            req,
+        )?;
+        Ok(())
+    }
     fn connect_event_connection_closed_msg(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_event_connection_closed_msg));
         let res: Option<RemoteConnectEventConnectionClosedMsg> = msg(self)?;
@@ -6605,6 +6666,21 @@ pub trait Libvirt {
             flags,
         } = res;
         Ok((callback_id, dom, recipient, action, flags))
+    }
+    fn domain_event_nic_mac_change_msg(
+        &mut self,
+    ) -> Result<(i32, RemoteNonnullDomain, String, String, String), Error> {
+        trace!("{}", stringify!(domain_event_nic_mac_change_msg));
+        let res: Option<RemoteDomainEventNicMacChangeMsg> = msg(self)?;
+        let res = res.unwrap();
+        let RemoteDomainEventNicMacChangeMsg {
+            callback_id,
+            dom,
+            alias,
+            old_mac,
+            new_mac,
+        } = res;
+        Ok((callback_id, dom, alias, old_mac, new_mac))
     }
     fn domain_event_pmsuspend_disk_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_event_pmsuspend_disk_msg));
