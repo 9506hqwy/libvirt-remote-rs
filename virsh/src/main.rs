@@ -6,6 +6,7 @@ mod table_view;
 mod util;
 
 use error::Error;
+use libvirt_remote::binding::RemoteAuthType;
 use libvirt_remote::client::{Client, Libvirt};
 use log::trace;
 use std::net::TcpStream;
@@ -41,6 +42,8 @@ fn connect(uri: Url, readonly: bool) -> Result<Box<dyn Libvirt>, Error> {
     let name = format!("{}://{}", schemes[0], uri.path());
     trace!("connecting {} readonly={}", &name, readonly);
 
+    authenticate(&mut client)?;
+
     client.connect_open(Some(name), if readonly { 1 } else { 0 })?;
 
     Ok(client)
@@ -73,4 +76,21 @@ fn connect_unix(uri: &Url) -> Result<Box<dyn Libvirt>, Error> {
 #[cfg(target_family = "windows")]
 fn connect_unix(_: &Url) -> Result<Box<dyn Libvirt>, Error> {
     Err(Error::NotSupported)
+}
+
+fn authenticate(client: &mut Box<dyn Libvirt>) -> Result<(), Error> {
+    let auth_list = client.auth_list()?;
+    if let Some(auth) = auth_list.into_iter().next() {
+        match auth {
+            RemoteAuthType::RemoteAuthNone => {}
+            RemoteAuthType::RemoteAuthPolkit => {
+                client.auth_polkit()?;
+            }
+            RemoteAuthType::RemoteAuthSasl => {
+                return Err(Error::NotSupported);
+            }
+        }
+    }
+
+    Ok(())
 }
