@@ -166,15 +166,12 @@ pub struct RemoteError {
 }
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[repr(i32)]
+#[derive(Default)]
 pub enum RemoteAuthType {
+    #[default]
     RemoteAuthNone = 0i32,
     RemoteAuthSasl = 1i32,
     RemoteAuthPolkit = 2i32,
-}
-impl Default for RemoteAuthType {
-    fn default() -> Self {
-        RemoteAuthType::RemoteAuthNone
-    }
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteVcpuInfo {
@@ -3743,8 +3740,10 @@ pub struct RemoteDomainEventNicMacChangeMsg {
 }
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[repr(i32)]
+#[derive(Default)]
 pub enum RemoteProcedure {
     _Reserved0 = 0i32,
+    #[default]
     RemoteProcConnectOpen = 1i32,
     RemoteProcConnectClose = 2i32,
     RemoteProcConnectGetType = 3i32,
@@ -4198,9 +4197,4 @@ pub enum RemoteProcedure {
     RemoteProcDomainSetThrottleGroup = 451i32,
     RemoteProcDomainDelThrottleGroup = 452i32,
     RemoteProcDomainEventNicMacChange = 453i32,
-}
-impl Default for RemoteProcedure {
-    fn default() -> Self {
-        RemoteProcedure::RemoteProcConnectOpen
-    }
 }

@@ -11,7 +11,9 @@ pub const VIR_NET_MESSAGE_HEADER_XDR_LEN: u32 = 4u32;
 pub const VIR_UUID_BUFLEN: u32 = 16u32;
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[repr(i32)]
+#[derive(Default)]
 pub enum VirNetMessageType {
+    #[default]
     VirNetCall = 0i32,
     VirNetReply = 1i32,
     VirNetMessage = 2i32,
@@ -20,22 +22,14 @@ pub enum VirNetMessageType {
     VirNetReplyWithFds = 5i32,
     VirNetStreamHole = 6i32,
 }
-impl Default for VirNetMessageType {
-    fn default() -> Self {
-        VirNetMessageType::VirNetCall
-    }
-}
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[repr(i32)]
+#[derive(Default)]
 pub enum VirNetMessageStatus {
+    #[default]
     VirNetOk = 0i32,
     VirNetError = 1i32,
     VirNetContinue = 2i32,
-}
-impl Default for VirNetMessageStatus {
-    fn default() -> Self {
-        VirNetMessageStatus::VirNetOk
-    }
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct VirNetMessageHeader {

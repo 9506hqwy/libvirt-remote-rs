@@ -1,15 +1,15 @@
 use super::error::Error;
 use fluent::{FluentArgs, FluentBundle, FluentResource};
-use fluent_langneg::{convert_vec_str_to_langids_lossy, negotiate_languages, NegotiationStrategy};
+use fluent_langneg::{NegotiationStrategy, convert_vec_str_to_langids_lossy, negotiate_languages};
 use std::collections::HashMap;
 #[cfg(target_family = "unix")]
 use std::env;
 use std::sync::OnceLock;
-use unic_langid::{langid, langids, LanguageIdentifier};
+use unic_langid::{LanguageIdentifier, langid, langids};
 #[cfg(target_family = "windows")]
 use windows::{
-    core::PWSTR,
     Win32::Globalization::{GetUserPreferredUILanguages, MUI_LANGUAGE_NAME},
+    core::PWSTR,
 };
 
 static RESOURCES: OnceLock<HashMap<LanguageIdentifier, &'static str>> = OnceLock::new();

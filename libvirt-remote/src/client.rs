@@ -2,7 +2,7 @@ use crate::binding::*;
 use crate::error::Error;
 use crate::protocol;
 use log::trace;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 #[cfg(target_family = "unix")]

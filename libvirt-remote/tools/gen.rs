@@ -21,13 +21,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(path)?;
 
     let source = TokenStream::from_str(&contents)?;
-    let client = gen(source, false)?;
+    let client = gen_code(source, false)?;
 
     println!("{}", client);
     Ok(())
 }
 
-fn gen(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>> {
+fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>> {
     let (procedures, models) = parse_file(stream)?;
 
     let mut calls = vec![];
@@ -628,7 +628,7 @@ fn syn_fields_to_sig_params(model: &syn::ItemStruct) -> Vec<TokenStream> {
 }
 
 fn undeconstructing(model: &str) -> bool {
-    UN_DECONSTRUCTING.iter().any(|&m| m == model)
+    UN_DECONSTRUCTING.contains(&model)
 }
 
 fn capitalize(value: &str) -> String {
