@@ -784,7 +784,7 @@ pub struct RemoteDomainMigratePrepareArgs {
     pub uri_in: Option<String>,
     pub flags: u64,
     pub dname: Option<String>,
-    pub resource: u64,
+    pub bandwidth: u64,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePrepareRet {
@@ -800,7 +800,7 @@ pub struct RemoteDomainMigratePerformArgs {
     pub uri: String,
     pub flags: u64,
     pub dname: Option<String>,
-    pub resource: u64,
+    pub bandwidth: u64,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateFinishArgs {
@@ -819,7 +819,7 @@ pub struct RemoteDomainMigratePrepare2Args {
     pub uri_in: Option<String>,
     pub flags: u64,
     pub dname: Option<String>,
-    pub resource: u64,
+    pub bandwidth: u64,
     pub dom_xml: String,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -2095,7 +2095,7 @@ pub struct RemoteSecretLookupByUsageRet {
 pub struct RemoteDomainMigratePrepareTunnelArgs {
     pub flags: u64,
     pub dname: Option<String>,
-    pub resource: u64,
+    pub bandwidth: u64,
     pub dom_xml: String,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -2663,7 +2663,7 @@ pub struct RemoteDomainMigrateBegin3Args {
     pub xmlin: Option<String>,
     pub flags: u64,
     pub dname: Option<String>,
-    pub resource: u64,
+    pub bandwidth: u64,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigrateBegin3Ret {
@@ -2678,7 +2678,7 @@ pub struct RemoteDomainMigratePrepare3Args {
     pub uri_in: Option<String>,
     pub flags: u64,
     pub dname: Option<String>,
-    pub resource: u64,
+    pub bandwidth: u64,
     pub dom_xml: String,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -2693,7 +2693,7 @@ pub struct RemoteDomainMigratePrepareTunnel3Args {
     pub cookie_in: Vec<u8>,
     pub flags: u64,
     pub dname: Option<String>,
-    pub resource: u64,
+    pub bandwidth: u64,
     pub dom_xml: String,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -2711,7 +2711,7 @@ pub struct RemoteDomainMigratePerform3Args {
     pub uri: Option<String>,
     pub flags: u64,
     pub dname: Option<String>,
-    pub resource: u64,
+    pub bandwidth: u64,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainMigratePerform3Ret {

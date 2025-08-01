@@ -642,14 +642,14 @@ pub trait Libvirt {
         uri_in: Option<String>,
         flags: u64,
         dname: Option<String>,
-        resource: u64,
+        bandwidth: u64,
     ) -> Result<(Vec<u8>, Option<String>), Error> {
         trace!("{}", stringify!(domain_migrate_prepare));
         let req: Option<RemoteDomainMigratePrepareArgs> = Some(RemoteDomainMigratePrepareArgs {
             uri_in,
             flags,
             dname,
-            resource,
+            bandwidth,
         });
         let res: Option<RemoteDomainMigratePrepareRet> =
             call(self, RemoteProcedure::RemoteProcDomainMigratePrepare, req)?;
@@ -664,7 +664,7 @@ pub trait Libvirt {
         uri: String,
         flags: u64,
         dname: Option<String>,
-        resource: u64,
+        bandwidth: u64,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_migrate_perform));
         let req: Option<RemoteDomainMigratePerformArgs> = Some(RemoteDomainMigratePerformArgs {
@@ -673,7 +673,7 @@ pub trait Libvirt {
             uri,
             flags,
             dname,
-            resource,
+            bandwidth,
         });
         let _res: Option<()> = call(self, RemoteProcedure::RemoteProcDomainMigratePerform, req)?;
         Ok(())
@@ -1287,7 +1287,7 @@ pub trait Libvirt {
         uri_in: Option<String>,
         flags: u64,
         dname: Option<String>,
-        resource: u64,
+        bandwidth: u64,
         dom_xml: String,
     ) -> Result<(Vec<u8>, Option<String>), Error> {
         trace!("{}", stringify!(domain_migrate_prepare2));
@@ -1295,7 +1295,7 @@ pub trait Libvirt {
             uri_in,
             flags,
             dname,
-            resource,
+            bandwidth,
             dom_xml,
         });
         let res: Option<RemoteDomainMigratePrepare2Ret> =
@@ -1775,7 +1775,7 @@ pub trait Libvirt {
         &mut self,
         flags: u64,
         dname: Option<String>,
-        resource: u64,
+        bandwidth: u64,
         dom_xml: String,
     ) -> Result<(), Error> {
         trace!("{}", stringify!(domain_migrate_prepare_tunnel));
@@ -1783,7 +1783,7 @@ pub trait Libvirt {
             Some(RemoteDomainMigratePrepareTunnelArgs {
                 flags,
                 dname,
-                resource,
+                bandwidth,
                 dom_xml,
             });
         let _res: Option<()> = call(
@@ -2596,7 +2596,7 @@ pub trait Libvirt {
         xmlin: Option<String>,
         flags: u64,
         dname: Option<String>,
-        resource: u64,
+        bandwidth: u64,
     ) -> Result<(Vec<u8>, String), Error> {
         trace!("{}", stringify!(domain_migrate_begin3));
         let req: Option<RemoteDomainMigrateBegin3Args> = Some(RemoteDomainMigrateBegin3Args {
@@ -2604,7 +2604,7 @@ pub trait Libvirt {
             xmlin,
             flags,
             dname,
-            resource,
+            bandwidth,
         });
         let res: Option<RemoteDomainMigrateBegin3Ret> =
             call(self, RemoteProcedure::RemoteProcDomainMigrateBegin3, req)?;
@@ -2618,7 +2618,7 @@ pub trait Libvirt {
         uri_in: Option<String>,
         flags: u64,
         dname: Option<String>,
-        resource: u64,
+        bandwidth: u64,
         dom_xml: String,
     ) -> Result<(Vec<u8>, Option<String>), Error> {
         trace!("{}", stringify!(domain_migrate_prepare3));
@@ -2627,7 +2627,7 @@ pub trait Libvirt {
             uri_in,
             flags,
             dname,
-            resource,
+            bandwidth,
             dom_xml,
         });
         let res: Option<RemoteDomainMigratePrepare3Ret> =
@@ -2644,7 +2644,7 @@ pub trait Libvirt {
         cookie_in: Vec<u8>,
         flags: u64,
         dname: Option<String>,
-        resource: u64,
+        bandwidth: u64,
         dom_xml: String,
     ) -> Result<Vec<u8>, Error> {
         trace!("{}", stringify!(domain_migrate_prepare_tunnel3));
@@ -2653,7 +2653,7 @@ pub trait Libvirt {
                 cookie_in,
                 flags,
                 dname,
-                resource,
+                bandwidth,
                 dom_xml,
             });
         let res: Option<RemoteDomainMigratePrepareTunnel3Ret> = call(
