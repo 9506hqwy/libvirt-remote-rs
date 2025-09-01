@@ -2,7 +2,7 @@
 
 set -eu
 
-VERSION="v11.6.0"
+VERSION="v11.7.0"
 TOOL_VERSION="0.4.0"
 PROTO_URL="https://raw.githubusercontent.com/libvirt/libvirt/${VERSION}/src/rpc/virnetprotocol.x"
 REMOTE_URL="https://raw.githubusercontent.com/libvirt/libvirt/${VERSION}/src/remote/remote_protocol.x"
