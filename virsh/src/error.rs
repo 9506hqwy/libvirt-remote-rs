@@ -1,6 +1,7 @@
 use std::io;
 use std::string;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum Error {
     Arg(String),

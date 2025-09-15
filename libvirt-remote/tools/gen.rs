@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let source = TokenStream::from_str(&contents)?;
     let client = gen_code(source, false)?;
 
-    println!("{}", client);
+    println!("{client}");
     Ok(())
 }
 
@@ -444,11 +444,11 @@ fn parse_call_method(
         if let Some(method) = method_str.strip_prefix("RemoteProc") {
             let method_args = models
                 .keys()
-                .find(|&m| m == &format!("Remote{}Args", method))
+                .find(|&m| m == &format!("Remote{method}Args"))
                 .cloned();
             let method_ret = models
                 .keys()
-                .find(|&m| m == &format!("Remote{}Ret", method))
+                .find(|&m| m == &format!("Remote{method}Ret"))
                 .cloned();
             procs.push((method.to_string(), method_args, method_ret));
         }

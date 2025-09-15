@@ -33,7 +33,7 @@ pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) ->
 
     let (_, max_cpu_num) = client.domain_get_cpu_stats(dom.clone(), 0, 0, 0, 0)?;
     if args.get_flag("start") && max_cpu_num <= start {
-        return Err(Error::Arg(format!("start={}", max_cpu_num)));
+        return Err(Error::Arg(format!("start={max_cpu_num}")));
     }
 
     let count = if count < 0 || max_cpu_num < count {
@@ -47,7 +47,7 @@ pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) ->
     if nparams > 0 {
         let (params, _) = client.domain_get_cpu_stats(dom.clone(), nparams, start, count, 0)?;
         for ncpu in 0..(count as usize) {
-            println!("CPU{}:", ncpu);
+            println!("CPU{ncpu}:");
 
             for nparam in 0..(nparams as usize) {
                 let param = &params[ncpu + nparam];
@@ -83,7 +83,7 @@ fn print_ulong(param: &RemoteTypedParam) {
         RemoteTypedParamValue::VirTypedParamUllong(v) => {
             let s = v / 1_000_000_000;
             let n = v % 1_000_000_000;
-            println!("{:>9}.{:>09} seconds", s, n);
+            println!("{s:>9}.{n:>09} seconds");
         }
         _ => unreachable!(),
     }

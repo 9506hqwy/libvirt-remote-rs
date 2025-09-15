@@ -46,7 +46,11 @@ pub fn run(
 
     client.storage_vol_download(volume, offset, length, flags)?;
 
-    let mut f = fs::OpenOptions::new().write(true).create(true).open(file)?;
+    let mut f = fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(file)?;
     f.seek(SeekFrom::Start(offset))?;
 
     let mut writer = BufWriter::new(f);
@@ -54,7 +58,7 @@ pub fn run(
         match stream {
             VirNetStream::Hole(hole) => {
                 let length = hole.length as usize;
-                trace!("hole size: {}", length);
+                trace!("hole size: {length}");
                 let mut size: usize = 0;
                 while size < length {
                     let bufsize = if length - size > 8192 {

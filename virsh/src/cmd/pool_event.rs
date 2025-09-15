@@ -45,7 +45,7 @@ pub fn run(
 ) -> Result<(), Error> {
     if args.get_flag("list") {
         for e in EVENTS.get_or_init(init_events).keys() {
-            println!("{}", e);
+            println!("{e}");
         }
         return Ok(());
     }
@@ -82,7 +82,7 @@ pub fn run(
             "".to_string()
         };
 
-        println!("{}{}", time, msg);
+        println!("{time}{msg}");
 
         if !args.get_flag("loop") {
             break;

@@ -12,7 +12,7 @@ pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale) -> Result<(), Error> 
     let hv_type = match client.connect_get_type() {
         Ok(ret) => Some(ret),
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{e}");
             None
         }
     };
@@ -20,7 +20,7 @@ pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale) -> Result<(), Error> 
     let hv_ver = match client.connect_get_version() {
         Ok(ret) => Some(version_string(ret)),
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{e}");
             None
         }
     };
@@ -28,7 +28,7 @@ pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale) -> Result<(), Error> 
     let lib_ver = match client.connect_get_lib_version() {
         Ok(ret) => Some(version_string(ret)),
         Err(e) => {
-            error!("{}", e);
+            error!("{e}");
             None
         }
     };
@@ -88,5 +88,5 @@ fn version_string(version: u64) -> String {
     let major = (version / 1000000) % 1000;
     let minor = (version / 1000) % 1000;
     let release = version % 1000;
-    format!("{}.{}.{}", major, minor, release)
+    format!("{major}.{minor}.{release}")
 }
