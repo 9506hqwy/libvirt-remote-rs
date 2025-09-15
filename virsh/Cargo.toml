@@ -19,7 +19,7 @@ fluent-langneg = "0.13.0"
 libvirt_remote = { path="../libvirt-remote" }
 log = "0.4.20"
 unic-langid = { version="0.9.1", features=["macros"] }
-unicode-width = "0.1.10"
+unicode-width = "0.2.1"
 url = "2.4.0"
 
 [target.'cfg(unix)'.dependencies.libc]
