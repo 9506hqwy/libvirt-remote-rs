@@ -15,7 +15,7 @@ chrono = "0.4.26"
 clap = "4.3.23"
 env_logger = "0.11.8"
 fluent = "0.17.0"
-fluent-langneg = "0.13.0"
+fluent-langneg = "0.14.1"
 libvirt_remote = { path="../libvirt-remote" }
 log = "0.4.20"
 unic-langid = { version="0.9.1", features=["macros"] }
