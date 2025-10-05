@@ -15,10 +15,9 @@ chrono = "0.4.26"
 clap = "4.3.23"
 env_logger = "0.11.8"
 fluent = "0.17.0"
-fluent-langneg = "0.13.0"
-libvirt_remote = { path="../libvirt-remote" }
+libvirt_remote = { path = "../libvirt-remote" }
 log = "0.4.20"
-unic-langid = { version="0.9.1", features=["macros"] }
+unic-langid = { version = "0.9.1", features = ["macros"] }
 unicode-width = "0.2.1"
 url = "2.4.0"
 
@@ -27,7 +26,4 @@ version = "0.2.147"
 
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.51.1"
-features = [
-    "Win32_Foundation",
-    "Win32_Globalization",
-]
+features = ["Win32_Foundation", "Win32_Globalization"]

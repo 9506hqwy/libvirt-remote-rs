@@ -1,6 +1,5 @@
 use super::error::Error;
 use fluent::{FluentArgs, FluentBundle, FluentResource};
-use fluent_langneg::{NegotiationStrategy, convert_vec_str_to_langids_lossy, negotiate_languages};
 use std::collections::HashMap;
 #[cfg(target_family = "unix")]
 use std::env;
@@ -82,14 +81,14 @@ fn current_bundle(id: LanguageIdentifier) -> Result<FluentBundle<FluentResource>
 fn current_locale() -> Result<LanguageIdentifier, Error> {
     let request_locales = get_request_locales()?;
     let available_locales = get_available_locales()?;
-    let default_locale = langid!("en-us");
-    let supported = negotiate_languages(
-        &request_locales,
-        &available_locales,
-        Some(&default_locale),
-        NegotiationStrategy::Lookup,
-    );
-    Ok(supported.first().cloned().unwrap().clone())
+    for request in &request_locales {
+        for available in &available_locales {
+            if available == request {
+                return Ok(available.clone());
+            }
+        }
+    }
+    Ok(langid!("en-us"))
 }
 
 fn get_available_locales() -> Result<Vec<LanguageIdentifier>, Error> {
@@ -123,19 +122,20 @@ fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
             .map_err(|_| Error::Locale)
     }?;
 
-    let results: Vec<String> = buffer
+    let results: Vec<LanguageIdentifier> = buffer
         .split(|&v| v == 0)
         .take(count as usize)
         .map(String::from_utf16_lossy)
+        .map(|l| l.parse().unwrap_or(langid!("en-us")))
         .collect();
-    Ok(convert_vec_str_to_langids_lossy(results.as_slice()))
+    Ok(results)
 }
 
 #[cfg(target_family = "unix")]
 fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
     if let Ok(lang) = env::var("LANG") {
         let lang = lang.split('.').next().unwrap();
-        return Ok(convert_vec_str_to_langids_lossy([lang]));
+        return Ok(vec![lang.parse().unwrap_or(langid!("en-us"))]);
     }
 
     Ok(langids!("en-us"))
