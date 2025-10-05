@@ -104,10 +104,9 @@ fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
     // https://docs.microsoft.com/ja-jp/windows/win32/intl/user-interface-language-management
 
     let mut count: u32 = 0;
-    let langs = PWSTR::null();
     let mut langs_len: u32 = 0;
     unsafe {
-        GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, langs, &mut langs_len)
+        GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, None, &mut langs_len)
             .map_err(|_| Error::Locale)
     }?;
 
@@ -118,7 +117,7 @@ fn get_request_locales() -> Result<Vec<LanguageIdentifier>, Error> {
     let mut buffer = vec![0u16; langs_len as usize];
     let langs = PWSTR(buffer.as_mut_ptr());
     unsafe {
-        GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, langs, &mut langs_len)
+        GetUserPreferredUILanguages(MUI_LANGUAGE_NAME, &mut count, Some(langs), &mut langs_len)
             .map_err(|_| Error::Locale)
     }?;
 
