@@ -6,6 +6,17 @@ use std::error::Error;
 use std::fs;
 use std::str::FromStr;
 
+const STREAM_PROCS: [&str; 5] = [
+    "DomainMigratePrepareTunnel",
+    "DomainOpenConsole",
+    "StorageVolUpload",
+    "StorageVolDownload",
+    // TODO:
+    // "DomainScreenshot",
+    // "DomainMigratePrepareTunnel3",
+    "DomainOpenChannel",
+];
+
 const UN_DECONSTRUCTING: [&str; 7] = [
     "RemoteDomainEventBlockThresholdMsg",
     "RemoteDomainEventDiskChangeMsg",
@@ -32,18 +43,33 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
     let mut calls = vec![];
     for (name, args, ret) in parse_call_method(&procedures, &models) {
+        let stream = stream_procs(&name);
         let method_name = format_ident!("{}", snake_case(&name));
         let flag = format_ident!("RemoteProc{}", &name);
 
+        let xdr_req_type = match args.as_deref() {
+            Some(model) => {
+                let model_ident = format_ident!("{}", model);
+                quote! { #model_ident }
+            }
+            _ => quote! { () },
+        };
+
+        let xdr_res_type = match ret.as_deref() {
+            Some(model) => {
+                let model_ident = format_ident!("{}", model);
+                quote! { #model_ident }
+            }
+            _ => quote! { () },
+        };
+
+        let call_proc =
+            quote! { call::<#xdr_req_type, #xdr_res_type>(self, RemoteProcedure::#flag, req)? };
+
         let fn_args = gen_fn_args(&method_name, args.as_deref(), wrapped, &models);
-        let res_type = gen_res_type(ret.as_deref(), wrapped, &models);
+        let res_type = gen_res_type(ret.as_deref(), wrapped, stream, &models);
         let req_stmt = gen_req_stmt(args.as_deref(), wrapped, &models);
-        let proc_stmt = gen_proc_stmt(
-            quote! { call(self, RemoteProcedure::#flag, req)? },
-            ret.as_deref(),
-            wrapped,
-            &models,
-        );
+        let proc_stmt = gen_proc_stmt(call_proc, ret.as_deref(), wrapped, stream, &models);
 
         calls.push(quote! {
             fn #fn_args -> Result<#res_type, Error> {
@@ -56,11 +82,12 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
     let mut msgs = vec![];
     for (name, ret) in parse_msg_method(&models) {
+        let stream = stream_procs(&name);
         let method_name = format_ident!("{}", snake_case(&name));
 
         let fn_args = gen_fn_args(&method_name, None, wrapped, &models);
-        let res_type = gen_res_type(Some(&ret), wrapped, &models);
-        let proc_stmt = gen_proc_stmt(quote! { msg(self)? }, Some(&ret), wrapped, &models);
+        let res_type = gen_res_type(Some(&ret), wrapped, stream, &models);
+        let proc_stmt = gen_proc_stmt(quote! { msg(self)? }, Some(&ret), wrapped, stream, &models);
 
         msgs.push(quote! {
             fn #fn_args -> Result<#res_type, Error> {
@@ -81,14 +108,31 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         #[cfg(target_family = "unix")]
         use std::os::unix::net::UnixStream;
 
-        pub trait ReadWrite: Read + Write {}
-        impl ReadWrite for TcpStream {}
+        pub trait ReadWrite: Read + Write {
+            fn clone(&self) -> Result<Box<dyn ReadWrite>, Error>;
+        }
+        impl ReadWrite for TcpStream {
+            fn clone(&self) -> Result<Box<dyn ReadWrite>, Error> {
+                let s = self.try_clone().map_err(Error::SocketError)?;
+                Ok(Box::new(s))
+            }
+        }
         #[cfg(target_family = "unix")]
-        impl ReadWrite for UnixStream {}
+        impl ReadWrite for UnixStream {
+            fn clone(&self) -> Result<Box<dyn ReadWrite>, Error> {
+                let s = self.try_clone().map_err(Error::SocketError)?;
+                Ok(Box::new(s))
+            }
+        }
 
         pub struct Client {
             inner: Box<dyn ReadWrite>,
             serial: u32,
+        }
+
+        pub struct VirNetStreamResponse {
+            inner: Box<dyn ReadWrite>,
+            header: protocol::VirNetMessageHeader,
         }
 
         pub enum VirNetRequest<S>
@@ -126,21 +170,22 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 &mut self.inner
             }
 
-            fn serial(&self) -> u32 {
-                self.serial
+            fn inner_clone(&self) -> Result<Box<dyn ReadWrite>, Error> {
+                self.inner.clone()
             }
 
-            fn serial_add(&mut self, value: u32) {
+            fn serial_add(&mut self, value: u32) -> u32 {
                 self.serial += value;
+                self.serial
             }
         }
 
         pub trait Libvirt {
             fn inner(&mut self) -> &mut Box<dyn ReadWrite>;
 
-            fn serial(&self) -> u32;
+            fn inner_clone(&self) -> Result<Box<dyn ReadWrite>, Error>;
 
-            fn serial_add(&mut self, value: u32);
+            fn serial_add(&mut self, value: u32) -> u32;
 
             fn download(&mut self) -> Result<Option<VirNetStream>, Error> {
                 download(self)
@@ -149,13 +194,19 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             #(#calls)*
 
             #(#msgs)*
+        }
 
-            fn storage_vol_upload_data(&mut self, buf: &[u8]) -> Result<(), Error> {
+        impl VirNetStreamResponse {
+            pub fn new(inner: Box<dyn ReadWrite>, header: protocol::VirNetMessageHeader) -> Self {
+                VirNetStreamResponse { inner, header }
+            }
+
+            pub fn storage_vol_upload_data(&mut self, buf: &[u8]) -> Result<(), Error> {
                 trace!("{}", stringify!(storage_vol_upload_data));
                 upload(self, RemoteProcedure::RemoteProcStorageVolUpload, buf)
             }
 
-            fn storage_vol_upload_hole(&mut self, length: i64, flags: u32) -> Result<(), Error> {
+            pub fn storage_vol_upload_hole(&mut self, length: i64, flags: u32) -> Result<(), Error> {
                 trace!("{}", stringify!(storage_vol_upload_hole));
                 send_hole(
                     self,
@@ -165,7 +216,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 )
             }
 
-            fn storage_vol_upload_complete(&mut self) -> Result<(), Error> {
+            pub fn storage_vol_upload_complete(&mut self) -> Result<(), Error> {
                 trace!("{}", stringify!(storage_vol_upload_complete));
                 upload_completed(
                     self,
@@ -178,41 +229,45 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             client: &mut (impl Libvirt + ?Sized),
             procedure: RemoteProcedure,
             args: Option<S>,
-        ) -> Result<Option<D>, Error>
+        ) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
         where
             S: Serialize,
             D: DeserializeOwned,
         {
-            client.serial_add(1);
+            let serial = client.serial_add(1);
+            let socket = client.inner();
             send(
-                client,
+                socket,
                 procedure,
                 protocol::VirNetMessageType::VirNetCall,
+                serial,
                 protocol::VirNetMessageStatus::VirNetOk,
                 args.map(|a| VirNetRequest::Data(a)),
             )?;
-            match recv(client)? {
-                Some(VirNetResponse::Data(res)) => Ok(Some(res)),
-                None => Ok(None),
+            match recv(socket)? {
+                (header, Some(VirNetResponse::Data(res))) => Ok((header, Some(res))),
+                (header, None) => Ok((header, None)),
                 _ => unreachable!(),
             }
         }
 
         fn msg<D>(
             client: &mut (impl Libvirt + ?Sized),
-        ) -> Result<Option<D>, Error>
+        ) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
         where
             D: DeserializeOwned,
         {
-            match recv(client)? {
-                Some(VirNetResponse::Data(res)) => Ok(Some(res)),
-                None => Ok(None),
+            let socket = client.inner();
+            match recv(socket)? {
+                (header, Some(VirNetResponse::Data(res))) => Ok((header, Some(res))),
+                (header, None) => Ok((header, None)),
                 _ => unreachable!(),
             }
         }
 
         fn download(client: &mut (impl Libvirt + ?Sized)) -> Result<Option<VirNetStream>, Error> {
-            let body: Option<VirNetResponse<()>> = recv(client)?;
+            let socket = client.inner();
+            let (_, body) = recv::<()>(socket)?;
 
             match body {
                 Some(VirNetResponse::Stream(stream)) => Ok(Some(stream)),
@@ -222,16 +277,17 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         }
 
         fn upload(
-            client: &mut (impl Libvirt + ?Sized),
+            response: &mut VirNetStreamResponse,
             procedure: RemoteProcedure,
             buf: &[u8],
         ) -> Result<(), Error> {
             let bytes = VirNetStream::Raw(buf.to_vec());
             let req: Option<VirNetRequest<()>> = Some(VirNetRequest::Stream(bytes));
             send(
-                client,
+                &mut response.inner,
                 procedure,
                 protocol::VirNetMessageType::VirNetStream,
+                response.header.serial,
                 protocol::VirNetMessageStatus::VirNetContinue,
                 req,
             )?;
@@ -239,7 +295,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         }
 
         fn send_hole(
-            client: &mut (impl Libvirt + ?Sized),
+            response: &mut VirNetStreamResponse,
             procedure: RemoteProcedure,
             length: i64,
             flags: u32,
@@ -247,9 +303,10 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             let hole = VirNetStream::Hole(protocol::VirNetStreamHole { length, flags });
             let args: Option<VirNetRequest<()>> = Some(VirNetRequest::Stream(hole));
             send(
-                client,
+                &mut response.inner,
                 procedure,
                 protocol::VirNetMessageType::VirNetStreamHole,
+                response.header.serial,
                 protocol::VirNetMessageStatus::VirNetContinue,
                 args,
             )?;
@@ -257,25 +314,27 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         }
 
         fn upload_completed(
-            client: &mut (impl Libvirt + ?Sized),
+            response: &mut VirNetStreamResponse,
             procedure: RemoteProcedure,
         ) -> Result<(), Error> {
             let req: Option<VirNetRequest<()>> = None;
             send(
-                client,
+                &mut response.inner,
                 procedure,
                 protocol::VirNetMessageType::VirNetStream,
+                response.header.serial,
                 protocol::VirNetMessageStatus::VirNetOk,
                 req,
             )?;
-            let _res: Option<VirNetResponse<()>> = recv(client)?;
+            let (_header, _res) = recv::<()>(&mut response.inner)?;
             Ok(())
         }
 
         fn send<S>(
-            client: &mut (impl Libvirt + ?Sized),
+            socket: &mut Box<dyn ReadWrite>,
             procedure: RemoteProcedure,
             req_type: protocol::VirNetMessageType,
+            req_serial: u32,
             req_status: protocol::VirNetMessageStatus,
             args: Option<VirNetRequest<S>>,
         ) -> Result<usize, Error>
@@ -289,7 +348,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 vers: REMOTE_PROTOCOL_VERSION,
                 proc: procedure as i32,
                 r#type: req_type,
-                serial: client.serial(),
+                serial: req_serial,
                 status: req_status,
             };
             let req_header_bytes = serde_xdr::to_bytes(&req_header).map_err(Error::SerializeError)?;
@@ -314,17 +373,14 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 None => { },
             }
 
-            client
-                .inner()
+            socket
                 .write_all(&req_len.to_be_bytes())
                 .map_err(Error::SendError)?;
-            client
-                .inner()
+            socket
                 .write_all(&req_header_bytes)
                 .map_err(Error::SendError)?;
             if let Some(args_bytes) = &args_bytes {
-                client
-                    .inner()
+                socket
                     .write_all(args_bytes)
                     .map_err(Error::SendError)?;
             }
@@ -333,35 +389,36 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         }
 
         fn recv<D>(
-            client: &mut (impl Libvirt + ?Sized),
-        ) -> Result<Option<VirNetResponse<D>>, Error>
+            socket: &mut Box<dyn ReadWrite>,
+        ) -> Result<(protocol::VirNetMessageHeader, Option<VirNetResponse<D>>), Error>
         where
             D: DeserializeOwned,
         {
-            let res_len = read_pkt_len(client)?;
-            let res_header = read_res_header(client)?;
+            let res_len = read_pkt_len(socket)?;
+            let res_header = read_res_header(socket)?;
 
             let body_len = res_len - 28;
             if body_len == 0 {
-                return Ok(None);
+                return Ok((res_header, None));
             }
 
-            Ok(Some(read_res_body(client, &res_header, body_len)?))
+            Ok((
+                res_header.clone(),
+                Some(read_res_body(socket, &res_header, body_len)?),
+            ))
         }
 
-        fn read_pkt_len(client: &mut (impl Libvirt + ?Sized)) -> Result<usize, Error> {
+        fn read_pkt_len(socket: &mut Box<dyn ReadWrite>) -> Result<usize, Error> {
             let mut res_len_bytes = [0; 4];
-            client
-                .inner()
+            socket
                 .read_exact(&mut res_len_bytes)
                 .map_err(Error::ReceiveError)?;
             Ok(u32::from_be_bytes(res_len_bytes) as usize)
         }
 
-        fn read_res_header(client: &mut (impl Libvirt + ?Sized)) -> Result<protocol::VirNetMessageHeader, Error> {
+        fn read_res_header(socket: &mut Box<dyn ReadWrite>) -> Result<protocol::VirNetMessageHeader, Error> {
             let mut res_header_bytes = [0; 24];
-            client
-                .inner()
+            socket
                 .read_exact(&mut res_header_bytes)
                 .map_err(Error::ReceiveError)?;
             serde_xdr::from_bytes::<protocol::VirNetMessageHeader>(&res_header_bytes)
@@ -369,7 +426,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         }
 
         fn read_res_body<D>(
-            client: &mut (impl Libvirt + ?Sized),
+            socket: &mut Box<dyn ReadWrite>,
             res_header: &protocol::VirNetMessageHeader,
             size: usize,
         ) -> Result<VirNetResponse<D>, Error>
@@ -377,8 +434,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             D: DeserializeOwned,
         {
             let mut res_body_bytes = vec![0u8; size];
-            client
-                .inner()
+            socket
                 .read_exact(&mut res_body_bytes)
                 .map_err(Error::ReceiveError)?;
             if res_header.status == protocol::VirNetMessageStatus::VirNetError {
@@ -501,8 +557,13 @@ fn gen_fn_args(
 fn gen_res_type(
     model: Option<&str>,
     wrapped: bool,
+    stream: bool,
     models: &HashMap<String, syn::ItemStruct>,
 ) -> TokenStream {
+    if stream {
+        return quote! { VirNetStreamResponse };
+    }
+
     if let Some(model) = model {
         if wrapped || undeconstructing(model) {
             let model_ident = format_ident!("{}", model);
@@ -553,6 +614,7 @@ fn gen_proc_stmt(
     proc: TokenStream,
     model: Option<&str>,
     wrapped: bool,
+    stream: bool,
     models: &HashMap<String, syn::ItemStruct>,
 ) -> TokenStream {
     if let Some(model) = model {
@@ -560,7 +622,7 @@ fn gen_proc_stmt(
 
         if wrapped || undeconstructing(model) {
             quote! {
-                let res: Option<#model_ident> = #proc;
+                let (_header, res) = #proc;
                 Ok(res.unwrap())
             }
         } else {
@@ -568,7 +630,7 @@ fn gen_proc_stmt(
             let fields = syn_fields_to_sig_fields(model);
 
             let call_stmt = quote! {
-                let res: Option<#model_ident> = #proc;
+                let (_header, res) = #proc;
                 let res = res.unwrap();
                 let #model_ident { #(#fields),* } = res;
             };
@@ -585,9 +647,18 @@ fn gen_proc_stmt(
                 }
             }
         }
+    } else if stream {
+        quote! {
+            let (header, _res) = #proc;
+            let res = VirNetStreamResponse {
+                inner: self.inner_clone()?,
+                header,
+            };
+            Ok(res)
+        }
     } else {
         quote! {
-            let _res: Option<()> = #proc;
+            let (_header, _res) = #proc;
             Ok(())
         }
     }
@@ -625,6 +696,10 @@ fn syn_fields_to_sig_params(model: &syn::ItemStruct) -> Vec<TokenStream> {
         }
     }
     args
+}
+
+fn stream_procs(model: &str) -> bool {
+    STREAM_PROCS.contains(&model)
 }
 
 fn undeconstructing(model: &str) -> bool {

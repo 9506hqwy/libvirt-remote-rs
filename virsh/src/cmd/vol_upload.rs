@@ -1,7 +1,7 @@
 use crate::error::Error;
 use crate::locale::Locale;
 use clap::{Arg, ArgMatches, Command};
-use libvirt_remote::client::Libvirt;
+use libvirt_remote::client::{Libvirt, VirNetStreamResponse};
 use std::fs;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 #[cfg(target_family = "unix")]
@@ -52,7 +52,7 @@ pub fn run(
         .expect("length is numner.");
     let flags = if args.get_flag("sparse") { 1 } else { 0 };
 
-    client.storage_vol_upload(volume, offset, length, flags)?;
+    let mut stream = client.storage_vol_upload(volume, offset, length, flags)?;
 
     let mut f = fs::OpenOptions::new().read(true).open(file)?;
     f.seek(SeekFrom::Start(offset))?;
@@ -65,7 +65,7 @@ pub fn run(
 
     if flags == 0 {
         let mut reader = BufReader::new(f);
-        upload_data(client, &mut reader, remain)?;
+        upload_data(&mut stream, &mut reader, remain)?;
     } else {
         let ranges = parse_sparse_file(&mut f, remain);
         f.seek(SeekFrom::Start(offset))?;
@@ -73,23 +73,23 @@ pub fn run(
         for (sparse_type, length) in ranges {
             match sparse_type {
                 SparseType::Hole => {
-                    client.storage_vol_upload_hole(length as i64, 0)?;
+                    stream.storage_vol_upload_hole(length as i64, 0)?;
                     f.seek(SeekFrom::Current(length as i64))?;
                 }
                 SparseType::Data => {
-                    upload_data(client, &mut f, length)?;
+                    upload_data(&mut stream, &mut f, length)?;
                 }
             }
         }
     }
 
-    client.storage_vol_upload_complete()?;
+    stream.storage_vol_upload_complete()?;
 
     Ok(())
 }
 
 fn upload_data(
-    client: &mut Box<dyn Libvirt>,
+    stream: &mut VirNetStreamResponse,
     reader: &mut impl Read,
     length: usize,
 ) -> Result<(), Error> {
@@ -110,7 +110,7 @@ fn upload_data(
 
         remain -= size;
 
-        client.storage_vol_upload_data(&buf[..size])?;
+        stream.storage_vol_upload_data(&buf[..size])?;
     }
 
     Ok(())

@@ -10,6 +10,7 @@ pub enum Error {
     ReceiveError(io::Error),
     SendError(io::Error),
     SerializeError(serde_xdr::error::Error),
+    SocketError(io::Error),
 }
 
 impl fmt::Display for Error {
