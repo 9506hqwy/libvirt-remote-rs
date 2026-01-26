@@ -27,6 +27,8 @@ fn main() -> Result<(), Error> {
 
     client.connect_close()?;
 
+    client.fin()?;
+
     ret
 }
 

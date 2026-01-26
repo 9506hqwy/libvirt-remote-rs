@@ -15,44 +15,46 @@ pub fn run(client: &mut Box<impl Libvirt>, locale: &Locale) -> Result<(), Error>
     let (hv_ver_tx, hv_ver_rx) = channel();
     let (lib_ver_tx, lib_ver_rx) = channel();
 
-    let mut c1 = client.try_clone().unwrap();
-    let t1 = thread::spawn(move || {
-        let hv_type = match c1.connect_get_type() {
-            Ok(ret) => Some(ret),
-            Err(e) => {
-                eprintln!("{e}");
-                None
-            }
-        };
-        hv_type_tx.send(hv_type).unwrap();
-    });
-    t1.join().unwrap();
+    thread::scope(|s| {
+        let mut c1 = client.try_clone().unwrap();
+        s.spawn(move || {
+            let hv_type = match c1.connect_get_type() {
+                Ok(ret) => Some(ret),
+                Err(e) => {
+                    eprintln!("{e}");
+                    None
+                }
+            };
+            hv_type_tx.send(hv_type).unwrap();
+            c1.fin().unwrap();
+        });
 
-    let mut c2 = client.try_clone().unwrap();
-    let t2 = thread::spawn(move || {
-        let hv_ver = match c2.connect_get_version() {
-            Ok(ret) => Some(version_string(ret)),
-            Err(e) => {
-                eprintln!("{e}");
-                None
-            }
-        };
-        hv_ver_tx.send(hv_ver).unwrap();
-    });
-    t2.join().unwrap();
+        let mut c2 = client.try_clone().unwrap();
+        s.spawn(move || {
+            let hv_ver = match c2.connect_get_version() {
+                Ok(ret) => Some(version_string(ret)),
+                Err(e) => {
+                    eprintln!("{e}");
+                    None
+                }
+            };
+            hv_ver_tx.send(hv_ver).unwrap();
+            c2.fin().unwrap();
+        });
 
-    let mut c3 = client.try_clone().unwrap();
-    let t3 = thread::spawn(move || {
-        let lib_ver = match c3.connect_get_lib_version() {
-            Ok(ret) => Some(version_string(ret)),
-            Err(e) => {
-                error!("{e}");
-                None
-            }
-        };
-        lib_ver_tx.send(lib_ver).unwrap();
+        let mut c3 = client.try_clone().unwrap();
+        s.spawn(move || {
+            let lib_ver = match c3.connect_get_lib_version() {
+                Ok(ret) => Some(version_string(ret)),
+                Err(e) => {
+                    error!("{e}");
+                    None
+                }
+            };
+            lib_ver_tx.send(lib_ver).unwrap();
+            c3.fin().unwrap();
+        });
     });
-    t3.join().unwrap();
 
     let hv_type: Option<String> = hv_type_rx.recv().unwrap();
     let hv_ver: Option<String> = hv_ver_rx.recv().unwrap();

@@ -102,13 +102,18 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         use crate::error::Error;
         use crate::protocol;
         use log::trace;
-        use serde::{de::DeserializeOwned, Serialize};
+        use serde::{Serialize, de::DeserializeOwned};
+        use std::collections::HashMap;
+        use std::io::ErrorKind;
         use std::io::{Read, Write};
         use std::net::TcpStream;
         #[cfg(target_family = "unix")]
         use std::os::unix::net::UnixStream;
-        use std::sync::Arc;
-        use std::sync::atomic::{AtomicU32, Ordering};
+        use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+        use std::sync::mpsc::{Sender, channel};
+        use std::sync::{Arc, Mutex};
+        use std::thread::{self, JoinHandle};
+        use std::time::Duration;
 
         pub trait ReadWrite: Read + Write + Send {
             fn clone(&self) -> Result<Box<dyn ReadWrite>, Error>;
@@ -130,6 +135,9 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         pub struct Client {
             inner: Box<dyn ReadWrite>,
             serial: Arc<AtomicU32>,
+            receiver: Arc<JoinHandle<()>>,
+            receiver_run: Arc<AtomicBool>,
+            channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
         }
 
         pub struct VirNetStreamResponse {
@@ -143,6 +151,11 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         {
             Data(S),
             Stream(VirNetStream),
+        }
+
+        pub struct VirNetResponseRaw {
+            header: protocol::VirNetMessageHeader,
+            body: Option<Vec<u8>>,
         }
 
         pub enum VirNetResponse<D>
@@ -160,9 +173,22 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
         impl Client {
             pub fn new(socket: impl ReadWrite + 'static) -> Self {
+                let receiver_run = Arc::new(AtomicBool::new(true));
+                let channels = Arc::new(Mutex::new(HashMap::new()));
+
+                let t_receiver_run = Arc::clone(&receiver_run);
+                let t_socket = socket.clone().unwrap();
+                let t_channels = Arc::clone(&channels);
+                let receiver = thread::spawn(|| {
+                    recv_thread(t_receiver_run, t_socket, t_channels);
+                });
+
                 Client {
                     inner: Box::new(socket),
                     serial: Arc::new(AtomicU32::new(0)),
+                    receiver: Arc::new(receiver),
+                    receiver_run,
+                    channels,
                 }
             }
         }
@@ -171,7 +197,26 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             fn try_clone(&self) -> Result<Self, Error> {
                 let inner = self.inner_clone()?;
                 let serial = Arc::clone(&self.serial);
-                Ok(Client { inner, serial })
+                let receiver = Arc::clone(&self.receiver);
+                let receiver_run = Arc::clone(&self.receiver_run);
+                let channels = Arc::clone(&self.channels);
+                Ok(Client {
+                    inner,
+                    serial,
+                    receiver,
+                    receiver_run,
+                    channels,
+                })
+            }
+
+            fn fin(self) -> Result<(), Error> {
+                if let Some(t) = Arc::into_inner(self.receiver) {
+                    trace!("{}", stringify!(fin));
+                    self.receiver_run.fetch_and(false, Ordering::SeqCst);
+                    t.join().map_err(|_| Error::ReceiverStopError)?;
+                }
+
+                Ok(())
             }
 
             fn inner(&mut self) -> &mut Box<dyn ReadWrite> {
@@ -186,16 +231,38 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 let prev = self.serial.fetch_add(value, Ordering::SeqCst);
                 prev + value
             }
+
+            fn receiver_running(&self) -> bool {
+                self.receiver_run.load(Ordering::SeqCst)
+            }
+
+            fn add_channel(&mut self, serial: u32, sender: Sender<VirNetResponseRaw>) {
+                let mut channels = self.channels.lock().unwrap();
+                channels.insert(serial, sender);
+            }
+
+            fn remove_channel(&mut self, serial: u32) {
+                let mut channels = self.channels.lock().unwrap();
+                channels.remove(&serial);
+            }
         }
 
         pub trait Libvirt: Send + Sized + 'static {
             fn try_clone(&self) -> Result<Self, Error>;
+
+            fn fin(self) -> Result<(), Error>;
 
             fn inner(&mut self) -> &mut Box<dyn ReadWrite>;
 
             fn inner_clone(&self) -> Result<Box<dyn ReadWrite>, Error>;
 
             fn serial_add(&mut self, value: u32) -> u32;
+
+            fn receiver_running(&self) -> bool;
+
+            fn add_channel(&mut self, serial: u32, sender: Sender<VirNetResponseRaw>);
+
+            fn remove_channel(&mut self, serial: u32);
 
             fn download(&mut self) -> Result<Option<VirNetStream>, Error> {
                 download(self)
@@ -245,21 +312,49 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             D: DeserializeOwned,
         {
             let serial = client.serial_add(1);
+
+            if !client.receiver_running() {
+                return Err(Error::ReceiverNotStartedError);
+            }
+
+            let (tx, rx) = channel();
+            client.add_channel(serial, tx);
+
             let socket = client.inner();
-            send(
+
+            if let Err(e) = send(
                 socket,
                 procedure,
                 protocol::VirNetMessageType::VirNetCall,
                 serial,
                 protocol::VirNetMessageStatus::VirNetOk,
                 args.map(|a| VirNetRequest::Data(a)),
-            )?;
-            match recv(socket)? {
-                (header, Some(VirNetResponse::Data(res))) => Ok((header, Some(res))),
-                (header, None) => Ok((header, None)),
-                _ => unreachable!(),
+            ) {
+                client.remove_channel(serial);
+                return Err(e);
             }
+
+            let res = rx
+                .recv_timeout(Duration::from_secs(180))
+                .map_err(Error::ReceiveChannelError)?;
+
+            let ret = if let Some(res_body_bytes) = res.body {
+                match deserialize_body(&res.header, res_body_bytes) {
+                    Ok(res_body) => match res_body {
+                        VirNetResponse::Data(body) => Ok((res.header, Some(body))),
+                        _ => unreachable!(),
+                    },
+                    Err(e) => Err(e),
+                }
+            } else {
+                Ok((res.header, None))
+            };
+
+            client.remove_channel(serial);
+
+            ret
         }
+
 
         fn msg<D>(
             client: &mut impl Libvirt,
@@ -268,6 +363,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             D: DeserializeOwned,
         {
             let socket = client.inner();
+            // TODO: event stream support.
             match recv(socket)? {
                 (header, Some(VirNetResponse::Data(res))) => Ok((header, Some(res))),
                 (header, None) => Ok((header, None)),
@@ -277,6 +373,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
         fn download(client: &mut impl Libvirt) -> Result<Option<VirNetStream>, Error> {
             let socket = client.inner();
+            // TODO: multi response support.
             let (_, body) = recv::<()>(socket)?;
 
             match body {
@@ -336,6 +433,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 protocol::VirNetMessageStatus::VirNetOk,
                 req,
             )?;
+            // TODO: multi response support.
             let (_header, _res) = recv::<()>(&mut response.inner)?;
             Ok(())
         }
@@ -383,19 +481,16 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 None => { },
             }
 
-            socket
-                .write_all(&req_len.to_be_bytes())
-                .map_err(Error::SendError)?;
-            socket
-                .write_all(&req_header_bytes)
-                .map_err(Error::SendError)?;
+            let mut bytes = vec![];
+            bytes.extend(req_len.to_be_bytes());
+            bytes.extend(req_header_bytes);
             if let Some(args_bytes) = &args_bytes {
-                socket
-                    .write_all(args_bytes)
-                    .map_err(Error::SendError)?;
+                bytes.extend(args_bytes);
             }
 
-            Ok(req_len as usize)
+            socket.write_all(&bytes).map_err(Error::SendError)?;
+
+            Ok(bytes.len())
         }
 
         fn recv<D>(
@@ -412,10 +507,61 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 return Ok((res_header, None));
             }
 
-            Ok((
-                res_header.clone(),
-                Some(read_res_body(socket, &res_header, body_len)?),
-            ))
+            let res_body_bytes = read_res_body(socket, body_len)?;
+            let res_body = deserialize_body(&res_header, res_body_bytes)?;
+
+            Ok((res_header, Some(res_body)))
+        }
+
+        fn recv_thread(
+            receiver_run: Arc<AtomicBool>,
+            socket: Box<dyn ReadWrite>,
+            channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+        ) {
+            trace!("receiver started.");
+            let mut socket = socket;
+            while receiver_run.load(Ordering::SeqCst) {
+                match recv_raw(&mut socket) {
+                    Ok((header, body_bytes)) => {
+                        let serial = header.serial;
+
+                        let raw = VirNetResponseRaw {
+                            header,
+                            body: body_bytes,
+                        };
+
+                        if let Some(tx) = channels.lock().unwrap().get(&serial) {
+                            if let Err(e) = tx.send(raw) {
+                                trace!("receiver failed to send {}.", e);
+                            }
+                        } else {
+                            trace!("receiver not found for serial No.{}.", serial);
+                        }
+                    }
+                    Err(Error::ReceiveError(e)) => {
+                        trace!("receiver error {}.", e);
+                        if e.kind() == ErrorKind::UnexpectedEof {
+                            receiver_run.fetch_and(false, Ordering::SeqCst);
+                        }
+                    }
+                    Err(e) => {
+                        trace!("receiver error {}.", e);
+                    }
+                }
+            }
+            trace!("receiver stopped.");
+        }
+
+        fn recv_raw(
+            socket: &mut Box<dyn ReadWrite>,
+        ) -> Result<(protocol::VirNetMessageHeader, Option<Vec<u8>>), Error> {
+            let res_len = read_pkt_len(socket)?;
+            let res_header = read_res_header(socket)?;
+            let body_len = res_len - 28;
+            if body_len == 0 {
+                return Ok((res_header, None));
+            }
+            Ok((res_header, Some(read_res_body(socket, body_len)?)))
         }
 
         fn read_pkt_len(socket: &mut Box<dyn ReadWrite>) -> Result<usize, Error> {
@@ -435,26 +581,31 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 .map_err(Error::DeserializeError)
         }
 
-        fn read_res_body<D>(
-            socket: &mut Box<dyn ReadWrite>,
-            res_header: &protocol::VirNetMessageHeader,
-            size: usize,
-        ) -> Result<VirNetResponse<D>, Error>
-        where
-            D: DeserializeOwned,
-        {
+        fn read_res_body(socket: &mut Box<dyn ReadWrite>, size: usize) -> Result<Vec<u8>, Error> {
             let mut res_body_bytes = vec![0u8; size];
             socket
                 .read_exact(&mut res_body_bytes)
                 .map_err(Error::ReceiveError)?;
+            Ok(res_body_bytes)
+        }
+
+        fn deserialize_body<D>(
+            res_header: &protocol::VirNetMessageHeader,
+            res_body_bytes: Vec<u8>,
+        ) -> Result<VirNetResponse<D>, Error>
+        where
+            D: DeserializeOwned,
+        {
             if res_header.status == protocol::VirNetMessageStatus::VirNetError {
                 let res = serde_xdr::from_bytes::<protocol::VirNetMessageError>(&res_body_bytes)
                     .map_err(Error::DeserializeError)?;
                 Err(Error::ProtocolError(res))
             } else {
                 match res_header.r#type {
-                    protocol::VirNetMessageType::VirNetReply | protocol::VirNetMessageType::VirNetMessage => {
-                        let data = serde_xdr::from_bytes::<D>(&res_body_bytes).map_err(Error::DeserializeError)?;
+                    protocol::VirNetMessageType::VirNetReply
+                    | protocol::VirNetMessageType::VirNetMessage => {
+                        let data =
+                            serde_xdr::from_bytes::<D>(&res_body_bytes).map_err(Error::DeserializeError)?;
                         Ok(VirNetResponse::Data(data))
                     }
                     protocol::VirNetMessageType::VirNetStream => {
