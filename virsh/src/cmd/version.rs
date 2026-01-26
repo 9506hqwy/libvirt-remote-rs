@@ -3,35 +3,60 @@ use crate::locale::Locale;
 use clap::Command;
 use libvirt_remote::client::Libvirt;
 use log::error;
+use std::sync::mpsc::channel;
+use std::thread;
 
 pub fn cmd() -> Command {
     Command::new("version")
 }
 
-pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale) -> Result<(), Error> {
-    let hv_type = match client.connect_get_type() {
-        Ok(ret) => Some(ret),
-        Err(e) => {
-            eprintln!("{e}");
-            None
-        }
-    };
+pub fn run(client: &mut Box<impl Libvirt>, locale: &Locale) -> Result<(), Error> {
+    let (hv_type_tx, hv_type_rx) = channel();
+    let (hv_ver_tx, hv_ver_rx) = channel();
+    let (lib_ver_tx, lib_ver_rx) = channel();
 
-    let hv_ver = match client.connect_get_version() {
-        Ok(ret) => Some(version_string(ret)),
-        Err(e) => {
-            eprintln!("{e}");
-            None
-        }
-    };
+    let mut c1 = client.try_clone().unwrap();
+    let t1 = thread::spawn(move || {
+        let hv_type = match c1.connect_get_type() {
+            Ok(ret) => Some(ret),
+            Err(e) => {
+                eprintln!("{e}");
+                None
+            }
+        };
+        hv_type_tx.send(hv_type).unwrap();
+    });
+    t1.join().unwrap();
 
-    let lib_ver = match client.connect_get_lib_version() {
-        Ok(ret) => Some(version_string(ret)),
-        Err(e) => {
-            error!("{e}");
-            None
-        }
-    };
+    let mut c2 = client.try_clone().unwrap();
+    let t2 = thread::spawn(move || {
+        let hv_ver = match c2.connect_get_version() {
+            Ok(ret) => Some(version_string(ret)),
+            Err(e) => {
+                eprintln!("{e}");
+                None
+            }
+        };
+        hv_ver_tx.send(hv_ver).unwrap();
+    });
+    t2.join().unwrap();
+
+    let mut c3 = client.try_clone().unwrap();
+    let t3 = thread::spawn(move || {
+        let lib_ver = match c3.connect_get_lib_version() {
+            Ok(ret) => Some(version_string(ret)),
+            Err(e) => {
+                error!("{e}");
+                None
+            }
+        };
+        lib_ver_tx.send(lib_ver).unwrap();
+    });
+    t3.join().unwrap();
+
+    let hv_type: Option<String> = hv_type_rx.recv().unwrap();
+    let hv_ver: Option<String> = hv_ver_rx.recv().unwrap();
+    let lib_ver: Option<String> = lib_ver_rx.recv().unwrap();
 
     if lib_ver.is_some() {
         println!(

@@ -18,7 +18,11 @@ pub fn cmd() -> Command {
         )
 }
 
-pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) -> Result<(), Error> {
+pub fn run(
+    client: &mut Box<impl Libvirt>,
+    locale: &Locale,
+    args: &ArgMatches,
+) -> Result<(), Error> {
     let flags = if args.get_flag("inactive") {
         VIR_CONNECT_LIST_INTERFACES_INACTIVE
     } else if args.get_flag("all") {

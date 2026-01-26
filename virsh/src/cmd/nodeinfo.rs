@@ -8,7 +8,7 @@ pub fn cmd() -> Command {
     Command::new("nodeinfo")
 }
 
-pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale) -> Result<(), Error> {
+pub fn run(client: &mut Box<impl Libvirt>, locale: &Locale) -> Result<(), Error> {
     let info = client.node_get_info()?;
 
     let mut view = KeyValueView::default();

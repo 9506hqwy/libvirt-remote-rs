@@ -48,7 +48,7 @@ pub fn app() -> Command {
 }
 
 pub fn run(
-    client: &mut Box<dyn Libvirt>,
+    client: &mut Box<impl Libvirt>,
     locale: &Locale,
     gargs: &ArgMatches,
 ) -> Result<(), Error> {

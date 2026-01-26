@@ -22,7 +22,11 @@ pub fn cmd() -> Command {
         .arg(Arg::new("force-boot").long("force-boot").num_args(0))
 }
 
-pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) -> Result<(), Error> {
+pub fn run(
+    client: &mut Box<impl Libvirt>,
+    locale: &Locale,
+    args: &ArgMatches,
+) -> Result<(), Error> {
     let domain = args.get_one::<String>("domain").unwrap();
     let paused = args.get_flag("paused");
     let autodestroy = args.get_flag("autodestroy");

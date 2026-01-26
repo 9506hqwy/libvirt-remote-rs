@@ -7,7 +7,9 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 #[cfg(target_family = "unix")]
 use std::os::unix::net::UnixStream;
-pub trait ReadWrite: Read + Write {
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
+pub trait ReadWrite: Read + Write + Send {
     fn clone(&self) -> Result<Box<dyn ReadWrite>, Error>;
 }
 impl ReadWrite for TcpStream {
@@ -25,7 +27,7 @@ impl ReadWrite for UnixStream {
 }
 pub struct Client {
     inner: Box<dyn ReadWrite>,
-    serial: u32,
+    serial: Arc<AtomicU32>,
 }
 pub struct VirNetStreamResponse {
     inner: Box<dyn ReadWrite>,
@@ -53,11 +55,16 @@ impl Client {
     pub fn new(socket: impl ReadWrite + 'static) -> Self {
         Client {
             inner: Box::new(socket),
-            serial: 0,
+            serial: Arc::new(AtomicU32::new(0)),
         }
     }
 }
 impl Libvirt for Client {
+    fn try_clone(&self) -> Result<Self, Error> {
+        let inner = self.inner_clone()?;
+        let serial = Arc::clone(&self.serial);
+        Ok(Client { inner, serial })
+    }
     fn inner(&mut self) -> &mut Box<dyn ReadWrite> {
         &mut self.inner
     }
@@ -65,11 +72,12 @@ impl Libvirt for Client {
         self.inner.clone()
     }
     fn serial_add(&mut self, value: u32) -> u32 {
-        self.serial += value;
-        self.serial
+        let prev = self.serial.fetch_add(value, Ordering::SeqCst);
+        prev + value
     }
 }
-pub trait Libvirt {
+pub trait Libvirt: Send + Sized + 'static {
+    fn try_clone(&self) -> Result<Self, Error>;
     fn inner(&mut self) -> &mut Box<dyn ReadWrite>;
     fn inner_clone(&self) -> Result<Box<dyn ReadWrite>, Error>;
     fn serial_add(&mut self, value: u32) -> u32;
@@ -7921,7 +7929,7 @@ impl VirNetStreamResponse {
     }
 }
 fn call<S, D>(
-    client: &mut (impl Libvirt + ?Sized),
+    client: &mut impl Libvirt,
     procedure: RemoteProcedure,
     args: Option<S>,
 ) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
@@ -7945,9 +7953,7 @@ where
         _ => unreachable!(),
     }
 }
-fn msg<D>(
-    client: &mut (impl Libvirt + ?Sized),
-) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
+fn msg<D>(client: &mut impl Libvirt) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
 where
     D: DeserializeOwned,
 {
@@ -7958,7 +7964,7 @@ where
         _ => unreachable!(),
     }
 }
-fn download(client: &mut (impl Libvirt + ?Sized)) -> Result<Option<VirNetStream>, Error> {
+fn download(client: &mut impl Libvirt) -> Result<Option<VirNetStream>, Error> {
     let socket = client.inner();
     let (_, body) = recv::<()>(socket)?;
     match body {

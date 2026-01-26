@@ -30,10 +30,10 @@ fn main() -> Result<(), Error> {
     ret
 }
 
-fn connect(uri: Url, readonly: bool) -> Result<Box<dyn Libvirt>, Error> {
+fn connect(uri: Url, readonly: bool) -> Result<Box<impl Libvirt>, Error> {
     let schemes: Vec<&str> = uri.scheme().splitn(2, '+').collect();
 
-    let mut client: Box<dyn Libvirt> = match schemes[1] {
+    let mut client = match schemes[1] {
         "tcp" => connect_tcp(&uri),
         "unix" => connect_unix(&uri),
         _ => Err(Error::NotSupported),
@@ -49,7 +49,7 @@ fn connect(uri: Url, readonly: bool) -> Result<Box<dyn Libvirt>, Error> {
     Ok(client)
 }
 
-fn connect_tcp(uri: &Url) -> Result<Box<dyn Libvirt>, Error> {
+fn connect_tcp(uri: &Url) -> Result<Box<Client>, Error> {
     let host = format!(
         "{}:{}",
         uri.host()
@@ -63,7 +63,7 @@ fn connect_tcp(uri: &Url) -> Result<Box<dyn Libvirt>, Error> {
 }
 
 #[cfg(target_family = "unix")]
-fn connect_unix(uri: &Url) -> Result<Box<dyn Libvirt>, Error> {
+fn connect_unix(uri: &Url) -> Result<Box<Client>, Error> {
     let socket = match uri.query_pairs().find(|(k, _)| k == "socket") {
         Some((_, v)) => v.into_owned(),
         _ => "/var/run/libvirt/libvirt-sock".to_string(),
@@ -74,11 +74,11 @@ fn connect_unix(uri: &Url) -> Result<Box<dyn Libvirt>, Error> {
 }
 
 #[cfg(target_family = "windows")]
-fn connect_unix(_: &Url) -> Result<Box<dyn Libvirt>, Error> {
+fn connect_unix(_: &Url) -> Result<Box<Client>, Error> {
     Err(Error::NotSupported)
 }
 
-fn authenticate(client: &mut Box<dyn Libvirt>) -> Result<(), Error> {
+fn authenticate(client: &mut Box<impl Libvirt>) -> Result<(), Error> {
     let auth_list = client.auth_list()?;
     if let Some(auth) = auth_list.into_iter().next() {
         match auth {

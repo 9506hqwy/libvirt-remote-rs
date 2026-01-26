@@ -25,7 +25,7 @@ pub fn cmd() -> Command {
 }
 
 pub fn run(
-    client: &mut Box<dyn Libvirt>,
+    client: &mut Box<impl Libvirt>,
     _locale: &Locale,
     args: &ArgMatches,
 ) -> Result<(), Error> {

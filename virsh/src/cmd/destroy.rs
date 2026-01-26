@@ -16,7 +16,11 @@ pub fn cmd() -> Command {
         .arg(Arg::new("graceful").long("graceful").num_args(0))
 }
 
-pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) -> Result<(), Error> {
+pub fn run(
+    client: &mut Box<impl Libvirt>,
+    locale: &Locale,
+    args: &ArgMatches,
+) -> Result<(), Error> {
     let domain = args.get_one::<String>("domain").unwrap();
     let graceful = args.get_flag("graceful");
 

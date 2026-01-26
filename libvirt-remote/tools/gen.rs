@@ -107,8 +107,10 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         use std::net::TcpStream;
         #[cfg(target_family = "unix")]
         use std::os::unix::net::UnixStream;
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicU32, Ordering};
 
-        pub trait ReadWrite: Read + Write {
+        pub trait ReadWrite: Read + Write + Send {
             fn clone(&self) -> Result<Box<dyn ReadWrite>, Error>;
         }
         impl ReadWrite for TcpStream {
@@ -127,7 +129,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
         pub struct Client {
             inner: Box<dyn ReadWrite>,
-            serial: u32,
+            serial: Arc<AtomicU32>,
         }
 
         pub struct VirNetStreamResponse {
@@ -160,12 +162,18 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             pub fn new(socket: impl ReadWrite + 'static) -> Self {
                 Client {
                     inner: Box::new(socket),
-                    serial: 0,
+                    serial: Arc::new(AtomicU32::new(0)),
                 }
             }
         }
 
         impl Libvirt for Client {
+            fn try_clone(&self) -> Result<Self, Error> {
+                let inner = self.inner_clone()?;
+                let serial = Arc::clone(&self.serial);
+                Ok(Client { inner, serial })
+            }
+
             fn inner(&mut self) -> &mut Box<dyn ReadWrite> {
                 &mut self.inner
             }
@@ -175,12 +183,14 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             }
 
             fn serial_add(&mut self, value: u32) -> u32 {
-                self.serial += value;
-                self.serial
+                let prev = self.serial.fetch_add(value, Ordering::SeqCst);
+                prev + value
             }
         }
 
-        pub trait Libvirt {
+        pub trait Libvirt: Send + Sized + 'static {
+            fn try_clone(&self) -> Result<Self, Error>;
+
             fn inner(&mut self) -> &mut Box<dyn ReadWrite>;
 
             fn inner_clone(&self) -> Result<Box<dyn ReadWrite>, Error>;
@@ -226,7 +236,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         }
 
         fn call<S, D>(
-            client: &mut (impl Libvirt + ?Sized),
+            client: &mut impl Libvirt,
             procedure: RemoteProcedure,
             args: Option<S>,
         ) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
@@ -252,7 +262,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         }
 
         fn msg<D>(
-            client: &mut (impl Libvirt + ?Sized),
+            client: &mut impl Libvirt,
         ) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
         where
             D: DeserializeOwned,
@@ -265,7 +275,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             }
         }
 
-        fn download(client: &mut (impl Libvirt + ?Sized)) -> Result<Option<VirNetStream>, Error> {
+        fn download(client: &mut impl Libvirt) -> Result<Option<VirNetStream>, Error> {
             let socket = client.inner();
             let (_, body) = recv::<()>(socket)?;
 

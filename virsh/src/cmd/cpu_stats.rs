@@ -23,7 +23,11 @@ pub fn cmd() -> Command {
         )
 }
 
-pub fn run(client: &mut Box<dyn Libvirt>, locale: &Locale, args: &ArgMatches) -> Result<(), Error> {
+pub fn run(
+    client: &mut Box<impl Libvirt>,
+    locale: &Locale,
+    args: &ArgMatches,
+) -> Result<(), Error> {
     let domain = args.get_one::<String>("domain").unwrap();
     let show_total = args.get_flag("total");
     let start = *args.get_one::<i32>("start").unwrap_or(&0);

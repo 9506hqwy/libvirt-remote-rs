@@ -39,7 +39,7 @@ pub fn cmd() -> Command {
 }
 
 pub fn run(
-    client: &mut Box<dyn Libvirt>,
+    client: &mut Box<impl Libvirt>,
     _locale: &Locale,
     args: &ArgMatches,
 ) -> Result<(), Error> {
@@ -94,7 +94,7 @@ pub fn run(
     Ok(())
 }
 
-fn handle_lifecycle_event(client: &mut Box<dyn Libvirt>) -> Result<String, Error> {
+fn handle_lifecycle_event(client: &mut Box<impl Libvirt>) -> Result<String, Error> {
     let (_, pool, event, _) = client.storage_pool_event_lifecycle_msg()?;
     let id = LIFECYCLE_EVENTS
         .get_or_init(init_lifecycle_events)
@@ -106,7 +106,7 @@ fn handle_lifecycle_event(client: &mut Box<dyn Libvirt>) -> Result<String, Error
     ))
 }
 
-fn handle_refresh_event(client: &mut Box<dyn Libvirt>) -> Result<String, Error> {
+fn handle_refresh_event(client: &mut Box<impl Libvirt>) -> Result<String, Error> {
     let (_, pool) = client.storage_pool_event_refresh_msg()?;
     Ok(format!("event 'refresh' for storage pool {}", pool.name))
 }
