@@ -85,6 +85,8 @@ pub fn run(
 
     stream.storage_vol_upload_complete()?;
 
+    stream.fin();
+
     Ok(())
 }
 

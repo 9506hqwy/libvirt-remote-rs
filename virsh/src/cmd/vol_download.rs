@@ -44,7 +44,7 @@ pub fn run(
         .expect("length is numner.");
     let flags = if args.get_flag("sparse") { 1 } else { 0 };
 
-    client.storage_vol_download(volume, offset, length, flags)?;
+    let mut stream = client.storage_vol_download(volume, offset, length, flags)?;
 
     let mut f = fs::OpenOptions::new()
         .write(true)
@@ -54,7 +54,7 @@ pub fn run(
     f.seek(SeekFrom::Start(offset))?;
 
     let mut writer = BufWriter::new(f);
-    while let Some(stream) = client.download()? {
+    while let Some(stream) = stream.download()? {
         match stream {
             VirNetStream::Hole(hole) => {
                 let length = hole.length as usize;
@@ -76,6 +76,8 @@ pub fn run(
             }
         }
     }
+
+    stream.fin();
 
     Ok(())
 }

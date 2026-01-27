@@ -10,7 +10,7 @@ use std::net::TcpStream;
 #[cfg(target_family = "unix")]
 use std::os::unix::net::UnixStream;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::mpsc::{Sender, channel};
+use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
@@ -39,6 +39,8 @@ pub struct Client {
 }
 pub struct VirNetStreamResponse {
     inner: Box<dyn ReadWrite>,
+    channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+    receiver: Receiver<VirNetResponseRaw>,
     header: protocol::VirNetMessageHeader,
 }
 pub enum VirNetRequest<S>
@@ -51,6 +53,11 @@ where
 pub struct VirNetResponseRaw {
     header: protocol::VirNetMessageHeader,
     body: Option<Vec<u8>>,
+}
+pub struct VirNetResponseSet<D> {
+    receiver: Option<Receiver<VirNetResponseRaw>>,
+    header: protocol::VirNetMessageHeader,
+    body: Option<D>,
 }
 pub enum VirNetResponse<D>
 where
@@ -126,6 +133,9 @@ impl Libvirt for Client {
         let mut channels = self.channels.lock().unwrap();
         channels.remove(&serial);
     }
+    fn channel_clone(&self) -> Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>> {
+        Arc::clone(&self.channels)
+    }
 }
 pub trait Libvirt: Send + Sized + 'static {
     fn try_clone(&self) -> Result<Self, Error>;
@@ -136,43 +146,47 @@ pub trait Libvirt: Send + Sized + 'static {
     fn receiver_running(&self) -> bool;
     fn add_channel(&mut self, serial: u32, sender: Sender<VirNetResponseRaw>);
     fn remove_channel(&mut self, serial: u32);
-    fn download(&mut self) -> Result<Option<VirNetStream>, Error> {
-        download(self)
-    }
+    fn channel_clone(&self) -> Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>;
     fn connect_open(&mut self, name: Option<String>, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(connect_open));
         let req: Option<RemoteConnectOpenArgs> = Some(RemoteConnectOpenArgs { name, flags });
-        let (_header, _res) =
-            call::<RemoteConnectOpenArgs, ()>(self, RemoteProcedure::RemoteProcConnectOpen, req)?;
+        let _res = call::<RemoteConnectOpenArgs, ()>(
+            self,
+            RemoteProcedure::RemoteProcConnectOpen,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn connect_close(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(connect_close));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(self, RemoteProcedure::RemoteProcConnectClose, req)?;
+        let _res = call::<(), ()>(self, RemoteProcedure::RemoteProcConnectClose, false, req)?;
         Ok(())
     }
     fn connect_get_type(&mut self) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_type));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectGetTypeRet>(
+        let res = call::<(), RemoteConnectGetTypeRet>(
             self,
             RemoteProcedure::RemoteProcConnectGetType,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectGetTypeRet { r#type } = res;
         Ok(r#type)
     }
     fn connect_get_version(&mut self) -> Result<u64, Error> {
         trace!("{}", stringify!(connect_get_version));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectGetVersionRet>(
+        let res = call::<(), RemoteConnectGetVersionRet>(
             self,
             RemoteProcedure::RemoteProcConnectGetVersion,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectGetVersionRet { hv_ver } = res;
         Ok(hv_ver)
     }
@@ -180,31 +194,37 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_get_max_vcpus));
         let req: Option<RemoteConnectGetMaxVcpusArgs> =
             Some(RemoteConnectGetMaxVcpusArgs { r#type });
-        let (_header, res) = call::<RemoteConnectGetMaxVcpusArgs, RemoteConnectGetMaxVcpusRet>(
+        let res = call::<RemoteConnectGetMaxVcpusArgs, RemoteConnectGetMaxVcpusRet>(
             self,
             RemoteProcedure::RemoteProcConnectGetMaxVcpus,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectGetMaxVcpusRet { max_vcpus } = res;
         Ok(max_vcpus)
     }
     fn node_get_info(&mut self) -> Result<RemoteNodeGetInfoRet, Error> {
         trace!("{}", stringify!(node_get_info));
         let req: Option<()> = None;
-        let (_header, res) =
-            call::<(), RemoteNodeGetInfoRet>(self, RemoteProcedure::RemoteProcNodeGetInfo, req)?;
-        Ok(res.unwrap())
+        let res = call::<(), RemoteNodeGetInfoRet>(
+            self,
+            RemoteProcedure::RemoteProcNodeGetInfo,
+            false,
+            req,
+        )?;
+        Ok(res.body.unwrap())
     }
     fn connect_get_capabilities(&mut self) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_capabilities));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectGetCapabilitiesRet>(
+        let res = call::<(), RemoteConnectGetCapabilitiesRet>(
             self,
             RemoteProcedure::RemoteProcConnectGetCapabilities,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectGetCapabilitiesRet { capabilities } = res;
         Ok(capabilities)
     }
@@ -212,9 +232,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_attach_device));
         let req: Option<RemoteDomainAttachDeviceArgs> =
             Some(RemoteDomainAttachDeviceArgs { dom, xml });
-        let (_header, _res) = call::<RemoteDomainAttachDeviceArgs, ()>(
+        let _res = call::<RemoteDomainAttachDeviceArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainAttachDevice,
+            false,
             req,
         )?;
         Ok(())
@@ -222,8 +243,12 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_create(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_create));
         let req: Option<RemoteDomainCreateArgs> = Some(RemoteDomainCreateArgs { dom });
-        let (_header, _res) =
-            call::<RemoteDomainCreateArgs, ()>(self, RemoteProcedure::RemoteProcDomainCreate, req)?;
+        let _res = call::<RemoteDomainCreateArgs, ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainCreate,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_create_xml(
@@ -234,33 +259,36 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_create_xml));
         let req: Option<RemoteDomainCreateXmlArgs> =
             Some(RemoteDomainCreateXmlArgs { xml_desc, flags });
-        let (_header, res) = call::<RemoteDomainCreateXmlArgs, RemoteDomainCreateXmlRet>(
+        let res = call::<RemoteDomainCreateXmlArgs, RemoteDomainCreateXmlRet>(
             self,
             RemoteProcedure::RemoteProcDomainCreateXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainCreateXmlRet { dom } = res;
         Ok(dom)
     }
     fn domain_define_xml(&mut self, xml: String) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_define_xml));
         let req: Option<RemoteDomainDefineXmlArgs> = Some(RemoteDomainDefineXmlArgs { xml });
-        let (_header, res) = call::<RemoteDomainDefineXmlArgs, RemoteDomainDefineXmlRet>(
+        let res = call::<RemoteDomainDefineXmlArgs, RemoteDomainDefineXmlRet>(
             self,
             RemoteProcedure::RemoteProcDomainDefineXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainDefineXmlRet { dom } = res;
         Ok(dom)
     }
     fn domain_destroy(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_destroy));
         let req: Option<RemoteDomainDestroyArgs> = Some(RemoteDomainDestroyArgs { dom });
-        let (_header, _res) = call::<RemoteDomainDestroyArgs, ()>(
+        let _res = call::<RemoteDomainDestroyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainDestroy,
+            false,
             req,
         )?;
         Ok(())
@@ -269,9 +297,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_detach_device));
         let req: Option<RemoteDomainDetachDeviceArgs> =
             Some(RemoteDomainDetachDeviceArgs { dom, xml });
-        let (_header, _res) = call::<RemoteDomainDetachDeviceArgs, ()>(
+        let _res = call::<RemoteDomainDetachDeviceArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainDetachDevice,
+            false,
             req,
         )?;
         Ok(())
@@ -284,24 +313,26 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_xml_desc));
         let req: Option<RemoteDomainGetXmlDescArgs> =
             Some(RemoteDomainGetXmlDescArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetXmlDescArgs, RemoteDomainGetXmlDescRet>(
+        let res = call::<RemoteDomainGetXmlDescArgs, RemoteDomainGetXmlDescRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetXmlDesc,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetXmlDescRet { xml } = res;
         Ok(xml)
     }
     fn domain_get_autostart(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_get_autostart));
         let req: Option<RemoteDomainGetAutostartArgs> = Some(RemoteDomainGetAutostartArgs { dom });
-        let (_header, res) = call::<RemoteDomainGetAutostartArgs, RemoteDomainGetAutostartRet>(
+        let res = call::<RemoteDomainGetAutostartArgs, RemoteDomainGetAutostartRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetAutostart,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetAutostartRet { autostart } = res;
         Ok(autostart)
     }
@@ -311,12 +342,13 @@ pub trait Libvirt: Send + Sized + 'static {
     ) -> Result<(u8, u64, u64, u16, u64), Error> {
         trace!("{}", stringify!(domain_get_info));
         let req: Option<RemoteDomainGetInfoArgs> = Some(RemoteDomainGetInfoArgs { dom });
-        let (_header, res) = call::<RemoteDomainGetInfoArgs, RemoteDomainGetInfoRet>(
+        let res = call::<RemoteDomainGetInfoArgs, RemoteDomainGetInfoRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetInfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetInfoRet {
             state,
             max_mem,
@@ -329,36 +361,39 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_get_max_memory(&mut self, dom: RemoteNonnullDomain) -> Result<u64, Error> {
         trace!("{}", stringify!(domain_get_max_memory));
         let req: Option<RemoteDomainGetMaxMemoryArgs> = Some(RemoteDomainGetMaxMemoryArgs { dom });
-        let (_header, res) = call::<RemoteDomainGetMaxMemoryArgs, RemoteDomainGetMaxMemoryRet>(
+        let res = call::<RemoteDomainGetMaxMemoryArgs, RemoteDomainGetMaxMemoryRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetMaxMemory,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetMaxMemoryRet { memory } = res;
         Ok(memory)
     }
     fn domain_get_max_vcpus(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_get_max_vcpus));
         let req: Option<RemoteDomainGetMaxVcpusArgs> = Some(RemoteDomainGetMaxVcpusArgs { dom });
-        let (_header, res) = call::<RemoteDomainGetMaxVcpusArgs, RemoteDomainGetMaxVcpusRet>(
+        let res = call::<RemoteDomainGetMaxVcpusArgs, RemoteDomainGetMaxVcpusRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetMaxVcpus,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetMaxVcpusRet { num } = res;
         Ok(num)
     }
     fn domain_get_os_type(&mut self, dom: RemoteNonnullDomain) -> Result<String, Error> {
         trace!("{}", stringify!(domain_get_os_type));
         let req: Option<RemoteDomainGetOsTypeArgs> = Some(RemoteDomainGetOsTypeArgs { dom });
-        let (_header, res) = call::<RemoteDomainGetOsTypeArgs, RemoteDomainGetOsTypeRet>(
+        let res = call::<RemoteDomainGetOsTypeArgs, RemoteDomainGetOsTypeRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetOsType,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetOsTypeRet { r#type } = res;
         Ok(r#type)
     }
@@ -374,12 +409,13 @@ pub trait Libvirt: Send + Sized + 'static {
             maxinfo,
             maplen,
         });
-        let (_header, res) = call::<RemoteDomainGetVcpusArgs, RemoteDomainGetVcpusRet>(
+        let res = call::<RemoteDomainGetVcpusArgs, RemoteDomainGetVcpusRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetVcpus,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetVcpusRet { info, cpumaps } = res;
         Ok((info, cpumaps))
     }
@@ -387,37 +423,39 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_list_defined_domains));
         let req: Option<RemoteConnectListDefinedDomainsArgs> =
             Some(RemoteConnectListDefinedDomainsArgs { maxnames });
-        let (_header, res) =
-            call::<RemoteConnectListDefinedDomainsArgs, RemoteConnectListDefinedDomainsRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectListDefinedDomains,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectListDefinedDomainsArgs, RemoteConnectListDefinedDomainsRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectListDefinedDomains,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectListDefinedDomainsRet { names } = res;
         Ok(names)
     }
     fn domain_lookup_by_id(&mut self, id: i32) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_lookup_by_id));
         let req: Option<RemoteDomainLookupByIdArgs> = Some(RemoteDomainLookupByIdArgs { id });
-        let (_header, res) = call::<RemoteDomainLookupByIdArgs, RemoteDomainLookupByIdRet>(
+        let res = call::<RemoteDomainLookupByIdArgs, RemoteDomainLookupByIdRet>(
             self,
             RemoteProcedure::RemoteProcDomainLookupById,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainLookupByIdRet { dom } = res;
         Ok(dom)
     }
     fn domain_lookup_by_name(&mut self, name: String) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_lookup_by_name));
         let req: Option<RemoteDomainLookupByNameArgs> = Some(RemoteDomainLookupByNameArgs { name });
-        let (_header, res) = call::<RemoteDomainLookupByNameArgs, RemoteDomainLookupByNameRet>(
+        let res = call::<RemoteDomainLookupByNameArgs, RemoteDomainLookupByNameRet>(
             self,
             RemoteProcedure::RemoteProcDomainLookupByName,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainLookupByNameRet { dom } = res;
         Ok(dom)
     }
@@ -427,24 +465,26 @@ pub trait Libvirt: Send + Sized + 'static {
     ) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_lookup_by_uuid));
         let req: Option<RemoteDomainLookupByUuidArgs> = Some(RemoteDomainLookupByUuidArgs { uuid });
-        let (_header, res) = call::<RemoteDomainLookupByUuidArgs, RemoteDomainLookupByUuidRet>(
+        let res = call::<RemoteDomainLookupByUuidArgs, RemoteDomainLookupByUuidRet>(
             self,
             RemoteProcedure::RemoteProcDomainLookupByUuid,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainLookupByUuidRet { dom } = res;
         Ok(dom)
     }
     fn connect_num_of_defined_domains(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_defined_domains));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectNumOfDefinedDomainsRet>(
+        let res = call::<(), RemoteConnectNumOfDefinedDomainsRet>(
             self,
             RemoteProcedure::RemoteProcConnectNumOfDefinedDomains,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNumOfDefinedDomainsRet { num } = res;
         Ok(num)
     }
@@ -457,9 +497,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_pin_vcpu));
         let req: Option<RemoteDomainPinVcpuArgs> =
             Some(RemoteDomainPinVcpuArgs { dom, vcpu, cpumap });
-        let (_header, _res) = call::<RemoteDomainPinVcpuArgs, ()>(
+        let _res = call::<RemoteDomainPinVcpuArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainPinVcpu,
+            false,
             req,
         )?;
         Ok(())
@@ -467,15 +508,23 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_reboot(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_reboot));
         let req: Option<RemoteDomainRebootArgs> = Some(RemoteDomainRebootArgs { dom, flags });
-        let (_header, _res) =
-            call::<RemoteDomainRebootArgs, ()>(self, RemoteProcedure::RemoteProcDomainReboot, req)?;
+        let _res = call::<RemoteDomainRebootArgs, ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainReboot,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_resume(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_resume));
         let req: Option<RemoteDomainResumeArgs> = Some(RemoteDomainResumeArgs { dom });
-        let (_header, _res) =
-            call::<RemoteDomainResumeArgs, ()>(self, RemoteProcedure::RemoteProcDomainResume, req)?;
+        let _res = call::<RemoteDomainResumeArgs, ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainResume,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_set_autostart(
@@ -486,9 +535,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_autostart));
         let req: Option<RemoteDomainSetAutostartArgs> =
             Some(RemoteDomainSetAutostartArgs { dom, autostart });
-        let (_header, _res) = call::<RemoteDomainSetAutostartArgs, ()>(
+        let _res = call::<RemoteDomainSetAutostartArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetAutostart,
+            false,
             req,
         )?;
         Ok(())
@@ -501,9 +551,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_max_memory));
         let req: Option<RemoteDomainSetMaxMemoryArgs> =
             Some(RemoteDomainSetMaxMemoryArgs { dom, memory });
-        let (_header, _res) = call::<RemoteDomainSetMaxMemoryArgs, ()>(
+        let _res = call::<RemoteDomainSetMaxMemoryArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetMaxMemory,
+            false,
             req,
         )?;
         Ok(())
@@ -512,9 +563,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_memory));
         let req: Option<RemoteDomainSetMemoryArgs> =
             Some(RemoteDomainSetMemoryArgs { dom, memory });
-        let (_header, _res) = call::<RemoteDomainSetMemoryArgs, ()>(
+        let _res = call::<RemoteDomainSetMemoryArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetMemory,
+            false,
             req,
         )?;
         Ok(())
@@ -522,9 +574,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_set_vcpus(&mut self, dom: RemoteNonnullDomain, nvcpus: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_set_vcpus));
         let req: Option<RemoteDomainSetVcpusArgs> = Some(RemoteDomainSetVcpusArgs { dom, nvcpus });
-        let (_header, _res) = call::<RemoteDomainSetVcpusArgs, ()>(
+        let _res = call::<RemoteDomainSetVcpusArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetVcpus,
+            false,
             req,
         )?;
         Ok(())
@@ -532,9 +585,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_shutdown(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_shutdown));
         let req: Option<RemoteDomainShutdownArgs> = Some(RemoteDomainShutdownArgs { dom });
-        let (_header, _res) = call::<RemoteDomainShutdownArgs, ()>(
+        let _res = call::<RemoteDomainShutdownArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainShutdown,
+            false,
             req,
         )?;
         Ok(())
@@ -542,9 +596,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_suspend(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_suspend));
         let req: Option<RemoteDomainSuspendArgs> = Some(RemoteDomainSuspendArgs { dom });
-        let (_header, _res) = call::<RemoteDomainSuspendArgs, ()>(
+        let _res = call::<RemoteDomainSuspendArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSuspend,
+            false,
             req,
         )?;
         Ok(())
@@ -552,9 +607,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_undefine(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_undefine));
         let req: Option<RemoteDomainUndefineArgs> = Some(RemoteDomainUndefineArgs { dom });
-        let (_header, _res) = call::<RemoteDomainUndefineArgs, ()>(
+        let _res = call::<RemoteDomainUndefineArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainUndefine,
+            false,
             req,
         )?;
         Ok(())
@@ -563,13 +619,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_list_defined_networks));
         let req: Option<RemoteConnectListDefinedNetworksArgs> =
             Some(RemoteConnectListDefinedNetworksArgs { maxnames });
-        let (_header, res) =
-            call::<RemoteConnectListDefinedNetworksArgs, RemoteConnectListDefinedNetworksRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectListDefinedNetworks,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectListDefinedNetworksArgs, RemoteConnectListDefinedNetworksRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectListDefinedNetworks,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectListDefinedNetworksRet { names } = res;
         Ok(names)
     }
@@ -577,12 +633,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_list_domains));
         let req: Option<RemoteConnectListDomainsArgs> =
             Some(RemoteConnectListDomainsArgs { maxids });
-        let (_header, res) = call::<RemoteConnectListDomainsArgs, RemoteConnectListDomainsRet>(
+        let res = call::<RemoteConnectListDomainsArgs, RemoteConnectListDomainsRet>(
             self,
             RemoteProcedure::RemoteProcConnectListDomains,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListDomainsRet { ids } = res;
         Ok(ids)
     }
@@ -590,21 +647,23 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_list_networks));
         let req: Option<RemoteConnectListNetworksArgs> =
             Some(RemoteConnectListNetworksArgs { maxnames });
-        let (_header, res) = call::<RemoteConnectListNetworksArgs, RemoteConnectListNetworksRet>(
+        let res = call::<RemoteConnectListNetworksArgs, RemoteConnectListNetworksRet>(
             self,
             RemoteProcedure::RemoteProcConnectListNetworks,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListNetworksRet { names } = res;
         Ok(names)
     }
     fn network_create(&mut self, net: RemoteNonnullNetwork) -> Result<(), Error> {
         trace!("{}", stringify!(network_create));
         let req: Option<RemoteNetworkCreateArgs> = Some(RemoteNetworkCreateArgs { net });
-        let (_header, _res) = call::<RemoteNetworkCreateArgs, ()>(
+        let _res = call::<RemoteNetworkCreateArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNetworkCreate,
+            false,
             req,
         )?;
         Ok(())
@@ -612,33 +671,36 @@ pub trait Libvirt: Send + Sized + 'static {
     fn network_create_xml(&mut self, xml: String) -> Result<RemoteNonnullNetwork, Error> {
         trace!("{}", stringify!(network_create_xml));
         let req: Option<RemoteNetworkCreateXmlArgs> = Some(RemoteNetworkCreateXmlArgs { xml });
-        let (_header, res) = call::<RemoteNetworkCreateXmlArgs, RemoteNetworkCreateXmlRet>(
+        let res = call::<RemoteNetworkCreateXmlArgs, RemoteNetworkCreateXmlRet>(
             self,
             RemoteProcedure::RemoteProcNetworkCreateXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkCreateXmlRet { net } = res;
         Ok(net)
     }
     fn network_define_xml(&mut self, xml: String) -> Result<RemoteNonnullNetwork, Error> {
         trace!("{}", stringify!(network_define_xml));
         let req: Option<RemoteNetworkDefineXmlArgs> = Some(RemoteNetworkDefineXmlArgs { xml });
-        let (_header, res) = call::<RemoteNetworkDefineXmlArgs, RemoteNetworkDefineXmlRet>(
+        let res = call::<RemoteNetworkDefineXmlArgs, RemoteNetworkDefineXmlRet>(
             self,
             RemoteProcedure::RemoteProcNetworkDefineXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkDefineXmlRet { net } = res;
         Ok(net)
     }
     fn network_destroy(&mut self, net: RemoteNonnullNetwork) -> Result<(), Error> {
         trace!("{}", stringify!(network_destroy));
         let req: Option<RemoteNetworkDestroyArgs> = Some(RemoteNetworkDestroyArgs { net });
-        let (_header, _res) = call::<RemoteNetworkDestroyArgs, ()>(
+        let _res = call::<RemoteNetworkDestroyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNetworkDestroy,
+            false,
             req,
         )?;
         Ok(())
@@ -651,12 +713,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_get_xml_desc));
         let req: Option<RemoteNetworkGetXmlDescArgs> =
             Some(RemoteNetworkGetXmlDescArgs { net, flags });
-        let (_header, res) = call::<RemoteNetworkGetXmlDescArgs, RemoteNetworkGetXmlDescRet>(
+        let res = call::<RemoteNetworkGetXmlDescArgs, RemoteNetworkGetXmlDescRet>(
             self,
             RemoteProcedure::RemoteProcNetworkGetXmlDesc,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -664,12 +727,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_get_autostart));
         let req: Option<RemoteNetworkGetAutostartArgs> =
             Some(RemoteNetworkGetAutostartArgs { net });
-        let (_header, res) = call::<RemoteNetworkGetAutostartArgs, RemoteNetworkGetAutostartRet>(
+        let res = call::<RemoteNetworkGetAutostartArgs, RemoteNetworkGetAutostartRet>(
             self,
             RemoteProcedure::RemoteProcNetworkGetAutostart,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkGetAutostartRet { autostart } = res;
         Ok(autostart)
     }
@@ -677,12 +741,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_get_bridge_name));
         let req: Option<RemoteNetworkGetBridgeNameArgs> =
             Some(RemoteNetworkGetBridgeNameArgs { net });
-        let (_header, res) = call::<RemoteNetworkGetBridgeNameArgs, RemoteNetworkGetBridgeNameRet>(
+        let res = call::<RemoteNetworkGetBridgeNameArgs, RemoteNetworkGetBridgeNameRet>(
             self,
             RemoteProcedure::RemoteProcNetworkGetBridgeName,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkGetBridgeNameRet { name } = res;
         Ok(name)
     }
@@ -690,12 +755,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_lookup_by_name));
         let req: Option<RemoteNetworkLookupByNameArgs> =
             Some(RemoteNetworkLookupByNameArgs { name });
-        let (_header, res) = call::<RemoteNetworkLookupByNameArgs, RemoteNetworkLookupByNameRet>(
+        let res = call::<RemoteNetworkLookupByNameArgs, RemoteNetworkLookupByNameRet>(
             self,
             RemoteProcedure::RemoteProcNetworkLookupByName,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkLookupByNameRet { net } = res;
         Ok(net)
     }
@@ -706,12 +772,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_lookup_by_uuid));
         let req: Option<RemoteNetworkLookupByUuidArgs> =
             Some(RemoteNetworkLookupByUuidArgs { uuid });
-        let (_header, res) = call::<RemoteNetworkLookupByUuidArgs, RemoteNetworkLookupByUuidRet>(
+        let res = call::<RemoteNetworkLookupByUuidArgs, RemoteNetworkLookupByUuidRet>(
             self,
             RemoteProcedure::RemoteProcNetworkLookupByUuid,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkLookupByUuidRet { net } = res;
         Ok(net)
     }
@@ -723,9 +790,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_set_autostart));
         let req: Option<RemoteNetworkSetAutostartArgs> =
             Some(RemoteNetworkSetAutostartArgs { net, autostart });
-        let (_header, _res) = call::<RemoteNetworkSetAutostartArgs, ()>(
+        let _res = call::<RemoteNetworkSetAutostartArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNetworkSetAutostart,
+            false,
             req,
         )?;
         Ok(())
@@ -733,9 +801,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn network_undefine(&mut self, net: RemoteNonnullNetwork) -> Result<(), Error> {
         trace!("{}", stringify!(network_undefine));
         let req: Option<RemoteNetworkUndefineArgs> = Some(RemoteNetworkUndefineArgs { net });
-        let (_header, _res) = call::<RemoteNetworkUndefineArgs, ()>(
+        let _res = call::<RemoteNetworkUndefineArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNetworkUndefine,
+            false,
             req,
         )?;
         Ok(())
@@ -743,36 +812,39 @@ pub trait Libvirt: Send + Sized + 'static {
     fn connect_num_of_defined_networks(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_defined_networks));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectNumOfDefinedNetworksRet>(
+        let res = call::<(), RemoteConnectNumOfDefinedNetworksRet>(
             self,
             RemoteProcedure::RemoteProcConnectNumOfDefinedNetworks,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNumOfDefinedNetworksRet { num } = res;
         Ok(num)
     }
     fn connect_num_of_domains(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_domains));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectNumOfDomainsRet>(
+        let res = call::<(), RemoteConnectNumOfDomainsRet>(
             self,
             RemoteProcedure::RemoteProcConnectNumOfDomains,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNumOfDomainsRet { num } = res;
         Ok(num)
     }
     fn connect_num_of_networks(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_networks));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectNumOfNetworksRet>(
+        let res = call::<(), RemoteConnectNumOfNetworksRet>(
             self,
             RemoteProcedure::RemoteProcConnectNumOfNetworks,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNumOfNetworksRet { num } = res;
         Ok(num)
     }
@@ -785,9 +857,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_core_dump));
         let req: Option<RemoteDomainCoreDumpArgs> =
             Some(RemoteDomainCoreDumpArgs { dom, to, flags });
-        let (_header, _res) = call::<RemoteDomainCoreDumpArgs, ()>(
+        let _res = call::<RemoteDomainCoreDumpArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainCoreDump,
+            false,
             req,
         )?;
         Ok(())
@@ -795,9 +868,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_restore(&mut self, from: String) -> Result<(), Error> {
         trace!("{}", stringify!(domain_restore));
         let req: Option<RemoteDomainRestoreArgs> = Some(RemoteDomainRestoreArgs { from });
-        let (_header, _res) = call::<RemoteDomainRestoreArgs, ()>(
+        let _res = call::<RemoteDomainRestoreArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainRestore,
+            false,
             req,
         )?;
         Ok(())
@@ -805,8 +879,12 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_save(&mut self, dom: RemoteNonnullDomain, to: String) -> Result<(), Error> {
         trace!("{}", stringify!(domain_save));
         let req: Option<RemoteDomainSaveArgs> = Some(RemoteDomainSaveArgs { dom, to });
-        let (_header, _res) =
-            call::<RemoteDomainSaveArgs, ()>(self, RemoteProcedure::RemoteProcDomainSave, req)?;
+        let _res = call::<RemoteDomainSaveArgs, ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainSave,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_get_scheduler_type(
@@ -816,13 +894,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_scheduler_type));
         let req: Option<RemoteDomainGetSchedulerTypeArgs> =
             Some(RemoteDomainGetSchedulerTypeArgs { dom });
-        let (_header, res) = call::<
-            RemoteDomainGetSchedulerTypeArgs,
-            RemoteDomainGetSchedulerTypeRet,
-        >(
-            self, RemoteProcedure::RemoteProcDomainGetSchedulerType, req
+        let res = call::<RemoteDomainGetSchedulerTypeArgs, RemoteDomainGetSchedulerTypeRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainGetSchedulerType,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetSchedulerTypeRet { r#type, nparams } = res;
         Ok((r#type, nparams))
     }
@@ -834,13 +912,14 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_scheduler_parameters));
         let req: Option<RemoteDomainGetSchedulerParametersArgs> =
             Some(RemoteDomainGetSchedulerParametersArgs { dom, nparams });
-        let (_header, res) =
+        let res =
             call::<RemoteDomainGetSchedulerParametersArgs, RemoteDomainGetSchedulerParametersRet>(
                 self,
                 RemoteProcedure::RemoteProcDomainGetSchedulerParameters,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetSchedulerParametersRet { params } = res;
         Ok(params)
     }
@@ -852,9 +931,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_scheduler_parameters));
         let req: Option<RemoteDomainSetSchedulerParametersArgs> =
             Some(RemoteDomainSetSchedulerParametersArgs { dom, params });
-        let (_header, _res) = call::<RemoteDomainSetSchedulerParametersArgs, ()>(
+        let _res = call::<RemoteDomainSetSchedulerParametersArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetSchedulerParameters,
+            false,
             req,
         )?;
         Ok(())
@@ -862,12 +942,13 @@ pub trait Libvirt: Send + Sized + 'static {
     fn connect_get_hostname(&mut self) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_hostname));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectGetHostnameRet>(
+        let res = call::<(), RemoteConnectGetHostnameRet>(
             self,
             RemoteProcedure::RemoteProcConnectGetHostname,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectGetHostnameRet { hostname } = res;
         Ok(hostname)
     }
@@ -875,13 +956,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_supports_feature));
         let req: Option<RemoteConnectSupportsFeatureArgs> =
             Some(RemoteConnectSupportsFeatureArgs { feature });
-        let (_header, res) = call::<
-            RemoteConnectSupportsFeatureArgs,
-            RemoteConnectSupportsFeatureRet,
-        >(
-            self, RemoteProcedure::RemoteProcConnectSupportsFeature, req
+        let res = call::<RemoteConnectSupportsFeatureArgs, RemoteConnectSupportsFeatureRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectSupportsFeature,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectSupportsFeatureRet { supported } = res;
         Ok(supported)
     }
@@ -899,12 +980,13 @@ pub trait Libvirt: Send + Sized + 'static {
             dname,
             bandwidth,
         });
-        let (_header, res) = call::<RemoteDomainMigratePrepareArgs, RemoteDomainMigratePrepareRet>(
+        let res = call::<RemoteDomainMigratePrepareArgs, RemoteDomainMigratePrepareRet>(
             self,
             RemoteProcedure::RemoteProcDomainMigratePrepare,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigratePrepareRet { cookie, uri_out } = res;
         Ok((cookie, uri_out))
     }
@@ -926,9 +1008,10 @@ pub trait Libvirt: Send + Sized + 'static {
             dname,
             bandwidth,
         });
-        let (_header, _res) = call::<RemoteDomainMigratePerformArgs, ()>(
+        let _res = call::<RemoteDomainMigratePerformArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainMigratePerform,
+            false,
             req,
         )?;
         Ok(())
@@ -947,12 +1030,13 @@ pub trait Libvirt: Send + Sized + 'static {
             uri,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainMigrateFinishArgs, RemoteDomainMigrateFinishRet>(
+        let res = call::<RemoteDomainMigrateFinishArgs, RemoteDomainMigrateFinishRet>(
             self,
             RemoteProcedure::RemoteProcDomainMigrateFinish,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigrateFinishRet { ddom } = res;
         Ok(ddom)
     }
@@ -964,12 +1048,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_block_stats));
         let req: Option<RemoteDomainBlockStatsArgs> =
             Some(RemoteDomainBlockStatsArgs { dom, path });
-        let (_header, res) = call::<RemoteDomainBlockStatsArgs, RemoteDomainBlockStatsRet>(
+        let res = call::<RemoteDomainBlockStatsArgs, RemoteDomainBlockStatsRet>(
             self,
             RemoteProcedure::RemoteProcDomainBlockStats,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainBlockStatsRet {
             rd_req,
             rd_bytes,
@@ -987,28 +1072,33 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_interface_stats));
         let req: Option<RemoteDomainInterfaceStatsArgs> =
             Some(RemoteDomainInterfaceStatsArgs { dom, device });
-        let (_header, res) = call::<RemoteDomainInterfaceStatsArgs, RemoteDomainInterfaceStatsRet>(
+        let res = call::<RemoteDomainInterfaceStatsArgs, RemoteDomainInterfaceStatsRet>(
             self,
             RemoteProcedure::RemoteProcDomainInterfaceStats,
+            false,
             req,
         )?;
-        Ok(res.unwrap())
+        Ok(res.body.unwrap())
     }
     fn auth_list(&mut self) -> Result<Vec<RemoteAuthType>, Error> {
         trace!("{}", stringify!(auth_list));
         let req: Option<()> = None;
-        let (_header, res) =
-            call::<(), RemoteAuthListRet>(self, RemoteProcedure::RemoteProcAuthList, req)?;
-        let res = res.unwrap();
+        let res =
+            call::<(), RemoteAuthListRet>(self, RemoteProcedure::RemoteProcAuthList, false, req)?;
+        let res = res.body.unwrap();
         let RemoteAuthListRet { types } = res;
         Ok(types)
     }
     fn auth_sasl_init(&mut self) -> Result<String, Error> {
         trace!("{}", stringify!(auth_sasl_init));
         let req: Option<()> = None;
-        let (_header, res) =
-            call::<(), RemoteAuthSaslInitRet>(self, RemoteProcedure::RemoteProcAuthSaslInit, req)?;
-        let res = res.unwrap();
+        let res = call::<(), RemoteAuthSaslInitRet>(
+            self,
+            RemoteProcedure::RemoteProcAuthSaslInit,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteAuthSaslInitRet { mechlist } = res;
         Ok(mechlist)
     }
@@ -1021,12 +1111,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(auth_sasl_start));
         let req: Option<RemoteAuthSaslStartArgs> =
             Some(RemoteAuthSaslStartArgs { mech, nil, data });
-        let (_header, res) = call::<RemoteAuthSaslStartArgs, RemoteAuthSaslStartRet>(
+        let res = call::<RemoteAuthSaslStartArgs, RemoteAuthSaslStartRet>(
             self,
             RemoteProcedure::RemoteProcAuthSaslStart,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteAuthSaslStartRet {
             complete,
             nil,
@@ -1037,12 +1128,13 @@ pub trait Libvirt: Send + Sized + 'static {
     fn auth_sasl_step(&mut self, nil: i32, data: Vec<i8>) -> Result<(i32, i32, Vec<i8>), Error> {
         trace!("{}", stringify!(auth_sasl_step));
         let req: Option<RemoteAuthSaslStepArgs> = Some(RemoteAuthSaslStepArgs { nil, data });
-        let (_header, res) = call::<RemoteAuthSaslStepArgs, RemoteAuthSaslStepRet>(
+        let res = call::<RemoteAuthSaslStepArgs, RemoteAuthSaslStepRet>(
             self,
             RemoteProcedure::RemoteProcAuthSaslStep,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteAuthSaslStepRet {
             complete,
             nil,
@@ -1053,21 +1145,26 @@ pub trait Libvirt: Send + Sized + 'static {
     fn auth_polkit(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(auth_polkit));
         let req: Option<()> = None;
-        let (_header, res) =
-            call::<(), RemoteAuthPolkitRet>(self, RemoteProcedure::RemoteProcAuthPolkit, req)?;
-        let res = res.unwrap();
+        let res = call::<(), RemoteAuthPolkitRet>(
+            self,
+            RemoteProcedure::RemoteProcAuthPolkit,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteAuthPolkitRet { complete } = res;
         Ok(complete)
     }
     fn connect_num_of_storage_pools(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_storage_pools));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectNumOfStoragePoolsRet>(
+        let res = call::<(), RemoteConnectNumOfStoragePoolsRet>(
             self,
             RemoteProcedure::RemoteProcConnectNumOfStoragePools,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNumOfStoragePoolsRet { num } = res;
         Ok(num)
     }
@@ -1075,25 +1172,26 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_list_storage_pools));
         let req: Option<RemoteConnectListStoragePoolsArgs> =
             Some(RemoteConnectListStoragePoolsArgs { maxnames });
-        let (_header, res) =
-            call::<RemoteConnectListStoragePoolsArgs, RemoteConnectListStoragePoolsRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectListStoragePools,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectListStoragePoolsArgs, RemoteConnectListStoragePoolsRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectListStoragePools,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectListStoragePoolsRet { names } = res;
         Ok(names)
     }
     fn connect_num_of_defined_storage_pools(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_defined_storage_pools));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectNumOfDefinedStoragePoolsRet>(
+        let res = call::<(), RemoteConnectNumOfDefinedStoragePoolsRet>(
             self,
             RemoteProcedure::RemoteProcConnectNumOfDefinedStoragePools,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNumOfDefinedStoragePoolsRet { num } = res;
         Ok(num)
     }
@@ -1101,15 +1199,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_list_defined_storage_pools));
         let req: Option<RemoteConnectListDefinedStoragePoolsArgs> =
             Some(RemoteConnectListDefinedStoragePoolsArgs { maxnames });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteConnectListDefinedStoragePoolsArgs,
             RemoteConnectListDefinedStoragePoolsRet,
         >(
             self,
             RemoteProcedure::RemoteProcConnectListDefinedStoragePools,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListDefinedStoragePoolsRet { names } = res;
         Ok(names)
     }
@@ -1126,15 +1225,16 @@ pub trait Libvirt: Send + Sized + 'static {
                 src_spec,
                 flags,
             });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteConnectFindStoragePoolSourcesArgs,
             RemoteConnectFindStoragePoolSourcesRet,
         >(
             self,
             RemoteProcedure::RemoteProcConnectFindStoragePoolSources,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectFindStoragePoolSourcesRet { xml } = res;
         Ok(xml)
     }
@@ -1146,12 +1246,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_create_xml));
         let req: Option<RemoteStoragePoolCreateXmlArgs> =
             Some(RemoteStoragePoolCreateXmlArgs { xml, flags });
-        let (_header, res) = call::<RemoteStoragePoolCreateXmlArgs, RemoteStoragePoolCreateXmlRet>(
+        let res = call::<RemoteStoragePoolCreateXmlArgs, RemoteStoragePoolCreateXmlRet>(
             self,
             RemoteProcedure::RemoteProcStoragePoolCreateXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStoragePoolCreateXmlRet { pool } = res;
         Ok(pool)
     }
@@ -1163,12 +1264,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_define_xml));
         let req: Option<RemoteStoragePoolDefineXmlArgs> =
             Some(RemoteStoragePoolDefineXmlArgs { xml, flags });
-        let (_header, res) = call::<RemoteStoragePoolDefineXmlArgs, RemoteStoragePoolDefineXmlRet>(
+        let res = call::<RemoteStoragePoolDefineXmlArgs, RemoteStoragePoolDefineXmlRet>(
             self,
             RemoteProcedure::RemoteProcStoragePoolDefineXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStoragePoolDefineXmlRet { pool } = res;
         Ok(pool)
     }
@@ -1180,9 +1282,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_create));
         let req: Option<RemoteStoragePoolCreateArgs> =
             Some(RemoteStoragePoolCreateArgs { pool, flags });
-        let (_header, _res) = call::<RemoteStoragePoolCreateArgs, ()>(
+        let _res = call::<RemoteStoragePoolCreateArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStoragePoolCreate,
+            false,
             req,
         )?;
         Ok(())
@@ -1195,9 +1298,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_build));
         let req: Option<RemoteStoragePoolBuildArgs> =
             Some(RemoteStoragePoolBuildArgs { pool, flags });
-        let (_header, _res) = call::<RemoteStoragePoolBuildArgs, ()>(
+        let _res = call::<RemoteStoragePoolBuildArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStoragePoolBuild,
+            false,
             req,
         )?;
         Ok(())
@@ -1205,9 +1309,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn storage_pool_destroy(&mut self, pool: RemoteNonnullStoragePool) -> Result<(), Error> {
         trace!("{}", stringify!(storage_pool_destroy));
         let req: Option<RemoteStoragePoolDestroyArgs> = Some(RemoteStoragePoolDestroyArgs { pool });
-        let (_header, _res) = call::<RemoteStoragePoolDestroyArgs, ()>(
+        let _res = call::<RemoteStoragePoolDestroyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStoragePoolDestroy,
+            false,
             req,
         )?;
         Ok(())
@@ -1220,9 +1325,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_delete));
         let req: Option<RemoteStoragePoolDeleteArgs> =
             Some(RemoteStoragePoolDeleteArgs { pool, flags });
-        let (_header, _res) = call::<RemoteStoragePoolDeleteArgs, ()>(
+        let _res = call::<RemoteStoragePoolDeleteArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStoragePoolDelete,
+            false,
             req,
         )?;
         Ok(())
@@ -1231,9 +1337,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_undefine));
         let req: Option<RemoteStoragePoolUndefineArgs> =
             Some(RemoteStoragePoolUndefineArgs { pool });
-        let (_header, _res) = call::<RemoteStoragePoolUndefineArgs, ()>(
+        let _res = call::<RemoteStoragePoolUndefineArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStoragePoolUndefine,
+            false,
             req,
         )?;
         Ok(())
@@ -1246,9 +1353,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_refresh));
         let req: Option<RemoteStoragePoolRefreshArgs> =
             Some(RemoteStoragePoolRefreshArgs { pool, flags });
-        let (_header, _res) = call::<RemoteStoragePoolRefreshArgs, ()>(
+        let _res = call::<RemoteStoragePoolRefreshArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStoragePoolRefresh,
+            false,
             req,
         )?;
         Ok(())
@@ -1260,13 +1368,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_lookup_by_name));
         let req: Option<RemoteStoragePoolLookupByNameArgs> =
             Some(RemoteStoragePoolLookupByNameArgs { name });
-        let (_header, res) =
-            call::<RemoteStoragePoolLookupByNameArgs, RemoteStoragePoolLookupByNameRet>(
-                self,
-                RemoteProcedure::RemoteProcStoragePoolLookupByName,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteStoragePoolLookupByNameArgs, RemoteStoragePoolLookupByNameRet>(
+            self,
+            RemoteProcedure::RemoteProcStoragePoolLookupByName,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteStoragePoolLookupByNameRet { pool } = res;
         Ok(pool)
     }
@@ -1277,13 +1385,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_lookup_by_uuid));
         let req: Option<RemoteStoragePoolLookupByUuidArgs> =
             Some(RemoteStoragePoolLookupByUuidArgs { uuid });
-        let (_header, res) =
-            call::<RemoteStoragePoolLookupByUuidArgs, RemoteStoragePoolLookupByUuidRet>(
-                self,
-                RemoteProcedure::RemoteProcStoragePoolLookupByUuid,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteStoragePoolLookupByUuidArgs, RemoteStoragePoolLookupByUuidRet>(
+            self,
+            RemoteProcedure::RemoteProcStoragePoolLookupByUuid,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteStoragePoolLookupByUuidRet { pool } = res;
         Ok(pool)
     }
@@ -1294,13 +1402,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_lookup_by_volume));
         let req: Option<RemoteStoragePoolLookupByVolumeArgs> =
             Some(RemoteStoragePoolLookupByVolumeArgs { vol });
-        let (_header, res) =
-            call::<RemoteStoragePoolLookupByVolumeArgs, RemoteStoragePoolLookupByVolumeRet>(
-                self,
-                RemoteProcedure::RemoteProcStoragePoolLookupByVolume,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteStoragePoolLookupByVolumeArgs, RemoteStoragePoolLookupByVolumeRet>(
+            self,
+            RemoteProcedure::RemoteProcStoragePoolLookupByVolume,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteStoragePoolLookupByVolumeRet { pool } = res;
         Ok(pool)
     }
@@ -1310,12 +1418,13 @@ pub trait Libvirt: Send + Sized + 'static {
     ) -> Result<(u8, u64, u64, u64), Error> {
         trace!("{}", stringify!(storage_pool_get_info));
         let req: Option<RemoteStoragePoolGetInfoArgs> = Some(RemoteStoragePoolGetInfoArgs { pool });
-        let (_header, res) = call::<RemoteStoragePoolGetInfoArgs, RemoteStoragePoolGetInfoRet>(
+        let res = call::<RemoteStoragePoolGetInfoArgs, RemoteStoragePoolGetInfoRet>(
             self,
             RemoteProcedure::RemoteProcStoragePoolGetInfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStoragePoolGetInfoRet {
             state,
             capacity,
@@ -1332,12 +1441,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_get_xml_desc));
         let req: Option<RemoteStoragePoolGetXmlDescArgs> =
             Some(RemoteStoragePoolGetXmlDescArgs { pool, flags });
-        let (_header, res) = call::<RemoteStoragePoolGetXmlDescArgs, RemoteStoragePoolGetXmlDescRet>(
+        let res = call::<RemoteStoragePoolGetXmlDescArgs, RemoteStoragePoolGetXmlDescRet>(
             self,
             RemoteProcedure::RemoteProcStoragePoolGetXmlDesc,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStoragePoolGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -1345,13 +1455,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_get_autostart));
         let req: Option<RemoteStoragePoolGetAutostartArgs> =
             Some(RemoteStoragePoolGetAutostartArgs { pool });
-        let (_header, res) =
-            call::<RemoteStoragePoolGetAutostartArgs, RemoteStoragePoolGetAutostartRet>(
-                self,
-                RemoteProcedure::RemoteProcStoragePoolGetAutostart,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteStoragePoolGetAutostartArgs, RemoteStoragePoolGetAutostartRet>(
+            self,
+            RemoteProcedure::RemoteProcStoragePoolGetAutostart,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteStoragePoolGetAutostartRet { autostart } = res;
         Ok(autostart)
     }
@@ -1363,9 +1473,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_set_autostart));
         let req: Option<RemoteStoragePoolSetAutostartArgs> =
             Some(RemoteStoragePoolSetAutostartArgs { pool, autostart });
-        let (_header, _res) = call::<RemoteStoragePoolSetAutostartArgs, ()>(
+        let _res = call::<RemoteStoragePoolSetAutostartArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStoragePoolSetAutostart,
+            false,
             req,
         )?;
         Ok(())
@@ -1377,13 +1488,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_num_of_volumes));
         let req: Option<RemoteStoragePoolNumOfVolumesArgs> =
             Some(RemoteStoragePoolNumOfVolumesArgs { pool });
-        let (_header, res) =
-            call::<RemoteStoragePoolNumOfVolumesArgs, RemoteStoragePoolNumOfVolumesRet>(
-                self,
-                RemoteProcedure::RemoteProcStoragePoolNumOfVolumes,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteStoragePoolNumOfVolumesArgs, RemoteStoragePoolNumOfVolumesRet>(
+            self,
+            RemoteProcedure::RemoteProcStoragePoolNumOfVolumes,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteStoragePoolNumOfVolumesRet { num } = res;
         Ok(num)
     }
@@ -1395,13 +1506,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_list_volumes));
         let req: Option<RemoteStoragePoolListVolumesArgs> =
             Some(RemoteStoragePoolListVolumesArgs { pool, maxnames });
-        let (_header, res) = call::<
-            RemoteStoragePoolListVolumesArgs,
-            RemoteStoragePoolListVolumesRet,
-        >(
-            self, RemoteProcedure::RemoteProcStoragePoolListVolumes, req
+        let res = call::<RemoteStoragePoolListVolumesArgs, RemoteStoragePoolListVolumesRet>(
+            self,
+            RemoteProcedure::RemoteProcStoragePoolListVolumes,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStoragePoolListVolumesRet { names } = res;
         Ok(names)
     }
@@ -1414,12 +1525,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_vol_create_xml));
         let req: Option<RemoteStorageVolCreateXmlArgs> =
             Some(RemoteStorageVolCreateXmlArgs { pool, xml, flags });
-        let (_header, res) = call::<RemoteStorageVolCreateXmlArgs, RemoteStorageVolCreateXmlRet>(
+        let res = call::<RemoteStorageVolCreateXmlArgs, RemoteStorageVolCreateXmlRet>(
             self,
             RemoteProcedure::RemoteProcStorageVolCreateXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStorageVolCreateXmlRet { vol } = res;
         Ok(vol)
     }
@@ -1431,9 +1543,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_vol_delete));
         let req: Option<RemoteStorageVolDeleteArgs> =
             Some(RemoteStorageVolDeleteArgs { vol, flags });
-        let (_header, _res) = call::<RemoteStorageVolDeleteArgs, ()>(
+        let _res = call::<RemoteStorageVolDeleteArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStorageVolDelete,
+            false,
             req,
         )?;
         Ok(())
@@ -1446,13 +1559,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_vol_lookup_by_name));
         let req: Option<RemoteStorageVolLookupByNameArgs> =
             Some(RemoteStorageVolLookupByNameArgs { pool, name });
-        let (_header, res) = call::<
-            RemoteStorageVolLookupByNameArgs,
-            RemoteStorageVolLookupByNameRet,
-        >(
-            self, RemoteProcedure::RemoteProcStorageVolLookupByName, req
+        let res = call::<RemoteStorageVolLookupByNameArgs, RemoteStorageVolLookupByNameRet>(
+            self,
+            RemoteProcedure::RemoteProcStorageVolLookupByName,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStorageVolLookupByNameRet { vol } = res;
         Ok(vol)
     }
@@ -1460,12 +1573,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_vol_lookup_by_key));
         let req: Option<RemoteStorageVolLookupByKeyArgs> =
             Some(RemoteStorageVolLookupByKeyArgs { key });
-        let (_header, res) = call::<RemoteStorageVolLookupByKeyArgs, RemoteStorageVolLookupByKeyRet>(
+        let res = call::<RemoteStorageVolLookupByKeyArgs, RemoteStorageVolLookupByKeyRet>(
             self,
             RemoteProcedure::RemoteProcStorageVolLookupByKey,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStorageVolLookupByKeyRet { vol } = res;
         Ok(vol)
     }
@@ -1476,13 +1590,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_vol_lookup_by_path));
         let req: Option<RemoteStorageVolLookupByPathArgs> =
             Some(RemoteStorageVolLookupByPathArgs { path });
-        let (_header, res) = call::<
-            RemoteStorageVolLookupByPathArgs,
-            RemoteStorageVolLookupByPathRet,
-        >(
-            self, RemoteProcedure::RemoteProcStorageVolLookupByPath, req
+        let res = call::<RemoteStorageVolLookupByPathArgs, RemoteStorageVolLookupByPathRet>(
+            self,
+            RemoteProcedure::RemoteProcStorageVolLookupByPath,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStorageVolLookupByPathRet { vol } = res;
         Ok(vol)
     }
@@ -1492,12 +1606,13 @@ pub trait Libvirt: Send + Sized + 'static {
     ) -> Result<(i8, u64, u64), Error> {
         trace!("{}", stringify!(storage_vol_get_info));
         let req: Option<RemoteStorageVolGetInfoArgs> = Some(RemoteStorageVolGetInfoArgs { vol });
-        let (_header, res) = call::<RemoteStorageVolGetInfoArgs, RemoteStorageVolGetInfoRet>(
+        let res = call::<RemoteStorageVolGetInfoArgs, RemoteStorageVolGetInfoRet>(
             self,
             RemoteProcedure::RemoteProcStorageVolGetInfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStorageVolGetInfoRet {
             r#type,
             capacity,
@@ -1513,24 +1628,26 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_vol_get_xml_desc));
         let req: Option<RemoteStorageVolGetXmlDescArgs> =
             Some(RemoteStorageVolGetXmlDescArgs { vol, flags });
-        let (_header, res) = call::<RemoteStorageVolGetXmlDescArgs, RemoteStorageVolGetXmlDescRet>(
+        let res = call::<RemoteStorageVolGetXmlDescArgs, RemoteStorageVolGetXmlDescRet>(
             self,
             RemoteProcedure::RemoteProcStorageVolGetXmlDesc,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStorageVolGetXmlDescRet { xml } = res;
         Ok(xml)
     }
     fn storage_vol_get_path(&mut self, vol: RemoteNonnullStorageVol) -> Result<String, Error> {
         trace!("{}", stringify!(storage_vol_get_path));
         let req: Option<RemoteStorageVolGetPathArgs> = Some(RemoteStorageVolGetPathArgs { vol });
-        let (_header, res) = call::<RemoteStorageVolGetPathArgs, RemoteStorageVolGetPathRet>(
+        let res = call::<RemoteStorageVolGetPathArgs, RemoteStorageVolGetPathRet>(
             self,
             RemoteProcedure::RemoteProcStorageVolGetPath,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStorageVolGetPathRet { name } = res;
         Ok(name)
     }
@@ -1545,25 +1662,26 @@ pub trait Libvirt: Send + Sized + 'static {
                 start_cell,
                 maxcells,
             });
-        let (_header, res) = call::<
-            RemoteNodeGetCellsFreeMemoryArgs,
-            RemoteNodeGetCellsFreeMemoryRet,
-        >(
-            self, RemoteProcedure::RemoteProcNodeGetCellsFreeMemory, req
+        let res = call::<RemoteNodeGetCellsFreeMemoryArgs, RemoteNodeGetCellsFreeMemoryRet>(
+            self,
+            RemoteProcedure::RemoteProcNodeGetCellsFreeMemory,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeGetCellsFreeMemoryRet { cells } = res;
         Ok(cells)
     }
     fn node_get_free_memory(&mut self) -> Result<u64, Error> {
         trace!("{}", stringify!(node_get_free_memory));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteNodeGetFreeMemoryRet>(
+        let res = call::<(), RemoteNodeGetFreeMemoryRet>(
             self,
             RemoteProcedure::RemoteProcNodeGetFreeMemory,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeGetFreeMemoryRet { free_mem } = res;
         Ok(free_mem)
     }
@@ -1583,12 +1701,13 @@ pub trait Libvirt: Send + Sized + 'static {
             size,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainBlockPeekArgs, RemoteDomainBlockPeekRet>(
+        let res = call::<RemoteDomainBlockPeekArgs, RemoteDomainBlockPeekRet>(
             self,
             RemoteProcedure::RemoteProcDomainBlockPeek,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainBlockPeekRet { buffer } = res;
         Ok(buffer)
     }
@@ -1606,44 +1725,51 @@ pub trait Libvirt: Send + Sized + 'static {
             size,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainMemoryPeekArgs, RemoteDomainMemoryPeekRet>(
+        let res = call::<RemoteDomainMemoryPeekArgs, RemoteDomainMemoryPeekRet>(
             self,
             RemoteProcedure::RemoteProcDomainMemoryPeek,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMemoryPeekRet { buffer } = res;
         Ok(buffer)
     }
     fn connect_domain_event_register(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_domain_event_register));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectDomainEventRegisterRet>(
+        let res = call::<(), RemoteConnectDomainEventRegisterRet>(
             self,
             RemoteProcedure::RemoteProcConnectDomainEventRegister,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectDomainEventRegisterRet { cb_registered } = res;
         Ok(cb_registered)
     }
     fn connect_domain_event_deregister(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_domain_event_deregister));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectDomainEventDeregisterRet>(
+        let res = call::<(), RemoteConnectDomainEventDeregisterRet>(
             self,
             RemoteProcedure::RemoteProcConnectDomainEventDeregister,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectDomainEventDeregisterRet { cb_registered } = res;
         Ok(cb_registered)
     }
     fn domain_event_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_lifecycle));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventLifecycle, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventLifecycle,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_migrate_prepare2(
@@ -1662,12 +1788,13 @@ pub trait Libvirt: Send + Sized + 'static {
             bandwidth,
             dom_xml,
         });
-        let (_header, res) = call::<RemoteDomainMigratePrepare2Args, RemoteDomainMigratePrepare2Ret>(
+        let res = call::<RemoteDomainMigratePrepare2Args, RemoteDomainMigratePrepare2Ret>(
             self,
             RemoteProcedure::RemoteProcDomainMigratePrepare2,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigratePrepare2Ret { cookie, uri_out } = res;
         Ok((cookie, uri_out))
     }
@@ -1687,24 +1814,26 @@ pub trait Libvirt: Send + Sized + 'static {
             flags,
             retcode,
         });
-        let (_header, res) = call::<RemoteDomainMigrateFinish2Args, RemoteDomainMigrateFinish2Ret>(
+        let res = call::<RemoteDomainMigrateFinish2Args, RemoteDomainMigrateFinish2Ret>(
             self,
             RemoteProcedure::RemoteProcDomainMigrateFinish2,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigrateFinish2Ret { ddom } = res;
         Ok(ddom)
     }
     fn connect_get_uri(&mut self) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_uri));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectGetUriRet>(
+        let res = call::<(), RemoteConnectGetUriRet>(
             self,
             RemoteProcedure::RemoteProcConnectGetUri,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectGetUriRet { uri } = res;
         Ok(uri)
     }
@@ -1712,12 +1841,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_num_of_devices));
         let req: Option<RemoteNodeNumOfDevicesArgs> =
             Some(RemoteNodeNumOfDevicesArgs { cap, flags });
-        let (_header, res) = call::<RemoteNodeNumOfDevicesArgs, RemoteNodeNumOfDevicesRet>(
+        let res = call::<RemoteNodeNumOfDevicesArgs, RemoteNodeNumOfDevicesRet>(
             self,
             RemoteProcedure::RemoteProcNodeNumOfDevices,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeNumOfDevicesRet { num } = res;
         Ok(num)
     }
@@ -1733,12 +1863,13 @@ pub trait Libvirt: Send + Sized + 'static {
             maxnames,
             flags,
         });
-        let (_header, res) = call::<RemoteNodeListDevicesArgs, RemoteNodeListDevicesRet>(
+        let res = call::<RemoteNodeListDevicesArgs, RemoteNodeListDevicesRet>(
             self,
             RemoteProcedure::RemoteProcNodeListDevices,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeListDevicesRet { names } = res;
         Ok(names)
     }
@@ -1749,13 +1880,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_lookup_by_name));
         let req: Option<RemoteNodeDeviceLookupByNameArgs> =
             Some(RemoteNodeDeviceLookupByNameArgs { name });
-        let (_header, res) = call::<
-            RemoteNodeDeviceLookupByNameArgs,
-            RemoteNodeDeviceLookupByNameRet,
-        >(
-            self, RemoteProcedure::RemoteProcNodeDeviceLookupByName, req
+        let res = call::<RemoteNodeDeviceLookupByNameArgs, RemoteNodeDeviceLookupByNameRet>(
+            self,
+            RemoteProcedure::RemoteProcNodeDeviceLookupByName,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceLookupByNameRet { dev } = res;
         Ok(dev)
     }
@@ -1763,12 +1894,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_get_xml_desc));
         let req: Option<RemoteNodeDeviceGetXmlDescArgs> =
             Some(RemoteNodeDeviceGetXmlDescArgs { name, flags });
-        let (_header, res) = call::<RemoteNodeDeviceGetXmlDescArgs, RemoteNodeDeviceGetXmlDescRet>(
+        let res = call::<RemoteNodeDeviceGetXmlDescArgs, RemoteNodeDeviceGetXmlDescRet>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceGetXmlDesc,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -1776,12 +1908,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_get_parent));
         let req: Option<RemoteNodeDeviceGetParentArgs> =
             Some(RemoteNodeDeviceGetParentArgs { name });
-        let (_header, res) = call::<RemoteNodeDeviceGetParentArgs, RemoteNodeDeviceGetParentRet>(
+        let res = call::<RemoteNodeDeviceGetParentArgs, RemoteNodeDeviceGetParentRet>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceGetParent,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceGetParentRet { parent_name } = res;
         Ok(parent_name)
     }
@@ -1789,12 +1922,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_num_of_caps));
         let req: Option<RemoteNodeDeviceNumOfCapsArgs> =
             Some(RemoteNodeDeviceNumOfCapsArgs { name });
-        let (_header, res) = call::<RemoteNodeDeviceNumOfCapsArgs, RemoteNodeDeviceNumOfCapsRet>(
+        let res = call::<RemoteNodeDeviceNumOfCapsArgs, RemoteNodeDeviceNumOfCapsRet>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceNumOfCaps,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceNumOfCapsRet { num } = res;
         Ok(num)
     }
@@ -1802,21 +1936,23 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_list_caps));
         let req: Option<RemoteNodeDeviceListCapsArgs> =
             Some(RemoteNodeDeviceListCapsArgs { name, maxnames });
-        let (_header, res) = call::<RemoteNodeDeviceListCapsArgs, RemoteNodeDeviceListCapsRet>(
+        let res = call::<RemoteNodeDeviceListCapsArgs, RemoteNodeDeviceListCapsRet>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceListCaps,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceListCapsRet { names } = res;
         Ok(names)
     }
     fn node_device_dettach(&mut self, name: String) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_dettach));
         let req: Option<RemoteNodeDeviceDettachArgs> = Some(RemoteNodeDeviceDettachArgs { name });
-        let (_header, _res) = call::<RemoteNodeDeviceDettachArgs, ()>(
+        let _res = call::<RemoteNodeDeviceDettachArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceDettach,
+            false,
             req,
         )?;
         Ok(())
@@ -1824,9 +1960,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn node_device_re_attach(&mut self, name: String) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_re_attach));
         let req: Option<RemoteNodeDeviceReAttachArgs> = Some(RemoteNodeDeviceReAttachArgs { name });
-        let (_header, _res) = call::<RemoteNodeDeviceReAttachArgs, ()>(
+        let _res = call::<RemoteNodeDeviceReAttachArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceReAttach,
+            false,
             req,
         )?;
         Ok(())
@@ -1834,9 +1971,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn node_device_reset(&mut self, name: String) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_reset));
         let req: Option<RemoteNodeDeviceResetArgs> = Some(RemoteNodeDeviceResetArgs { name });
-        let (_header, _res) = call::<RemoteNodeDeviceResetArgs, ()>(
+        let _res = call::<RemoteNodeDeviceResetArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceReset,
+            false,
             req,
         )?;
         Ok(())
@@ -1848,25 +1986,26 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_security_label));
         let req: Option<RemoteDomainGetSecurityLabelArgs> =
             Some(RemoteDomainGetSecurityLabelArgs { dom });
-        let (_header, res) = call::<
-            RemoteDomainGetSecurityLabelArgs,
-            RemoteDomainGetSecurityLabelRet,
-        >(
-            self, RemoteProcedure::RemoteProcDomainGetSecurityLabel, req
+        let res = call::<RemoteDomainGetSecurityLabelArgs, RemoteDomainGetSecurityLabelRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainGetSecurityLabel,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetSecurityLabelRet { label, enforcing } = res;
         Ok((label, enforcing))
     }
     fn node_get_security_model(&mut self) -> Result<(Vec<i8>, Vec<i8>), Error> {
         trace!("{}", stringify!(node_get_security_model));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteNodeGetSecurityModelRet>(
+        let res = call::<(), RemoteNodeGetSecurityModelRet>(
             self,
             RemoteProcedure::RemoteProcNodeGetSecurityModel,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeGetSecurityModelRet { model, doi } = res;
         Ok((model, doi))
     }
@@ -1878,21 +2017,23 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_create_xml));
         let req: Option<RemoteNodeDeviceCreateXmlArgs> =
             Some(RemoteNodeDeviceCreateXmlArgs { xml_desc, flags });
-        let (_header, res) = call::<RemoteNodeDeviceCreateXmlArgs, RemoteNodeDeviceCreateXmlRet>(
+        let res = call::<RemoteNodeDeviceCreateXmlArgs, RemoteNodeDeviceCreateXmlRet>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceCreateXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceCreateXmlRet { dev } = res;
         Ok(dev)
     }
     fn node_device_destroy(&mut self, name: String) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_destroy));
         let req: Option<RemoteNodeDeviceDestroyArgs> = Some(RemoteNodeDeviceDestroyArgs { name });
-        let (_header, _res) = call::<RemoteNodeDeviceDestroyArgs, ()>(
+        let _res = call::<RemoteNodeDeviceDestroyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceDestroy,
+            false,
             req,
         )?;
         Ok(())
@@ -1912,25 +2053,26 @@ pub trait Libvirt: Send + Sized + 'static {
                 clonevol,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteStorageVolCreateXmlFromArgs, RemoteStorageVolCreateXmlFromRet>(
-                self,
-                RemoteProcedure::RemoteProcStorageVolCreateXmlFrom,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteStorageVolCreateXmlFromArgs, RemoteStorageVolCreateXmlFromRet>(
+            self,
+            RemoteProcedure::RemoteProcStorageVolCreateXmlFrom,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteStorageVolCreateXmlFromRet { vol } = res;
         Ok(vol)
     }
     fn connect_num_of_interfaces(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_interfaces));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectNumOfInterfacesRet>(
+        let res = call::<(), RemoteConnectNumOfInterfacesRet>(
             self,
             RemoteProcedure::RemoteProcConnectNumOfInterfaces,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNumOfInterfacesRet { num } = res;
         Ok(num)
     }
@@ -1938,12 +2080,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_list_interfaces));
         let req: Option<RemoteConnectListInterfacesArgs> =
             Some(RemoteConnectListInterfacesArgs { maxnames });
-        let (_header, res) = call::<RemoteConnectListInterfacesArgs, RemoteConnectListInterfacesRet>(
+        let res = call::<RemoteConnectListInterfacesArgs, RemoteConnectListInterfacesRet>(
             self,
             RemoteProcedure::RemoteProcConnectListInterfaces,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListInterfacesRet { names } = res;
         Ok(names)
     }
@@ -1951,12 +2094,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(interface_lookup_by_name));
         let req: Option<RemoteInterfaceLookupByNameArgs> =
             Some(RemoteInterfaceLookupByNameArgs { name });
-        let (_header, res) = call::<RemoteInterfaceLookupByNameArgs, RemoteInterfaceLookupByNameRet>(
+        let res = call::<RemoteInterfaceLookupByNameArgs, RemoteInterfaceLookupByNameRet>(
             self,
             RemoteProcedure::RemoteProcInterfaceLookupByName,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteInterfaceLookupByNameRet { iface } = res;
         Ok(iface)
     }
@@ -1967,13 +2111,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(interface_lookup_by_mac_string));
         let req: Option<RemoteInterfaceLookupByMacStringArgs> =
             Some(RemoteInterfaceLookupByMacStringArgs { mac });
-        let (_header, res) =
-            call::<RemoteInterfaceLookupByMacStringArgs, RemoteInterfaceLookupByMacStringRet>(
-                self,
-                RemoteProcedure::RemoteProcInterfaceLookupByMacString,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteInterfaceLookupByMacStringArgs, RemoteInterfaceLookupByMacStringRet>(
+            self,
+            RemoteProcedure::RemoteProcInterfaceLookupByMacString,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteInterfaceLookupByMacStringRet { iface } = res;
         Ok(iface)
     }
@@ -1985,12 +2129,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(interface_get_xml_desc));
         let req: Option<RemoteInterfaceGetXmlDescArgs> =
             Some(RemoteInterfaceGetXmlDescArgs { iface, flags });
-        let (_header, res) = call::<RemoteInterfaceGetXmlDescArgs, RemoteInterfaceGetXmlDescRet>(
+        let res = call::<RemoteInterfaceGetXmlDescArgs, RemoteInterfaceGetXmlDescRet>(
             self,
             RemoteProcedure::RemoteProcInterfaceGetXmlDesc,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteInterfaceGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -2002,21 +2147,23 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(interface_define_xml));
         let req: Option<RemoteInterfaceDefineXmlArgs> =
             Some(RemoteInterfaceDefineXmlArgs { xml, flags });
-        let (_header, res) = call::<RemoteInterfaceDefineXmlArgs, RemoteInterfaceDefineXmlRet>(
+        let res = call::<RemoteInterfaceDefineXmlArgs, RemoteInterfaceDefineXmlRet>(
             self,
             RemoteProcedure::RemoteProcInterfaceDefineXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteInterfaceDefineXmlRet { iface } = res;
         Ok(iface)
     }
     fn interface_undefine(&mut self, iface: RemoteNonnullInterface) -> Result<(), Error> {
         trace!("{}", stringify!(interface_undefine));
         let req: Option<RemoteInterfaceUndefineArgs> = Some(RemoteInterfaceUndefineArgs { iface });
-        let (_header, _res) = call::<RemoteInterfaceUndefineArgs, ()>(
+        let _res = call::<RemoteInterfaceUndefineArgs, ()>(
             self,
             RemoteProcedure::RemoteProcInterfaceUndefine,
+            false,
             req,
         )?;
         Ok(())
@@ -2025,9 +2172,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(interface_create));
         let req: Option<RemoteInterfaceCreateArgs> =
             Some(RemoteInterfaceCreateArgs { iface, flags });
-        let (_header, _res) = call::<RemoteInterfaceCreateArgs, ()>(
+        let _res = call::<RemoteInterfaceCreateArgs, ()>(
             self,
             RemoteProcedure::RemoteProcInterfaceCreate,
+            false,
             req,
         )?;
         Ok(())
@@ -2040,9 +2188,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(interface_destroy));
         let req: Option<RemoteInterfaceDestroyArgs> =
             Some(RemoteInterfaceDestroyArgs { iface, flags });
-        let (_header, _res) = call::<RemoteInterfaceDestroyArgs, ()>(
+        let _res = call::<RemoteInterfaceDestroyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcInterfaceDestroy,
+            false,
             req,
         )?;
         Ok(())
@@ -2060,13 +2209,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 native_config,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteConnectDomainXmlFromNativeArgs, RemoteConnectDomainXmlFromNativeRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectDomainXmlFromNative,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectDomainXmlFromNativeArgs, RemoteConnectDomainXmlFromNativeRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectDomainXmlFromNative,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectDomainXmlFromNativeRet { domain_xml } = res;
         Ok(domain_xml)
     }
@@ -2083,25 +2232,26 @@ pub trait Libvirt: Send + Sized + 'static {
                 domain_xml,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteConnectDomainXmlToNativeArgs, RemoteConnectDomainXmlToNativeRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectDomainXmlToNative,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectDomainXmlToNativeArgs, RemoteConnectDomainXmlToNativeRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectDomainXmlToNative,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectDomainXmlToNativeRet { native_config } = res;
         Ok(native_config)
     }
     fn connect_num_of_defined_interfaces(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_defined_interfaces));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectNumOfDefinedInterfacesRet>(
+        let res = call::<(), RemoteConnectNumOfDefinedInterfacesRet>(
             self,
             RemoteProcedure::RemoteProcConnectNumOfDefinedInterfaces,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNumOfDefinedInterfacesRet { num } = res;
         Ok(num)
     }
@@ -2109,25 +2259,27 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_list_defined_interfaces));
         let req: Option<RemoteConnectListDefinedInterfacesArgs> =
             Some(RemoteConnectListDefinedInterfacesArgs { maxnames });
-        let (_header, res) =
+        let res =
             call::<RemoteConnectListDefinedInterfacesArgs, RemoteConnectListDefinedInterfacesRet>(
                 self,
                 RemoteProcedure::RemoteProcConnectListDefinedInterfaces,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListDefinedInterfacesRet { names } = res;
         Ok(names)
     }
     fn connect_num_of_secrets(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_secrets));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectNumOfSecretsRet>(
+        let res = call::<(), RemoteConnectNumOfSecretsRet>(
             self,
             RemoteProcedure::RemoteProcConnectNumOfSecrets,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNumOfSecretsRet { num } = res;
         Ok(num)
     }
@@ -2135,12 +2287,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_list_secrets));
         let req: Option<RemoteConnectListSecretsArgs> =
             Some(RemoteConnectListSecretsArgs { maxuuids });
-        let (_header, res) = call::<RemoteConnectListSecretsArgs, RemoteConnectListSecretsRet>(
+        let res = call::<RemoteConnectListSecretsArgs, RemoteConnectListSecretsRet>(
             self,
             RemoteProcedure::RemoteProcConnectListSecrets,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListSecretsRet { uuids } = res;
         Ok(uuids)
     }
@@ -2150,24 +2303,26 @@ pub trait Libvirt: Send + Sized + 'static {
     ) -> Result<RemoteNonnullSecret, Error> {
         trace!("{}", stringify!(secret_lookup_by_uuid));
         let req: Option<RemoteSecretLookupByUuidArgs> = Some(RemoteSecretLookupByUuidArgs { uuid });
-        let (_header, res) = call::<RemoteSecretLookupByUuidArgs, RemoteSecretLookupByUuidRet>(
+        let res = call::<RemoteSecretLookupByUuidArgs, RemoteSecretLookupByUuidRet>(
             self,
             RemoteProcedure::RemoteProcSecretLookupByUuid,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteSecretLookupByUuidRet { secret } = res;
         Ok(secret)
     }
     fn secret_define_xml(&mut self, xml: String, flags: u32) -> Result<RemoteNonnullSecret, Error> {
         trace!("{}", stringify!(secret_define_xml));
         let req: Option<RemoteSecretDefineXmlArgs> = Some(RemoteSecretDefineXmlArgs { xml, flags });
-        let (_header, res) = call::<RemoteSecretDefineXmlArgs, RemoteSecretDefineXmlRet>(
+        let res = call::<RemoteSecretDefineXmlArgs, RemoteSecretDefineXmlRet>(
             self,
             RemoteProcedure::RemoteProcSecretDefineXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteSecretDefineXmlRet { secret } = res;
         Ok(secret)
     }
@@ -2179,12 +2334,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(secret_get_xml_desc));
         let req: Option<RemoteSecretGetXmlDescArgs> =
             Some(RemoteSecretGetXmlDescArgs { secret, flags });
-        let (_header, res) = call::<RemoteSecretGetXmlDescArgs, RemoteSecretGetXmlDescRet>(
+        let res = call::<RemoteSecretGetXmlDescArgs, RemoteSecretGetXmlDescRet>(
             self,
             RemoteProcedure::RemoteProcSecretGetXmlDesc,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteSecretGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -2200,9 +2356,10 @@ pub trait Libvirt: Send + Sized + 'static {
             value,
             flags,
         });
-        let (_header, _res) = call::<RemoteSecretSetValueArgs, ()>(
+        let _res = call::<RemoteSecretSetValueArgs, ()>(
             self,
             RemoteProcedure::RemoteProcSecretSetValue,
+            false,
             req,
         )?;
         Ok(())
@@ -2215,21 +2372,23 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(secret_get_value));
         let req: Option<RemoteSecretGetValueArgs> =
             Some(RemoteSecretGetValueArgs { secret, flags });
-        let (_header, res) = call::<RemoteSecretGetValueArgs, RemoteSecretGetValueRet>(
+        let res = call::<RemoteSecretGetValueArgs, RemoteSecretGetValueRet>(
             self,
             RemoteProcedure::RemoteProcSecretGetValue,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteSecretGetValueRet { value } = res;
         Ok(value)
     }
     fn secret_undefine(&mut self, secret: RemoteNonnullSecret) -> Result<(), Error> {
         trace!("{}", stringify!(secret_undefine));
         let req: Option<RemoteSecretUndefineArgs> = Some(RemoteSecretUndefineArgs { secret });
-        let (_header, _res) = call::<RemoteSecretUndefineArgs, ()>(
+        let _res = call::<RemoteSecretUndefineArgs, ()>(
             self,
             RemoteProcedure::RemoteProcSecretUndefine,
+            false,
             req,
         )?;
         Ok(())
@@ -2244,12 +2403,13 @@ pub trait Libvirt: Send + Sized + 'static {
             usage_type,
             usage_id,
         });
-        let (_header, res) = call::<RemoteSecretLookupByUsageArgs, RemoteSecretLookupByUsageRet>(
+        let res = call::<RemoteSecretLookupByUsageArgs, RemoteSecretLookupByUsageRet>(
             self,
             RemoteProcedure::RemoteProcSecretLookupByUsage,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteSecretLookupByUsageRet { secret } = res;
         Ok(secret)
     }
@@ -2268,62 +2428,69 @@ pub trait Libvirt: Send + Sized + 'static {
                 bandwidth,
                 dom_xml,
             });
-        let (header, _res) = call::<RemoteDomainMigratePrepareTunnelArgs, ()>(
+        let res = call::<RemoteDomainMigratePrepareTunnelArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainMigratePrepareTunnel,
+            true,
             req,
         )?;
         let res = VirNetStreamResponse {
             inner: self.inner_clone()?,
-            header,
+            channels: self.channel_clone(),
+            receiver: res.receiver.unwrap(),
+            header: res.header,
         };
         Ok(res)
     }
     fn connect_is_secure(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_is_secure));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectIsSecureRet>(
+        let res = call::<(), RemoteConnectIsSecureRet>(
             self,
             RemoteProcedure::RemoteProcConnectIsSecure,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectIsSecureRet { secure } = res;
         Ok(secure)
     }
     fn domain_is_active(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_is_active));
         let req: Option<RemoteDomainIsActiveArgs> = Some(RemoteDomainIsActiveArgs { dom });
-        let (_header, res) = call::<RemoteDomainIsActiveArgs, RemoteDomainIsActiveRet>(
+        let res = call::<RemoteDomainIsActiveArgs, RemoteDomainIsActiveRet>(
             self,
             RemoteProcedure::RemoteProcDomainIsActive,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainIsActiveRet { active } = res;
         Ok(active)
     }
     fn domain_is_persistent(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_is_persistent));
         let req: Option<RemoteDomainIsPersistentArgs> = Some(RemoteDomainIsPersistentArgs { dom });
-        let (_header, res) = call::<RemoteDomainIsPersistentArgs, RemoteDomainIsPersistentRet>(
+        let res = call::<RemoteDomainIsPersistentArgs, RemoteDomainIsPersistentRet>(
             self,
             RemoteProcedure::RemoteProcDomainIsPersistent,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainIsPersistentRet { persistent } = res;
         Ok(persistent)
     }
     fn network_is_active(&mut self, net: RemoteNonnullNetwork) -> Result<i32, Error> {
         trace!("{}", stringify!(network_is_active));
         let req: Option<RemoteNetworkIsActiveArgs> = Some(RemoteNetworkIsActiveArgs { net });
-        let (_header, res) = call::<RemoteNetworkIsActiveArgs, RemoteNetworkIsActiveRet>(
+        let res = call::<RemoteNetworkIsActiveArgs, RemoteNetworkIsActiveRet>(
             self,
             RemoteProcedure::RemoteProcNetworkIsActive,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkIsActiveRet { active } = res;
         Ok(active)
     }
@@ -2331,12 +2498,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_is_persistent));
         let req: Option<RemoteNetworkIsPersistentArgs> =
             Some(RemoteNetworkIsPersistentArgs { net });
-        let (_header, res) = call::<RemoteNetworkIsPersistentArgs, RemoteNetworkIsPersistentRet>(
+        let res = call::<RemoteNetworkIsPersistentArgs, RemoteNetworkIsPersistentRet>(
             self,
             RemoteProcedure::RemoteProcNetworkIsPersistent,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkIsPersistentRet { persistent } = res;
         Ok(persistent)
     }
@@ -2344,12 +2512,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_is_active));
         let req: Option<RemoteStoragePoolIsActiveArgs> =
             Some(RemoteStoragePoolIsActiveArgs { pool });
-        let (_header, res) = call::<RemoteStoragePoolIsActiveArgs, RemoteStoragePoolIsActiveRet>(
+        let res = call::<RemoteStoragePoolIsActiveArgs, RemoteStoragePoolIsActiveRet>(
             self,
             RemoteProcedure::RemoteProcStoragePoolIsActive,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStoragePoolIsActiveRet { active } = res;
         Ok(active)
     }
@@ -2357,37 +2526,39 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_is_persistent));
         let req: Option<RemoteStoragePoolIsPersistentArgs> =
             Some(RemoteStoragePoolIsPersistentArgs { pool });
-        let (_header, res) =
-            call::<RemoteStoragePoolIsPersistentArgs, RemoteStoragePoolIsPersistentRet>(
-                self,
-                RemoteProcedure::RemoteProcStoragePoolIsPersistent,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteStoragePoolIsPersistentArgs, RemoteStoragePoolIsPersistentRet>(
+            self,
+            RemoteProcedure::RemoteProcStoragePoolIsPersistent,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteStoragePoolIsPersistentRet { persistent } = res;
         Ok(persistent)
     }
     fn interface_is_active(&mut self, iface: RemoteNonnullInterface) -> Result<i32, Error> {
         trace!("{}", stringify!(interface_is_active));
         let req: Option<RemoteInterfaceIsActiveArgs> = Some(RemoteInterfaceIsActiveArgs { iface });
-        let (_header, res) = call::<RemoteInterfaceIsActiveArgs, RemoteInterfaceIsActiveRet>(
+        let res = call::<RemoteInterfaceIsActiveArgs, RemoteInterfaceIsActiveRet>(
             self,
             RemoteProcedure::RemoteProcInterfaceIsActive,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteInterfaceIsActiveRet { active } = res;
         Ok(active)
     }
     fn connect_get_lib_version(&mut self) -> Result<u64, Error> {
         trace!("{}", stringify!(connect_get_lib_version));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectGetLibVersionRet>(
+        let res = call::<(), RemoteConnectGetLibVersionRet>(
             self,
             RemoteProcedure::RemoteProcConnectGetLibVersion,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectGetLibVersionRet { lib_ver } = res;
         Ok(lib_ver)
     }
@@ -2395,12 +2566,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_compare_cpu));
         let req: Option<RemoteConnectCompareCpuArgs> =
             Some(RemoteConnectCompareCpuArgs { xml, flags });
-        let (_header, res) = call::<RemoteConnectCompareCpuArgs, RemoteConnectCompareCpuRet>(
+        let res = call::<RemoteConnectCompareCpuArgs, RemoteConnectCompareCpuRet>(
             self,
             RemoteProcedure::RemoteProcConnectCompareCpu,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectCompareCpuRet { result } = res;
         Ok(result)
     }
@@ -2416,12 +2588,13 @@ pub trait Libvirt: Send + Sized + 'static {
             max_stats,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainMemoryStatsArgs, RemoteDomainMemoryStatsRet>(
+        let res = call::<RemoteDomainMemoryStatsArgs, RemoteDomainMemoryStatsRet>(
             self,
             RemoteProcedure::RemoteProcDomainMemoryStats,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMemoryStatsRet { stats } = res;
         Ok(stats)
     }
@@ -2434,9 +2607,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_attach_device_flags));
         let req: Option<RemoteDomainAttachDeviceFlagsArgs> =
             Some(RemoteDomainAttachDeviceFlagsArgs { dom, xml, flags });
-        let (_header, _res) = call::<RemoteDomainAttachDeviceFlagsArgs, ()>(
+        let _res = call::<RemoteDomainAttachDeviceFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainAttachDeviceFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -2450,9 +2624,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_detach_device_flags));
         let req: Option<RemoteDomainDetachDeviceFlagsArgs> =
             Some(RemoteDomainDetachDeviceFlagsArgs { dom, xml, flags });
-        let (_header, _res) = call::<RemoteDomainDetachDeviceFlagsArgs, ()>(
+        let _res = call::<RemoteDomainDetachDeviceFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainDetachDeviceFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -2461,12 +2636,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_baseline_cpu));
         let req: Option<RemoteConnectBaselineCpuArgs> =
             Some(RemoteConnectBaselineCpuArgs { xml_cpus, flags });
-        let (_header, res) = call::<RemoteConnectBaselineCpuArgs, RemoteConnectBaselineCpuRet>(
+        let res = call::<RemoteConnectBaselineCpuArgs, RemoteConnectBaselineCpuRet>(
             self,
             RemoteProcedure::RemoteProcConnectBaselineCpu,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectBaselineCpuRet { cpu } = res;
         Ok(cpu)
     }
@@ -2476,19 +2652,21 @@ pub trait Libvirt: Send + Sized + 'static {
     ) -> Result<RemoteDomainGetJobInfoRet, Error> {
         trace!("{}", stringify!(domain_get_job_info));
         let req: Option<RemoteDomainGetJobInfoArgs> = Some(RemoteDomainGetJobInfoArgs { dom });
-        let (_header, res) = call::<RemoteDomainGetJobInfoArgs, RemoteDomainGetJobInfoRet>(
+        let res = call::<RemoteDomainGetJobInfoArgs, RemoteDomainGetJobInfoRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetJobInfo,
+            false,
             req,
         )?;
-        Ok(res.unwrap())
+        Ok(res.body.unwrap())
     }
     fn domain_abort_job(&mut self, dom: RemoteNonnullDomain) -> Result<(), Error> {
         trace!("{}", stringify!(domain_abort_job));
         let req: Option<RemoteDomainAbortJobArgs> = Some(RemoteDomainAbortJobArgs { dom });
-        let (_header, _res) = call::<RemoteDomainAbortJobArgs, ()>(
+        let _res = call::<RemoteDomainAbortJobArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainAbortJob,
+            false,
             req,
         )?;
         Ok(())
@@ -2496,9 +2674,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn storage_vol_wipe(&mut self, vol: RemoteNonnullStorageVol, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(storage_vol_wipe));
         let req: Option<RemoteStorageVolWipeArgs> = Some(RemoteStorageVolWipeArgs { vol, flags });
-        let (_header, _res) = call::<RemoteStorageVolWipeArgs, ()>(
+        let _res = call::<RemoteStorageVolWipeArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStorageVolWipe,
+            false,
             req,
         )?;
         Ok(())
@@ -2516,9 +2695,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 downtime,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainMigrateSetMaxDowntimeArgs, ()>(
+        let _res = call::<RemoteDomainMigrateSetMaxDowntimeArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainMigrateSetMaxDowntime,
+            false,
             req,
         )?;
         Ok(())
@@ -2527,9 +2707,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_domain_event_register_any));
         let req: Option<RemoteConnectDomainEventRegisterAnyArgs> =
             Some(RemoteConnectDomainEventRegisterAnyArgs { event_id });
-        let (_header, _res) = call::<RemoteConnectDomainEventRegisterAnyArgs, ()>(
+        let _res = call::<RemoteConnectDomainEventRegisterAnyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcConnectDomainEventRegisterAny,
+            false,
             req,
         )?;
         Ok(())
@@ -2538,9 +2719,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_domain_event_deregister_any));
         let req: Option<RemoteConnectDomainEventDeregisterAnyArgs> =
             Some(RemoteConnectDomainEventDeregisterAnyArgs { event_id });
-        let (_header, _res) = call::<RemoteConnectDomainEventDeregisterAnyArgs, ()>(
+        let _res = call::<RemoteConnectDomainEventDeregisterAnyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcConnectDomainEventDeregisterAny,
+            false,
             req,
         )?;
         Ok(())
@@ -2548,36 +2730,56 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_reboot(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_reboot));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventReboot, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventReboot,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_event_rtc_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_rtc_change));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventRtcChange, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventRtcChange,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_event_watchdog(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_watchdog));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventWatchdog, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventWatchdog,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_event_io_error(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_io_error));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventIoError, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventIoError,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_event_graphics(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_graphics));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventGraphics, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventGraphics,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_update_device_flags(
@@ -2589,9 +2791,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_update_device_flags));
         let req: Option<RemoteDomainUpdateDeviceFlagsArgs> =
             Some(RemoteDomainUpdateDeviceFlagsArgs { dom, xml, flags });
-        let (_header, _res) = call::<RemoteDomainUpdateDeviceFlagsArgs, ()>(
+        let _res = call::<RemoteDomainUpdateDeviceFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainUpdateDeviceFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -2600,12 +2803,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(nwfilter_lookup_by_name));
         let req: Option<RemoteNwfilterLookupByNameArgs> =
             Some(RemoteNwfilterLookupByNameArgs { name });
-        let (_header, res) = call::<RemoteNwfilterLookupByNameArgs, RemoteNwfilterLookupByNameRet>(
+        let res = call::<RemoteNwfilterLookupByNameArgs, RemoteNwfilterLookupByNameRet>(
             self,
             RemoteProcedure::RemoteProcNwfilterLookupByName,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNwfilterLookupByNameRet { nwfilter } = res;
         Ok(nwfilter)
     }
@@ -2616,12 +2820,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(nwfilter_lookup_by_uuid));
         let req: Option<RemoteNwfilterLookupByUuidArgs> =
             Some(RemoteNwfilterLookupByUuidArgs { uuid });
-        let (_header, res) = call::<RemoteNwfilterLookupByUuidArgs, RemoteNwfilterLookupByUuidRet>(
+        let res = call::<RemoteNwfilterLookupByUuidArgs, RemoteNwfilterLookupByUuidRet>(
             self,
             RemoteProcedure::RemoteProcNwfilterLookupByUuid,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNwfilterLookupByUuidRet { nwfilter } = res;
         Ok(nwfilter)
     }
@@ -2633,24 +2838,26 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(nwfilter_get_xml_desc));
         let req: Option<RemoteNwfilterGetXmlDescArgs> =
             Some(RemoteNwfilterGetXmlDescArgs { nwfilter, flags });
-        let (_header, res) = call::<RemoteNwfilterGetXmlDescArgs, RemoteNwfilterGetXmlDescRet>(
+        let res = call::<RemoteNwfilterGetXmlDescArgs, RemoteNwfilterGetXmlDescRet>(
             self,
             RemoteProcedure::RemoteProcNwfilterGetXmlDesc,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNwfilterGetXmlDescRet { xml } = res;
         Ok(xml)
     }
     fn connect_num_of_nwfilters(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_num_of_nwfilters));
         let req: Option<()> = None;
-        let (_header, res) = call::<(), RemoteConnectNumOfNwfiltersRet>(
+        let res = call::<(), RemoteConnectNumOfNwfiltersRet>(
             self,
             RemoteProcedure::RemoteProcConnectNumOfNwfilters,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNumOfNwfiltersRet { num } = res;
         Ok(num)
     }
@@ -2658,33 +2865,36 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_list_nwfilters));
         let req: Option<RemoteConnectListNwfiltersArgs> =
             Some(RemoteConnectListNwfiltersArgs { maxnames });
-        let (_header, res) = call::<RemoteConnectListNwfiltersArgs, RemoteConnectListNwfiltersRet>(
+        let res = call::<RemoteConnectListNwfiltersArgs, RemoteConnectListNwfiltersRet>(
             self,
             RemoteProcedure::RemoteProcConnectListNwfilters,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListNwfiltersRet { names } = res;
         Ok(names)
     }
     fn nwfilter_define_xml(&mut self, xml: String) -> Result<RemoteNonnullNwfilter, Error> {
         trace!("{}", stringify!(nwfilter_define_xml));
         let req: Option<RemoteNwfilterDefineXmlArgs> = Some(RemoteNwfilterDefineXmlArgs { xml });
-        let (_header, res) = call::<RemoteNwfilterDefineXmlArgs, RemoteNwfilterDefineXmlRet>(
+        let res = call::<RemoteNwfilterDefineXmlArgs, RemoteNwfilterDefineXmlRet>(
             self,
             RemoteProcedure::RemoteProcNwfilterDefineXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNwfilterDefineXmlRet { nwfilter } = res;
         Ok(nwfilter)
     }
     fn nwfilter_undefine(&mut self, nwfilter: RemoteNonnullNwfilter) -> Result<(), Error> {
         trace!("{}", stringify!(nwfilter_undefine));
         let req: Option<RemoteNwfilterUndefineArgs> = Some(RemoteNwfilterUndefineArgs { nwfilter });
-        let (_header, _res) = call::<RemoteNwfilterUndefineArgs, ()>(
+        let _res = call::<RemoteNwfilterUndefineArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNwfilterUndefine,
+            false,
             req,
         )?;
         Ok(())
@@ -2693,9 +2903,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_managed_save));
         let req: Option<RemoteDomainManagedSaveArgs> =
             Some(RemoteDomainManagedSaveArgs { dom, flags });
-        let (_header, _res) = call::<RemoteDomainManagedSaveArgs, ()>(
+        let _res = call::<RemoteDomainManagedSaveArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainManagedSave,
+            false,
             req,
         )?;
         Ok(())
@@ -2708,13 +2919,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_has_managed_save_image));
         let req: Option<RemoteDomainHasManagedSaveImageArgs> =
             Some(RemoteDomainHasManagedSaveImageArgs { dom, flags });
-        let (_header, res) =
-            call::<RemoteDomainHasManagedSaveImageArgs, RemoteDomainHasManagedSaveImageRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainHasManagedSaveImage,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainHasManagedSaveImageArgs, RemoteDomainHasManagedSaveImageRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainHasManagedSaveImage,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainHasManagedSaveImageRet { result } = res;
         Ok(result)
     }
@@ -2726,9 +2937,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_managed_save_remove));
         let req: Option<RemoteDomainManagedSaveRemoveArgs> =
             Some(RemoteDomainManagedSaveRemoveArgs { dom, flags });
-        let (_header, _res) = call::<RemoteDomainManagedSaveRemoveArgs, ()>(
+        let _res = call::<RemoteDomainManagedSaveRemoveArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainManagedSaveRemove,
+            false,
             req,
         )?;
         Ok(())
@@ -2746,13 +2958,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 xml_desc,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteDomainSnapshotCreateXmlArgs, RemoteDomainSnapshotCreateXmlRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainSnapshotCreateXml,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainSnapshotCreateXmlArgs, RemoteDomainSnapshotCreateXmlRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainSnapshotCreateXml,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotCreateXmlRet { snap } = res;
         Ok(snap)
     }
@@ -2764,13 +2976,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_snapshot_get_xml_desc));
         let req: Option<RemoteDomainSnapshotGetXmlDescArgs> =
             Some(RemoteDomainSnapshotGetXmlDescArgs { snap, flags });
-        let (_header, res) =
-            call::<RemoteDomainSnapshotGetXmlDescArgs, RemoteDomainSnapshotGetXmlDescRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainSnapshotGetXmlDesc,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainSnapshotGetXmlDescArgs, RemoteDomainSnapshotGetXmlDescRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainSnapshotGetXmlDesc,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -2778,12 +2990,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_snapshot_num));
         let req: Option<RemoteDomainSnapshotNumArgs> =
             Some(RemoteDomainSnapshotNumArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainSnapshotNumArgs, RemoteDomainSnapshotNumRet>(
+        let res = call::<RemoteDomainSnapshotNumArgs, RemoteDomainSnapshotNumRet>(
             self,
             RemoteProcedure::RemoteProcDomainSnapshotNum,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotNumRet { num } = res;
         Ok(num)
     }
@@ -2800,13 +3013,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 maxnames,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteDomainSnapshotListNamesArgs, RemoteDomainSnapshotListNamesRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainSnapshotListNames,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainSnapshotListNamesArgs, RemoteDomainSnapshotListNamesRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainSnapshotListNames,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotListNamesRet { names } = res;
         Ok(names)
     }
@@ -2819,13 +3032,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_snapshot_lookup_by_name));
         let req: Option<RemoteDomainSnapshotLookupByNameArgs> =
             Some(RemoteDomainSnapshotLookupByNameArgs { dom, name, flags });
-        let (_header, res) =
-            call::<RemoteDomainSnapshotLookupByNameArgs, RemoteDomainSnapshotLookupByNameRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainSnapshotLookupByName,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainSnapshotLookupByNameArgs, RemoteDomainSnapshotLookupByNameRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainSnapshotLookupByName,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotLookupByNameRet { snap } = res;
         Ok(snap)
     }
@@ -2837,13 +3050,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_has_current_snapshot));
         let req: Option<RemoteDomainHasCurrentSnapshotArgs> =
             Some(RemoteDomainHasCurrentSnapshotArgs { dom, flags });
-        let (_header, res) =
-            call::<RemoteDomainHasCurrentSnapshotArgs, RemoteDomainHasCurrentSnapshotRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainHasCurrentSnapshot,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainHasCurrentSnapshotArgs, RemoteDomainHasCurrentSnapshotRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainHasCurrentSnapshot,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainHasCurrentSnapshotRet { result } = res;
         Ok(result)
     }
@@ -2855,12 +3068,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_snapshot_current));
         let req: Option<RemoteDomainSnapshotCurrentArgs> =
             Some(RemoteDomainSnapshotCurrentArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainSnapshotCurrentArgs, RemoteDomainSnapshotCurrentRet>(
+        let res = call::<RemoteDomainSnapshotCurrentArgs, RemoteDomainSnapshotCurrentRet>(
             self,
             RemoteProcedure::RemoteProcDomainSnapshotCurrent,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotCurrentRet { snap } = res;
         Ok(snap)
     }
@@ -2872,9 +3086,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_revert_to_snapshot));
         let req: Option<RemoteDomainRevertToSnapshotArgs> =
             Some(RemoteDomainRevertToSnapshotArgs { snap, flags });
-        let (_header, _res) = call::<RemoteDomainRevertToSnapshotArgs, ()>(
+        let _res = call::<RemoteDomainRevertToSnapshotArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainRevertToSnapshot,
+            false,
             req,
         )?;
         Ok(())
@@ -2887,9 +3102,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_snapshot_delete));
         let req: Option<RemoteDomainSnapshotDeleteArgs> =
             Some(RemoteDomainSnapshotDeleteArgs { snap, flags });
-        let (_header, _res) = call::<RemoteDomainSnapshotDeleteArgs, ()>(
+        let _res = call::<RemoteDomainSnapshotDeleteArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSnapshotDelete,
+            false,
             req,
         )?;
         Ok(())
@@ -2903,12 +3119,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_block_info));
         let req: Option<RemoteDomainGetBlockInfoArgs> =
             Some(RemoteDomainGetBlockInfoArgs { dom, path, flags });
-        let (_header, res) = call::<RemoteDomainGetBlockInfoArgs, RemoteDomainGetBlockInfoRet>(
+        let res = call::<RemoteDomainGetBlockInfoArgs, RemoteDomainGetBlockInfoRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetBlockInfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetBlockInfoRet {
             allocation,
             capacity,
@@ -2919,9 +3136,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_io_error_reason(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_io_error_reason));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventIoErrorReason,
+            false,
             req,
         )?;
         Ok(())
@@ -2934,12 +3152,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_create_with_flags));
         let req: Option<RemoteDomainCreateWithFlagsArgs> =
             Some(RemoteDomainCreateWithFlagsArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainCreateWithFlagsArgs, RemoteDomainCreateWithFlagsRet>(
+        let res = call::<RemoteDomainCreateWithFlagsArgs, RemoteDomainCreateWithFlagsRet>(
             self,
             RemoteProcedure::RemoteProcDomainCreateWithFlags,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainCreateWithFlagsRet { dom } = res;
         Ok(dom)
     }
@@ -2952,9 +3171,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_memory_parameters));
         let req: Option<RemoteDomainSetMemoryParametersArgs> =
             Some(RemoteDomainSetMemoryParametersArgs { dom, params, flags });
-        let (_header, _res) = call::<RemoteDomainSetMemoryParametersArgs, ()>(
+        let _res = call::<RemoteDomainSetMemoryParametersArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetMemoryParameters,
+            false,
             req,
         )?;
         Ok(())
@@ -2972,13 +3192,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 nparams,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteDomainGetMemoryParametersArgs, RemoteDomainGetMemoryParametersRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainGetMemoryParameters,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainGetMemoryParametersArgs, RemoteDomainGetMemoryParametersRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainGetMemoryParameters,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainGetMemoryParametersRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -2991,9 +3211,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_vcpus_flags));
         let req: Option<RemoteDomainSetVcpusFlagsArgs> =
             Some(RemoteDomainSetVcpusFlagsArgs { dom, nvcpus, flags });
-        let (_header, _res) = call::<RemoteDomainSetVcpusFlagsArgs, ()>(
+        let _res = call::<RemoteDomainSetVcpusFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetVcpusFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -3006,12 +3227,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_vcpus_flags));
         let req: Option<RemoteDomainGetVcpusFlagsArgs> =
             Some(RemoteDomainGetVcpusFlagsArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetVcpusFlagsArgs, RemoteDomainGetVcpusFlagsRet>(
+        let res = call::<RemoteDomainGetVcpusFlagsArgs, RemoteDomainGetVcpusFlagsRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetVcpusFlags,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetVcpusFlagsRet { num } = res;
         Ok(num)
     }
@@ -3027,38 +3249,43 @@ pub trait Libvirt: Send + Sized + 'static {
             dev_name,
             flags,
         });
-        let (header, _res) = call::<RemoteDomainOpenConsoleArgs, ()>(
+        let res = call::<RemoteDomainOpenConsoleArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainOpenConsole,
+            true,
             req,
         )?;
         let res = VirNetStreamResponse {
             inner: self.inner_clone()?,
-            header,
+            channels: self.channel_clone(),
+            receiver: res.receiver.unwrap(),
+            header: res.header,
         };
         Ok(res)
     }
     fn domain_is_updated(&mut self, dom: RemoteNonnullDomain) -> Result<i32, Error> {
         trace!("{}", stringify!(domain_is_updated));
         let req: Option<RemoteDomainIsUpdatedArgs> = Some(RemoteDomainIsUpdatedArgs { dom });
-        let (_header, res) = call::<RemoteDomainIsUpdatedArgs, RemoteDomainIsUpdatedRet>(
+        let res = call::<RemoteDomainIsUpdatedArgs, RemoteDomainIsUpdatedRet>(
             self,
             RemoteProcedure::RemoteProcDomainIsUpdated,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainIsUpdatedRet { updated } = res;
         Ok(updated)
     }
     fn connect_get_sysinfo(&mut self, flags: u32) -> Result<String, Error> {
         trace!("{}", stringify!(connect_get_sysinfo));
         let req: Option<RemoteConnectGetSysinfoArgs> = Some(RemoteConnectGetSysinfoArgs { flags });
-        let (_header, res) = call::<RemoteConnectGetSysinfoArgs, RemoteConnectGetSysinfoRet>(
+        let res = call::<RemoteConnectGetSysinfoArgs, RemoteConnectGetSysinfoRet>(
             self,
             RemoteProcedure::RemoteProcConnectGetSysinfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectGetSysinfoRet { sysinfo } = res;
         Ok(sysinfo)
     }
@@ -3071,9 +3298,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_memory_flags));
         let req: Option<RemoteDomainSetMemoryFlagsArgs> =
             Some(RemoteDomainSetMemoryFlagsArgs { dom, memory, flags });
-        let (_header, _res) = call::<RemoteDomainSetMemoryFlagsArgs, ()>(
+        let _res = call::<RemoteDomainSetMemoryFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetMemoryFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -3087,9 +3315,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_blkio_parameters));
         let req: Option<RemoteDomainSetBlkioParametersArgs> =
             Some(RemoteDomainSetBlkioParametersArgs { dom, params, flags });
-        let (_header, _res) = call::<RemoteDomainSetBlkioParametersArgs, ()>(
+        let _res = call::<RemoteDomainSetBlkioParametersArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetBlkioParameters,
+            false,
             req,
         )?;
         Ok(())
@@ -3107,13 +3336,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 nparams,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteDomainGetBlkioParametersArgs, RemoteDomainGetBlkioParametersRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainGetBlkioParameters,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainGetBlkioParametersArgs, RemoteDomainGetBlkioParametersRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainGetBlkioParameters,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainGetBlkioParametersRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -3130,9 +3359,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 bandwidth,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainMigrateSetMaxSpeedArgs, ()>(
+        let _res = call::<RemoteDomainMigrateSetMaxSpeedArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainMigrateSetMaxSpeed,
+            false,
             req,
         )?;
         Ok(())
@@ -3151,14 +3381,17 @@ pub trait Libvirt: Send + Sized + 'static {
             length,
             flags,
         });
-        let (header, _res) = call::<RemoteStorageVolUploadArgs, ()>(
+        let res = call::<RemoteStorageVolUploadArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStorageVolUpload,
+            true,
             req,
         )?;
         let res = VirNetStreamResponse {
             inner: self.inner_clone()?,
-            header,
+            channels: self.channel_clone(),
+            receiver: res.receiver.unwrap(),
+            header: res.header,
         };
         Ok(res)
     }
@@ -3176,23 +3409,27 @@ pub trait Libvirt: Send + Sized + 'static {
             length,
             flags,
         });
-        let (header, _res) = call::<RemoteStorageVolDownloadArgs, ()>(
+        let res = call::<RemoteStorageVolDownloadArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStorageVolDownload,
+            true,
             req,
         )?;
         let res = VirNetStreamResponse {
             inner: self.inner_clone()?,
-            header,
+            channels: self.channel_clone(),
+            receiver: res.receiver.unwrap(),
+            header: res.header,
         };
         Ok(res)
     }
     fn domain_inject_nmi(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_inject_nmi));
         let req: Option<RemoteDomainInjectNmiArgs> = Some(RemoteDomainInjectNmiArgs { dom, flags });
-        let (_header, _res) = call::<RemoteDomainInjectNmiArgs, ()>(
+        let _res = call::<RemoteDomainInjectNmiArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainInjectNmi,
+            false,
             req,
         )?;
         Ok(())
@@ -3206,12 +3443,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_screenshot));
         let req: Option<RemoteDomainScreenshotArgs> =
             Some(RemoteDomainScreenshotArgs { dom, screen, flags });
-        let (_header, res) = call::<RemoteDomainScreenshotArgs, RemoteDomainScreenshotRet>(
+        let res = call::<RemoteDomainScreenshotArgs, RemoteDomainScreenshotRet>(
             self,
             RemoteProcedure::RemoteProcDomainScreenshot,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainScreenshotRet { mime } = res;
         Ok(mime)
     }
@@ -3222,12 +3460,13 @@ pub trait Libvirt: Send + Sized + 'static {
     ) -> Result<(i32, i32), Error> {
         trace!("{}", stringify!(domain_get_state));
         let req: Option<RemoteDomainGetStateArgs> = Some(RemoteDomainGetStateArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetStateArgs, RemoteDomainGetStateRet>(
+        let res = call::<RemoteDomainGetStateArgs, RemoteDomainGetStateRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetState,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetStateRet { state, reason } = res;
         Ok((state, reason))
     }
@@ -3247,12 +3486,13 @@ pub trait Libvirt: Send + Sized + 'static {
             dname,
             bandwidth,
         });
-        let (_header, res) = call::<RemoteDomainMigrateBegin3Args, RemoteDomainMigrateBegin3Ret>(
+        let res = call::<RemoteDomainMigrateBegin3Args, RemoteDomainMigrateBegin3Ret>(
             self,
             RemoteProcedure::RemoteProcDomainMigrateBegin3,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigrateBegin3Ret { cookie_out, xml } = res;
         Ok((cookie_out, xml))
     }
@@ -3274,12 +3514,13 @@ pub trait Libvirt: Send + Sized + 'static {
             bandwidth,
             dom_xml,
         });
-        let (_header, res) = call::<RemoteDomainMigratePrepare3Args, RemoteDomainMigratePrepare3Ret>(
+        let res = call::<RemoteDomainMigratePrepare3Args, RemoteDomainMigratePrepare3Ret>(
             self,
             RemoteProcedure::RemoteProcDomainMigratePrepare3,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigratePrepare3Ret {
             cookie_out,
             uri_out,
@@ -3303,13 +3544,14 @@ pub trait Libvirt: Send + Sized + 'static {
                 bandwidth,
                 dom_xml,
             });
-        let (_header, res) =
+        let res =
             call::<RemoteDomainMigratePrepareTunnel3Args, RemoteDomainMigratePrepareTunnel3Ret>(
                 self,
                 RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigratePrepareTunnel3Ret { cookie_out } = res;
         Ok(cookie_out)
     }
@@ -3319,12 +3561,13 @@ pub trait Libvirt: Send + Sized + 'static {
     ) -> Result<Vec<u8>, Error> {
         trace!("{}", stringify!(domain_migrate_perform3));
         let req: Option<RemoteDomainMigratePerform3Args> = Some(args);
-        let (_header, res) = call::<RemoteDomainMigratePerform3Args, RemoteDomainMigratePerform3Ret>(
+        let res = call::<RemoteDomainMigratePerform3Args, RemoteDomainMigratePerform3Ret>(
             self,
             RemoteProcedure::RemoteProcDomainMigratePerform3,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigratePerform3Ret { cookie_out } = res;
         Ok(cookie_out)
     }
@@ -3346,12 +3589,13 @@ pub trait Libvirt: Send + Sized + 'static {
             flags,
             cancelled,
         });
-        let (_header, res) = call::<RemoteDomainMigrateFinish3Args, RemoteDomainMigrateFinish3Ret>(
+        let res = call::<RemoteDomainMigrateFinish3Args, RemoteDomainMigrateFinish3Ret>(
             self,
             RemoteProcedure::RemoteProcDomainMigrateFinish3,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigrateFinish3Ret { dom, cookie_out } = res;
         Ok((dom, cookie_out))
     }
@@ -3369,9 +3613,10 @@ pub trait Libvirt: Send + Sized + 'static {
             flags,
             cancelled,
         });
-        let (_header, _res) = call::<RemoteDomainMigrateConfirm3Args, ()>(
+        let _res = call::<RemoteDomainMigrateConfirm3Args, ()>(
             self,
             RemoteProcedure::RemoteProcDomainMigrateConfirm3,
+            false,
             req,
         )?;
         Ok(())
@@ -3385,9 +3630,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_scheduler_parameters_flags));
         let req: Option<RemoteDomainSetSchedulerParametersFlagsArgs> =
             Some(RemoteDomainSetSchedulerParametersFlagsArgs { dom, params, flags });
-        let (_header, _res) = call::<RemoteDomainSetSchedulerParametersFlagsArgs, ()>(
+        let _res = call::<RemoteDomainSetSchedulerParametersFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetSchedulerParametersFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -3396,9 +3642,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(interface_change_begin));
         let req: Option<RemoteInterfaceChangeBeginArgs> =
             Some(RemoteInterfaceChangeBeginArgs { flags });
-        let (_header, _res) = call::<RemoteInterfaceChangeBeginArgs, ()>(
+        let _res = call::<RemoteInterfaceChangeBeginArgs, ()>(
             self,
             RemoteProcedure::RemoteProcInterfaceChangeBegin,
+            false,
             req,
         )?;
         Ok(())
@@ -3407,9 +3654,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(interface_change_commit));
         let req: Option<RemoteInterfaceChangeCommitArgs> =
             Some(RemoteInterfaceChangeCommitArgs { flags });
-        let (_header, _res) = call::<RemoteInterfaceChangeCommitArgs, ()>(
+        let _res = call::<RemoteInterfaceChangeCommitArgs, ()>(
             self,
             RemoteProcedure::RemoteProcInterfaceChangeCommit,
+            false,
             req,
         )?;
         Ok(())
@@ -3418,9 +3666,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(interface_change_rollback));
         let req: Option<RemoteInterfaceChangeRollbackArgs> =
             Some(RemoteInterfaceChangeRollbackArgs { flags });
-        let (_header, _res) = call::<RemoteInterfaceChangeRollbackArgs, ()>(
+        let _res = call::<RemoteInterfaceChangeRollbackArgs, ()>(
             self,
             RemoteProcedure::RemoteProcInterfaceChangeRollback,
+            false,
             req,
         )?;
         Ok(())
@@ -3438,24 +3687,26 @@ pub trait Libvirt: Send + Sized + 'static {
                 nparams,
                 flags,
             });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteDomainGetSchedulerParametersFlagsArgs,
             RemoteDomainGetSchedulerParametersFlagsRet,
         >(
             self,
             RemoteProcedure::RemoteProcDomainGetSchedulerParametersFlags,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetSchedulerParametersFlagsRet { params } = res;
         Ok(params)
     }
     fn domain_event_control_error(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_control_error));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventControlError,
+            false,
             req,
         )?;
         Ok(())
@@ -3474,9 +3725,10 @@ pub trait Libvirt: Send + Sized + 'static {
             cpumap,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainPinVcpuFlagsArgs, ()>(
+        let _res = call::<RemoteDomainPinVcpuFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainPinVcpuFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -3497,9 +3749,10 @@ pub trait Libvirt: Send + Sized + 'static {
             keycodes,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainSendKeyArgs, ()>(
+        let _res = call::<RemoteDomainSendKeyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSendKey,
+            false,
             req,
         )?;
         Ok(())
@@ -3516,12 +3769,13 @@ pub trait Libvirt: Send + Sized + 'static {
             nparams,
             flags,
         });
-        let (_header, res) = call::<RemoteNodeGetCpuStatsArgs, RemoteNodeGetCpuStatsRet>(
+        let res = call::<RemoteNodeGetCpuStatsArgs, RemoteNodeGetCpuStatsRet>(
             self,
             RemoteProcedure::RemoteProcNodeGetCpuStats,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeGetCpuStatsRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -3537,12 +3791,13 @@ pub trait Libvirt: Send + Sized + 'static {
             cell_num,
             flags,
         });
-        let (_header, res) = call::<RemoteNodeGetMemoryStatsArgs, RemoteNodeGetMemoryStatsRet>(
+        let res = call::<RemoteNodeGetMemoryStatsArgs, RemoteNodeGetMemoryStatsRet>(
             self,
             RemoteProcedure::RemoteProcNodeGetMemoryStats,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeGetMemoryStatsRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -3554,12 +3809,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_control_info));
         let req: Option<RemoteDomainGetControlInfoArgs> =
             Some(RemoteDomainGetControlInfoArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetControlInfoArgs, RemoteDomainGetControlInfoRet>(
+        let res = call::<RemoteDomainGetControlInfoArgs, RemoteDomainGetControlInfoRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetControlInfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetControlInfoRet {
             state,
             details,
@@ -3581,12 +3837,13 @@ pub trait Libvirt: Send + Sized + 'static {
             maplen,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainGetVcpuPinInfoArgs, RemoteDomainGetVcpuPinInfoRet>(
+        let res = call::<RemoteDomainGetVcpuPinInfoArgs, RemoteDomainGetVcpuPinInfoRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetVcpuPinInfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetVcpuPinInfoRet { cpumaps, num } = res;
         Ok((cpumaps, num))
     }
@@ -3594,9 +3851,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_undefine_flags));
         let req: Option<RemoteDomainUndefineFlagsArgs> =
             Some(RemoteDomainUndefineFlagsArgs { dom, flags });
-        let (_header, _res) = call::<RemoteDomainUndefineFlagsArgs, ()>(
+        let _res = call::<RemoteDomainUndefineFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainUndefineFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -3615,9 +3873,10 @@ pub trait Libvirt: Send + Sized + 'static {
             dxml,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainSaveFlagsArgs, ()>(
+        let _res = call::<RemoteDomainSaveFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSaveFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -3631,9 +3890,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_restore_flags));
         let req: Option<RemoteDomainRestoreFlagsArgs> =
             Some(RemoteDomainRestoreFlagsArgs { from, dxml, flags });
-        let (_header, _res) = call::<RemoteDomainRestoreFlagsArgs, ()>(
+        let _res = call::<RemoteDomainRestoreFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainRestoreFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -3642,9 +3902,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_destroy_flags));
         let req: Option<RemoteDomainDestroyFlagsArgs> =
             Some(RemoteDomainDestroyFlagsArgs { dom, flags });
-        let (_header, _res) = call::<RemoteDomainDestroyFlagsArgs, ()>(
+        let _res = call::<RemoteDomainDestroyFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainDestroyFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -3657,13 +3918,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_save_image_get_xml_desc));
         let req: Option<RemoteDomainSaveImageGetXmlDescArgs> =
             Some(RemoteDomainSaveImageGetXmlDescArgs { file, flags });
-        let (_header, res) =
-            call::<RemoteDomainSaveImageGetXmlDescArgs, RemoteDomainSaveImageGetXmlDescRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainSaveImageGetXmlDesc,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainSaveImageGetXmlDescArgs, RemoteDomainSaveImageGetXmlDescRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainSaveImageGetXmlDesc,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainSaveImageGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -3676,9 +3937,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_save_image_define_xml));
         let req: Option<RemoteDomainSaveImageDefineXmlArgs> =
             Some(RemoteDomainSaveImageDefineXmlArgs { file, dxml, flags });
-        let (_header, _res) = call::<RemoteDomainSaveImageDefineXmlArgs, ()>(
+        let _res = call::<RemoteDomainSaveImageDefineXmlArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSaveImageDefineXml,
+            false,
             req,
         )?;
         Ok(())
@@ -3692,9 +3954,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_block_job_abort));
         let req: Option<RemoteDomainBlockJobAbortArgs> =
             Some(RemoteDomainBlockJobAbortArgs { dom, path, flags });
-        let (_header, _res) = call::<RemoteDomainBlockJobAbortArgs, ()>(
+        let _res = call::<RemoteDomainBlockJobAbortArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainBlockJobAbort,
+            false,
             req,
         )?;
         Ok(())
@@ -3708,12 +3971,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_block_job_info));
         let req: Option<RemoteDomainGetBlockJobInfoArgs> =
             Some(RemoteDomainGetBlockJobInfoArgs { dom, path, flags });
-        let (_header, res) = call::<RemoteDomainGetBlockJobInfoArgs, RemoteDomainGetBlockJobInfoRet>(
+        let res = call::<RemoteDomainGetBlockJobInfoArgs, RemoteDomainGetBlockJobInfoRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetBlockJobInfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetBlockJobInfoRet {
             found,
             r#type,
@@ -3738,9 +4002,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 bandwidth,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainBlockJobSetSpeedArgs, ()>(
+        let _res = call::<RemoteDomainBlockJobSetSpeedArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainBlockJobSetSpeed,
+            false,
             req,
         )?;
         Ok(())
@@ -3759,9 +4024,10 @@ pub trait Libvirt: Send + Sized + 'static {
             bandwidth,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainBlockPullArgs, ()>(
+        let _res = call::<RemoteDomainBlockPullArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainBlockPull,
+            false,
             req,
         )?;
         Ok(())
@@ -3769,8 +4035,12 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_block_job(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_block_job));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventBlockJob, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventBlockJob,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_migrate_get_max_speed(
@@ -3781,13 +4051,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_migrate_get_max_speed));
         let req: Option<RemoteDomainMigrateGetMaxSpeedArgs> =
             Some(RemoteDomainMigrateGetMaxSpeedArgs { dom, flags });
-        let (_header, res) =
-            call::<RemoteDomainMigrateGetMaxSpeedArgs, RemoteDomainMigrateGetMaxSpeedRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainMigrateGetMaxSpeed,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainMigrateGetMaxSpeedArgs, RemoteDomainMigrateGetMaxSpeedRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainMigrateGetMaxSpeed,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainMigrateGetMaxSpeedRet { bandwidth } = res;
         Ok(bandwidth)
     }
@@ -3805,12 +4075,13 @@ pub trait Libvirt: Send + Sized + 'static {
             nparams,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainBlockStatsFlagsArgs, RemoteDomainBlockStatsFlagsRet>(
+        let res = call::<RemoteDomainBlockStatsFlagsArgs, RemoteDomainBlockStatsFlagsRet>(
             self,
             RemoteProcedure::RemoteProcDomainBlockStatsFlags,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainBlockStatsFlagsRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -3822,21 +4093,25 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_snapshot_get_parent));
         let req: Option<RemoteDomainSnapshotGetParentArgs> =
             Some(RemoteDomainSnapshotGetParentArgs { snap, flags });
-        let (_header, res) =
-            call::<RemoteDomainSnapshotGetParentArgs, RemoteDomainSnapshotGetParentRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainSnapshotGetParent,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainSnapshotGetParentArgs, RemoteDomainSnapshotGetParentRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainSnapshotGetParent,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotGetParentRet { snap } = res;
         Ok(snap)
     }
     fn domain_reset(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_reset));
         let req: Option<RemoteDomainResetArgs> = Some(RemoteDomainResetArgs { dom, flags });
-        let (_header, _res) =
-            call::<RemoteDomainResetArgs, ()>(self, RemoteProcedure::RemoteProcDomainReset, req)?;
+        let _res = call::<RemoteDomainResetArgs, ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainReset,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_snapshot_num_children(
@@ -3847,13 +4122,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_snapshot_num_children));
         let req: Option<RemoteDomainSnapshotNumChildrenArgs> =
             Some(RemoteDomainSnapshotNumChildrenArgs { snap, flags });
-        let (_header, res) =
-            call::<RemoteDomainSnapshotNumChildrenArgs, RemoteDomainSnapshotNumChildrenRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainSnapshotNumChildren,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainSnapshotNumChildrenArgs, RemoteDomainSnapshotNumChildrenRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainSnapshotNumChildren,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotNumChildrenRet { num } = res;
         Ok(num)
     }
@@ -3870,23 +4145,28 @@ pub trait Libvirt: Send + Sized + 'static {
                 maxnames,
                 flags,
             });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteDomainSnapshotListChildrenNamesArgs,
             RemoteDomainSnapshotListChildrenNamesRet,
         >(
             self,
             RemoteProcedure::RemoteProcDomainSnapshotListChildrenNames,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotListChildrenNamesRet { names } = res;
         Ok(names)
     }
     fn domain_event_disk_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_disk_change));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventDiskChange, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventDiskChange,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_open_graphics(
@@ -3898,9 +4178,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_open_graphics));
         let req: Option<RemoteDomainOpenGraphicsArgs> =
             Some(RemoteDomainOpenGraphicsArgs { dom, idx, flags });
-        let (_header, _res) = call::<RemoteDomainOpenGraphicsArgs, ()>(
+        let _res = call::<RemoteDomainOpenGraphicsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainOpenGraphics,
+            false,
             req,
         )?;
         Ok(())
@@ -3918,9 +4199,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 duration,
                 flags,
             });
-        let (_header, _res) = call::<RemoteNodeSuspendForDurationArgs, ()>(
+        let _res = call::<RemoteNodeSuspendForDurationArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeSuspendForDuration,
+            false,
             req,
         )?;
         Ok(())
@@ -3939,9 +4221,10 @@ pub trait Libvirt: Send + Sized + 'static {
             size,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainBlockResizeArgs, ()>(
+        let _res = call::<RemoteDomainBlockResizeArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainBlockResize,
+            false,
             req,
         )?;
         Ok(())
@@ -3960,9 +4243,10 @@ pub trait Libvirt: Send + Sized + 'static {
             params,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainSetBlockIoTuneArgs, ()>(
+        let _res = call::<RemoteDomainSetBlockIoTuneArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetBlockIoTune,
+            false,
             req,
         )?;
         Ok(())
@@ -3981,12 +4265,13 @@ pub trait Libvirt: Send + Sized + 'static {
             nparams,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainGetBlockIoTuneArgs, RemoteDomainGetBlockIoTuneRet>(
+        let res = call::<RemoteDomainGetBlockIoTuneArgs, RemoteDomainGetBlockIoTuneRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetBlockIoTune,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetBlockIoTuneRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -3999,9 +4284,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_numa_parameters));
         let req: Option<RemoteDomainSetNumaParametersArgs> =
             Some(RemoteDomainSetNumaParametersArgs { dom, params, flags });
-        let (_header, _res) = call::<RemoteDomainSetNumaParametersArgs, ()>(
+        let _res = call::<RemoteDomainSetNumaParametersArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetNumaParameters,
+            false,
             req,
         )?;
         Ok(())
@@ -4019,13 +4305,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 nparams,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteDomainGetNumaParametersArgs, RemoteDomainGetNumaParametersRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainGetNumaParameters,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainGetNumaParametersArgs, RemoteDomainGetNumaParametersRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainGetNumaParameters,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainGetNumaParametersRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -4044,9 +4330,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 params,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainSetInterfaceParametersArgs, ()>(
+        let _res = call::<RemoteDomainSetInterfaceParametersArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetInterfaceParameters,
+            false,
             req,
         )?;
         Ok(())
@@ -4066,13 +4353,14 @@ pub trait Libvirt: Send + Sized + 'static {
                 nparams,
                 flags,
             });
-        let (_header, res) =
+        let res =
             call::<RemoteDomainGetInterfaceParametersArgs, RemoteDomainGetInterfaceParametersRet>(
                 self,
                 RemoteProcedure::RemoteProcDomainGetInterfaceParameters,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetInterfaceParametersRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -4080,9 +4368,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_shutdown_flags));
         let req: Option<RemoteDomainShutdownFlagsArgs> =
             Some(RemoteDomainShutdownFlagsArgs { dom, flags });
-        let (_header, _res) = call::<RemoteDomainShutdownFlagsArgs, ()>(
+        let _res = call::<RemoteDomainShutdownFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainShutdownFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -4099,9 +4388,10 @@ pub trait Libvirt: Send + Sized + 'static {
             algorithm,
             flags,
         });
-        let (_header, _res) = call::<RemoteStorageVolWipePatternArgs, ()>(
+        let _res = call::<RemoteStorageVolWipePatternArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStorageVolWipePattern,
+            false,
             req,
         )?;
         Ok(())
@@ -4118,9 +4408,10 @@ pub trait Libvirt: Send + Sized + 'static {
             capacity,
             flags,
         });
-        let (_header, _res) = call::<RemoteStorageVolResizeArgs, ()>(
+        let _res = call::<RemoteStorageVolResizeArgs, ()>(
             self,
             RemoteProcedure::RemoteProcStorageVolResize,
+            false,
             req,
         )?;
         Ok(())
@@ -4140,9 +4431,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 duration,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainPmSuspendForDurationArgs, ()>(
+        let _res = call::<RemoteDomainPmSuspendForDurationArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainPmSuspendForDuration,
+            false,
             req,
         )?;
         Ok(())
@@ -4163,12 +4455,13 @@ pub trait Libvirt: Send + Sized + 'static {
             ncpus,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainGetCpuStatsArgs, RemoteDomainGetCpuStatsRet>(
+        let res = call::<RemoteDomainGetCpuStatsArgs, RemoteDomainGetCpuStatsRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetCpuStats,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetCpuStatsRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -4184,12 +4477,13 @@ pub trait Libvirt: Send + Sized + 'static {
             maxerrors,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainGetDiskErrorsArgs, RemoteDomainGetDiskErrorsRet>(
+        let res = call::<RemoteDomainGetDiskErrorsArgs, RemoteDomainGetDiskErrorsRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetDiskErrors,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetDiskErrorsRet { errors, nerrors } = res;
         Ok((errors, nerrors))
     }
@@ -4211,9 +4505,10 @@ pub trait Libvirt: Send + Sized + 'static {
             uri,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainSetMetadataArgs, ()>(
+        let _res = call::<RemoteDomainSetMetadataArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetMetadata,
+            false,
             req,
         )?;
         Ok(())
@@ -4232,12 +4527,13 @@ pub trait Libvirt: Send + Sized + 'static {
             uri,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainGetMetadataArgs, RemoteDomainGetMetadataRet>(
+        let res = call::<RemoteDomainGetMetadataArgs, RemoteDomainGetMetadataRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetMetadata,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetMetadataRet { metadata } = res;
         Ok(metadata)
     }
@@ -4257,9 +4553,10 @@ pub trait Libvirt: Send + Sized + 'static {
             bandwidth,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainBlockRebaseArgs, ()>(
+        let _res = call::<RemoteDomainBlockRebaseArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainBlockRebase,
+            false,
             req,
         )?;
         Ok(())
@@ -4267,9 +4564,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_pm_wakeup(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(domain_pm_wakeup));
         let req: Option<RemoteDomainPmWakeupArgs> = Some(RemoteDomainPmWakeupArgs { dom, flags });
-        let (_header, _res) = call::<RemoteDomainPmWakeupArgs, ()>(
+        let _res = call::<RemoteDomainPmWakeupArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainPmWakeup,
+            false,
             req,
         )?;
         Ok(())
@@ -4277,22 +4575,34 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_tray_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_tray_change));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventTrayChange, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventTrayChange,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_event_pmwakeup(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_pmwakeup));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventPmwakeup, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventPmwakeup,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_event_pmsuspend(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_pmsuspend));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventPmsuspend, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventPmsuspend,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_snapshot_is_current(
@@ -4303,13 +4613,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_snapshot_is_current));
         let req: Option<RemoteDomainSnapshotIsCurrentArgs> =
             Some(RemoteDomainSnapshotIsCurrentArgs { snap, flags });
-        let (_header, res) =
-            call::<RemoteDomainSnapshotIsCurrentArgs, RemoteDomainSnapshotIsCurrentRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainSnapshotIsCurrent,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainSnapshotIsCurrentArgs, RemoteDomainSnapshotIsCurrentRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainSnapshotIsCurrent,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotIsCurrentRet { current } = res;
         Ok(current)
     }
@@ -4321,13 +4631,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_snapshot_has_metadata));
         let req: Option<RemoteDomainSnapshotHasMetadataArgs> =
             Some(RemoteDomainSnapshotHasMetadataArgs { snap, flags });
-        let (_header, res) =
-            call::<RemoteDomainSnapshotHasMetadataArgs, RemoteDomainSnapshotHasMetadataRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainSnapshotHasMetadata,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainSnapshotHasMetadataArgs, RemoteDomainSnapshotHasMetadataRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainSnapshotHasMetadata,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotHasMetadataRet { metadata } = res;
         Ok(metadata)
     }
@@ -4341,12 +4651,13 @@ pub trait Libvirt: Send + Sized + 'static {
             need_results,
             flags,
         });
-        let (_header, res) = call::<RemoteConnectListAllDomainsArgs, RemoteConnectListAllDomainsRet>(
+        let res = call::<RemoteConnectListAllDomainsArgs, RemoteConnectListAllDomainsRet>(
             self,
             RemoteProcedure::RemoteProcConnectListAllDomains,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListAllDomainsRet { domains, ret } = res;
         Ok((domains, ret))
     }
@@ -4363,13 +4674,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) = call::<
-            RemoteDomainListAllSnapshotsArgs,
-            RemoteDomainListAllSnapshotsRet,
-        >(
-            self, RemoteProcedure::RemoteProcDomainListAllSnapshots, req
+        let res = call::<RemoteDomainListAllSnapshotsArgs, RemoteDomainListAllSnapshotsRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainListAllSnapshots,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainListAllSnapshotsRet { snapshots, ret } = res;
         Ok((snapshots, ret))
     }
@@ -4386,24 +4697,26 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteDomainSnapshotListAllChildrenArgs,
             RemoteDomainSnapshotListAllChildrenRet,
         >(
             self,
             RemoteProcedure::RemoteProcDomainSnapshotListAllChildren,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainSnapshotListAllChildrenRet { snapshots, ret } = res;
         Ok((snapshots, ret))
     }
     fn domain_event_balloon_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_balloon_change));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventBalloonChange,
+            false,
             req,
         )?;
         Ok(())
@@ -4416,12 +4729,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_hostname));
         let req: Option<RemoteDomainGetHostnameArgs> =
             Some(RemoteDomainGetHostnameArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetHostnameArgs, RemoteDomainGetHostnameRet>(
+        let res = call::<RemoteDomainGetHostnameArgs, RemoteDomainGetHostnameRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetHostname,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetHostnameRet { hostname } = res;
         Ok(hostname)
     }
@@ -4432,13 +4746,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_security_label_list));
         let req: Option<RemoteDomainGetSecurityLabelListArgs> =
             Some(RemoteDomainGetSecurityLabelListArgs { dom });
-        let (_header, res) =
-            call::<RemoteDomainGetSecurityLabelListArgs, RemoteDomainGetSecurityLabelListRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainGetSecurityLabelList,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainGetSecurityLabelListArgs, RemoteDomainGetSecurityLabelListRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainGetSecurityLabelList,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainGetSecurityLabelListRet { labels, ret } = res;
         Ok((labels, ret))
     }
@@ -4451,9 +4765,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_pin_emulator));
         let req: Option<RemoteDomainPinEmulatorArgs> =
             Some(RemoteDomainPinEmulatorArgs { dom, cpumap, flags });
-        let (_header, _res) = call::<RemoteDomainPinEmulatorArgs, ()>(
+        let _res = call::<RemoteDomainPinEmulatorArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainPinEmulator,
+            false,
             req,
         )?;
         Ok(())
@@ -4467,13 +4782,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_emulator_pin_info));
         let req: Option<RemoteDomainGetEmulatorPinInfoArgs> =
             Some(RemoteDomainGetEmulatorPinInfoArgs { dom, maplen, flags });
-        let (_header, res) =
-            call::<RemoteDomainGetEmulatorPinInfoArgs, RemoteDomainGetEmulatorPinInfoRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainGetEmulatorPinInfo,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainGetEmulatorPinInfoArgs, RemoteDomainGetEmulatorPinInfoRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainGetEmulatorPinInfo,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainGetEmulatorPinInfoRet { cpumaps, ret } = res;
         Ok((cpumaps, ret))
     }
@@ -4488,13 +4803,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteConnectListAllStoragePoolsArgs, RemoteConnectListAllStoragePoolsRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectListAllStoragePools,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectListAllStoragePoolsArgs, RemoteConnectListAllStoragePoolsRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectListAllStoragePools,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectListAllStoragePoolsRet { pools, ret } = res;
         Ok((pools, ret))
     }
@@ -4511,13 +4826,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteStoragePoolListAllVolumesArgs, RemoteStoragePoolListAllVolumesRet>(
-                self,
-                RemoteProcedure::RemoteProcStoragePoolListAllVolumes,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteStoragePoolListAllVolumesArgs, RemoteStoragePoolListAllVolumesRet>(
+            self,
+            RemoteProcedure::RemoteProcStoragePoolListAllVolumes,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteStoragePoolListAllVolumesRet { vols, ret } = res;
         Ok((vols, ret))
     }
@@ -4532,13 +4847,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) = call::<
-            RemoteConnectListAllNetworksArgs,
-            RemoteConnectListAllNetworksRet,
-        >(
-            self, RemoteProcedure::RemoteProcConnectListAllNetworks, req
+        let res = call::<RemoteConnectListAllNetworksArgs, RemoteConnectListAllNetworksRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectListAllNetworks,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListAllNetworksRet { nets, ret } = res;
         Ok((nets, ret))
     }
@@ -4553,13 +4868,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteConnectListAllInterfacesArgs, RemoteConnectListAllInterfacesRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectListAllInterfaces,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectListAllInterfacesArgs, RemoteConnectListAllInterfacesRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectListAllInterfaces,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectListAllInterfacesRet { ifaces, ret } = res;
         Ok((ifaces, ret))
     }
@@ -4574,13 +4889,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteConnectListAllNodeDevicesArgs, RemoteConnectListAllNodeDevicesRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectListAllNodeDevices,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectListAllNodeDevicesArgs, RemoteConnectListAllNodeDevicesRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectListAllNodeDevices,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectListAllNodeDevicesRet { devices, ret } = res;
         Ok((devices, ret))
     }
@@ -4595,13 +4910,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteConnectListAllNwfiltersArgs, RemoteConnectListAllNwfiltersRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectListAllNwfilters,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectListAllNwfiltersArgs, RemoteConnectListAllNwfiltersRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectListAllNwfilters,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectListAllNwfiltersRet { filters, ret } = res;
         Ok((filters, ret))
     }
@@ -4615,12 +4930,13 @@ pub trait Libvirt: Send + Sized + 'static {
             need_results,
             flags,
         });
-        let (_header, res) = call::<RemoteConnectListAllSecretsArgs, RemoteConnectListAllSecretsRet>(
+        let res = call::<RemoteConnectListAllSecretsArgs, RemoteConnectListAllSecretsRet>(
             self,
             RemoteProcedure::RemoteProcConnectListAllSecrets,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListAllSecretsRet { secrets, ret } = res;
         Ok((secrets, ret))
     }
@@ -4632,9 +4948,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_set_memory_parameters));
         let req: Option<RemoteNodeSetMemoryParametersArgs> =
             Some(RemoteNodeSetMemoryParametersArgs { params, flags });
-        let (_header, _res) = call::<RemoteNodeSetMemoryParametersArgs, ()>(
+        let _res = call::<RemoteNodeSetMemoryParametersArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeSetMemoryParameters,
+            false,
             req,
         )?;
         Ok(())
@@ -4647,13 +4964,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_get_memory_parameters));
         let req: Option<RemoteNodeGetMemoryParametersArgs> =
             Some(RemoteNodeGetMemoryParametersArgs { nparams, flags });
-        let (_header, res) =
-            call::<RemoteNodeGetMemoryParametersArgs, RemoteNodeGetMemoryParametersRet>(
-                self,
-                RemoteProcedure::RemoteProcNodeGetMemoryParameters,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteNodeGetMemoryParametersArgs, RemoteNodeGetMemoryParametersRet>(
+            self,
+            RemoteProcedure::RemoteProcNodeGetMemoryParameters,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteNodeGetMemoryParametersRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -4675,9 +4992,10 @@ pub trait Libvirt: Send + Sized + 'static {
             bandwidth,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainBlockCommitArgs, ()>(
+        let _res = call::<RemoteDomainBlockCommitArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainBlockCommit,
+            false,
             req,
         )?;
         Ok(())
@@ -4700,9 +5018,10 @@ pub trait Libvirt: Send + Sized + 'static {
             xml,
             flags,
         });
-        let (_header, _res) = call::<RemoteNetworkUpdateArgs, ()>(
+        let _res = call::<RemoteNetworkUpdateArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNetworkUpdate,
+            false,
             req,
         )?;
         Ok(())
@@ -4710,9 +5029,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_pmsuspend_disk(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_pmsuspend_disk));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventPmsuspendDisk,
+            false,
             req,
         )?;
         Ok(())
@@ -4729,12 +5049,13 @@ pub trait Libvirt: Send + Sized + 'static {
             need_online,
             flags,
         });
-        let (_header, res) = call::<RemoteNodeGetCpuMapArgs, RemoteNodeGetCpuMapRet>(
+        let res = call::<RemoteNodeGetCpuMapArgs, RemoteNodeGetCpuMapRet>(
             self,
             RemoteProcedure::RemoteProcNodeGetCpuMap,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeGetCpuMapRet {
             cpumap,
             online,
@@ -4756,8 +5077,12 @@ pub trait Libvirt: Send + Sized + 'static {
             minimum,
             flags,
         });
-        let (_header, _res) =
-            call::<RemoteDomainFstrimArgs, ()>(self, RemoteProcedure::RemoteProcDomainFstrim, req)?;
+        let _res = call::<RemoteDomainFstrimArgs, ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainFstrim,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn domain_send_process_signal(
@@ -4775,9 +5100,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 signum,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainSendProcessSignalArgs, ()>(
+        let _res = call::<RemoteDomainSendProcessSignalArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSendProcessSignal,
+            false,
             req,
         )?;
         Ok(())
@@ -4791,14 +5117,17 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_open_channel));
         let req: Option<RemoteDomainOpenChannelArgs> =
             Some(RemoteDomainOpenChannelArgs { dom, name, flags });
-        let (header, _res) = call::<RemoteDomainOpenChannelArgs, ()>(
+        let res = call::<RemoteDomainOpenChannelArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainOpenChannel,
+            true,
             req,
         )?;
         let res = VirNetStreamResponse {
             inner: self.inner_clone()?,
-            header,
+            channels: self.channel_clone(),
+            receiver: res.receiver.unwrap(),
+            header: res.header,
         };
         Ok(res)
     }
@@ -4811,15 +5140,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_lookup_scsi_host_by_wwn));
         let req: Option<RemoteNodeDeviceLookupScsiHostByWwnArgs> =
             Some(RemoteNodeDeviceLookupScsiHostByWwnArgs { wwnn, wwpn, flags });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteNodeDeviceLookupScsiHostByWwnArgs,
             RemoteNodeDeviceLookupScsiHostByWwnRet,
         >(
             self,
             RemoteProcedure::RemoteProcNodeDeviceLookupScsiHostByWwn,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceLookupScsiHostByWwnRet { dev } = res;
         Ok(dev)
     }
@@ -4831,12 +5161,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_job_stats));
         let req: Option<RemoteDomainGetJobStatsArgs> =
             Some(RemoteDomainGetJobStatsArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetJobStatsArgs, RemoteDomainGetJobStatsRet>(
+        let res = call::<RemoteDomainGetJobStatsArgs, RemoteDomainGetJobStatsRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetJobStats,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetJobStatsRet { r#type, params } = res;
         Ok((r#type, params))
     }
@@ -4848,15 +5179,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_migrate_get_compression_cache));
         let req: Option<RemoteDomainMigrateGetCompressionCacheArgs> =
             Some(RemoteDomainMigrateGetCompressionCacheArgs { dom, flags });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteDomainMigrateGetCompressionCacheArgs,
             RemoteDomainMigrateGetCompressionCacheRet,
         >(
             self,
             RemoteProcedure::RemoteProcDomainMigrateGetCompressionCache,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigrateGetCompressionCacheRet { cache_size } = res;
         Ok(cache_size)
     }
@@ -4873,9 +5205,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 cache_size,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainMigrateSetCompressionCacheArgs, ()>(
+        let _res = call::<RemoteDomainMigrateSetCompressionCacheArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainMigrateSetCompressionCache,
+            false,
             req,
         )?;
         Ok(())
@@ -4892,9 +5225,10 @@ pub trait Libvirt: Send + Sized + 'static {
             driver_name,
             flags,
         });
-        let (_header, _res) = call::<RemoteNodeDeviceDetachFlagsArgs, ()>(
+        let _res = call::<RemoteNodeDeviceDetachFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceDetachFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -4908,13 +5242,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_migrate_begin3_params));
         let req: Option<RemoteDomainMigrateBegin3ParamsArgs> =
             Some(RemoteDomainMigrateBegin3ParamsArgs { dom, params, flags });
-        let (_header, res) =
-            call::<RemoteDomainMigrateBegin3ParamsArgs, RemoteDomainMigrateBegin3ParamsRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainMigrateBegin3Params,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainMigrateBegin3ParamsArgs, RemoteDomainMigrateBegin3ParamsRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainMigrateBegin3Params,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainMigrateBegin3ParamsRet { cookie_out, xml } = res;
         Ok((cookie_out, xml))
     }
@@ -4931,13 +5265,14 @@ pub trait Libvirt: Send + Sized + 'static {
                 cookie_in,
                 flags,
             });
-        let (_header, res) =
+        let res =
             call::<RemoteDomainMigratePrepare3ParamsArgs, RemoteDomainMigratePrepare3ParamsRet>(
                 self,
                 RemoteProcedure::RemoteProcDomainMigratePrepare3Params,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigratePrepare3ParamsRet {
             cookie_out,
             uri_out,
@@ -4957,15 +5292,16 @@ pub trait Libvirt: Send + Sized + 'static {
                 cookie_in,
                 flags,
             });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteDomainMigratePrepareTunnel3ParamsArgs,
             RemoteDomainMigratePrepareTunnel3ParamsRet,
         >(
             self,
             RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3Params,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigratePrepareTunnel3ParamsRet { cookie_out } = res;
         Ok(cookie_out)
     }
@@ -4986,13 +5322,14 @@ pub trait Libvirt: Send + Sized + 'static {
                 cookie_in,
                 flags,
             });
-        let (_header, res) =
+        let res =
             call::<RemoteDomainMigratePerform3ParamsArgs, RemoteDomainMigratePerform3ParamsRet>(
                 self,
                 RemoteProcedure::RemoteProcDomainMigratePerform3Params,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigratePerform3ParamsRet { cookie_out } = res;
         Ok(cookie_out)
     }
@@ -5011,13 +5348,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 flags,
                 cancelled,
             });
-        let (_header, res) =
-            call::<RemoteDomainMigrateFinish3ParamsArgs, RemoteDomainMigrateFinish3ParamsRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainMigrateFinish3Params,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainMigrateFinish3ParamsArgs, RemoteDomainMigrateFinish3ParamsRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainMigrateFinish3Params,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainMigrateFinish3ParamsRet { dom, cookie_out } = res;
         Ok((dom, cookie_out))
     }
@@ -5038,9 +5375,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 flags,
                 cancelled,
             });
-        let (_header, _res) = call::<RemoteDomainMigrateConfirm3ParamsArgs, ()>(
+        let _res = call::<RemoteDomainMigrateConfirm3ParamsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainMigrateConfirm3Params,
+            false,
             req,
         )?;
         Ok(())
@@ -5054,9 +5392,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_memory_stats_period));
         let req: Option<RemoteDomainSetMemoryStatsPeriodArgs> =
             Some(RemoteDomainSetMemoryStatsPeriodArgs { dom, period, flags });
-        let (_header, _res) = call::<RemoteDomainSetMemoryStatsPeriodArgs, ()>(
+        let _res = call::<RemoteDomainSetMemoryStatsPeriodArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetMemoryStatsPeriod,
+            false,
             req,
         )?;
         Ok(())
@@ -5069,13 +5408,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_create_xml_with_files));
         let req: Option<RemoteDomainCreateXmlWithFilesArgs> =
             Some(RemoteDomainCreateXmlWithFilesArgs { xml_desc, flags });
-        let (_header, res) =
-            call::<RemoteDomainCreateXmlWithFilesArgs, RemoteDomainCreateXmlWithFilesRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainCreateXmlWithFiles,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainCreateXmlWithFilesArgs, RemoteDomainCreateXmlWithFilesRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainCreateXmlWithFiles,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainCreateXmlWithFilesRet { dom } = res;
         Ok(dom)
     }
@@ -5087,21 +5426,23 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_create_with_files));
         let req: Option<RemoteDomainCreateWithFilesArgs> =
             Some(RemoteDomainCreateWithFilesArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainCreateWithFilesArgs, RemoteDomainCreateWithFilesRet>(
+        let res = call::<RemoteDomainCreateWithFilesArgs, RemoteDomainCreateWithFilesRet>(
             self,
             RemoteProcedure::RemoteProcDomainCreateWithFiles,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainCreateWithFilesRet { dom } = res;
         Ok(dom)
     }
     fn domain_event_device_removed(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_device_removed));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventDeviceRemoved,
+            false,
             req,
         )?;
         Ok(())
@@ -5119,13 +5460,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteConnectGetCpuModelNamesArgs, RemoteConnectGetCpuModelNamesRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectGetCpuModelNames,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectGetCpuModelNamesArgs, RemoteConnectGetCpuModelNamesRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectGetCpuModelNames,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectGetCpuModelNamesRet { models, ret } = res;
         Ok((models, ret))
     }
@@ -5137,15 +5478,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_network_event_register_any));
         let req: Option<RemoteConnectNetworkEventRegisterAnyArgs> =
             Some(RemoteConnectNetworkEventRegisterAnyArgs { event_id, net });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteConnectNetworkEventRegisterAnyArgs,
             RemoteConnectNetworkEventRegisterAnyRet,
         >(
             self,
             RemoteProcedure::RemoteProcConnectNetworkEventRegisterAny,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNetworkEventRegisterAnyRet { callback_id } = res;
         Ok(callback_id)
     }
@@ -5153,9 +5495,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_network_event_deregister_any));
         let req: Option<RemoteConnectNetworkEventDeregisterAnyArgs> =
             Some(RemoteConnectNetworkEventDeregisterAnyArgs { callback_id });
-        let (_header, _res) = call::<RemoteConnectNetworkEventDeregisterAnyArgs, ()>(
+        let _res = call::<RemoteConnectNetworkEventDeregisterAnyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcConnectNetworkEventDeregisterAny,
+            false,
             req,
         )?;
         Ok(())
@@ -5163,8 +5506,12 @@ pub trait Libvirt: Send + Sized + 'static {
     fn network_event_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(network_event_lifecycle));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcNetworkEventLifecycle, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcNetworkEventLifecycle,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn connect_domain_event_callback_register_any(
@@ -5175,15 +5522,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_domain_event_callback_register_any));
         let req: Option<RemoteConnectDomainEventCallbackRegisterAnyArgs> =
             Some(RemoteConnectDomainEventCallbackRegisterAnyArgs { event_id, dom });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteConnectDomainEventCallbackRegisterAnyArgs,
             RemoteConnectDomainEventCallbackRegisterAnyRet,
         >(
             self,
             RemoteProcedure::RemoteProcConnectDomainEventCallbackRegisterAny,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectDomainEventCallbackRegisterAnyRet { callback_id } = res;
         Ok(callback_id)
     }
@@ -5197,9 +5545,10 @@ pub trait Libvirt: Send + Sized + 'static {
         );
         let req: Option<RemoteConnectDomainEventCallbackDeregisterAnyArgs> =
             Some(RemoteConnectDomainEventCallbackDeregisterAnyArgs { callback_id });
-        let (_header, _res) = call::<RemoteConnectDomainEventCallbackDeregisterAnyArgs, ()>(
+        let _res = call::<RemoteConnectDomainEventCallbackDeregisterAnyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcConnectDomainEventCallbackDeregisterAny,
+            false,
             req,
         )?;
         Ok(())
@@ -5207,9 +5556,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_lifecycle));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackLifecycle,
+            false,
             req,
         )?;
         Ok(())
@@ -5217,9 +5567,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_reboot(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_reboot));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackReboot,
+            false,
             req,
         )?;
         Ok(())
@@ -5227,9 +5578,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_rtc_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_rtc_change));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackRtcChange,
+            false,
             req,
         )?;
         Ok(())
@@ -5237,9 +5589,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_watchdog(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_watchdog));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackWatchdog,
+            false,
             req,
         )?;
         Ok(())
@@ -5247,9 +5600,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_io_error(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_io_error));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackIoError,
+            false,
             req,
         )?;
         Ok(())
@@ -5257,9 +5611,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_graphics(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_graphics));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackGraphics,
+            false,
             req,
         )?;
         Ok(())
@@ -5267,9 +5622,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_io_error_reason(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_io_error_reason));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackIoErrorReason,
+            false,
             req,
         )?;
         Ok(())
@@ -5277,9 +5633,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_control_error(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_control_error));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackControlError,
+            false,
             req,
         )?;
         Ok(())
@@ -5287,9 +5644,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_block_job(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_block_job));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackBlockJob,
+            false,
             req,
         )?;
         Ok(())
@@ -5297,9 +5655,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_disk_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_disk_change));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackDiskChange,
+            false,
             req,
         )?;
         Ok(())
@@ -5307,9 +5666,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_tray_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_tray_change));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackTrayChange,
+            false,
             req,
         )?;
         Ok(())
@@ -5317,9 +5677,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_pmwakeup(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_pmwakeup));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackPmwakeup,
+            false,
             req,
         )?;
         Ok(())
@@ -5327,9 +5688,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_pmsuspend(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_pmsuspend));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackPmsuspend,
+            false,
             req,
         )?;
         Ok(())
@@ -5337,9 +5699,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_balloon_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_balloon_change));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackBalloonChange,
+            false,
             req,
         )?;
         Ok(())
@@ -5347,9 +5710,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_pmsuspend_disk(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_pmsuspend_disk));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackPmsuspendDisk,
+            false,
             req,
         )?;
         Ok(())
@@ -5357,9 +5721,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_device_removed(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_device_removed));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackDeviceRemoved,
+            false,
             req,
         )?;
         Ok(())
@@ -5379,9 +5744,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 dumpformat,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainCoreDumpWithFormatArgs, ()>(
+        let _res = call::<RemoteDomainCoreDumpWithFormatArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainCoreDumpWithFormat,
+            false,
             req,
         )?;
         Ok(())
@@ -5398,12 +5764,13 @@ pub trait Libvirt: Send + Sized + 'static {
             mountpoints,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainFsfreezeArgs, RemoteDomainFsfreezeRet>(
+        let res = call::<RemoteDomainFsfreezeArgs, RemoteDomainFsfreezeRet>(
             self,
             RemoteProcedure::RemoteProcDomainFsfreeze,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainFsfreezeRet { filesystems } = res;
         Ok(filesystems)
     }
@@ -5419,12 +5786,13 @@ pub trait Libvirt: Send + Sized + 'static {
             mountpoints,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainFsthawArgs, RemoteDomainFsthawRet>(
+        let res = call::<RemoteDomainFsthawArgs, RemoteDomainFsthawRet>(
             self,
             RemoteProcedure::RemoteProcDomainFsthaw,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainFsthawRet { filesystems } = res;
         Ok(filesystems)
     }
@@ -5435,12 +5803,13 @@ pub trait Libvirt: Send + Sized + 'static {
     ) -> Result<(i64, u32), Error> {
         trace!("{}", stringify!(domain_get_time));
         let req: Option<RemoteDomainGetTimeArgs> = Some(RemoteDomainGetTimeArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetTimeArgs, RemoteDomainGetTimeRet>(
+        let res = call::<RemoteDomainGetTimeArgs, RemoteDomainGetTimeRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetTime,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetTimeRet { seconds, nseconds } = res;
         Ok((seconds, nseconds))
     }
@@ -5458,9 +5827,10 @@ pub trait Libvirt: Send + Sized + 'static {
             nseconds,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainSetTimeArgs, ()>(
+        let _res = call::<RemoteDomainSetTimeArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetTime,
+            false,
             req,
         )?;
         Ok(())
@@ -5468,8 +5838,12 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_block_job2(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_block_job2));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcDomainEventBlockJob2, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcDomainEventBlockJob2,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn node_get_free_pages(
@@ -5486,12 +5860,13 @@ pub trait Libvirt: Send + Sized + 'static {
             cell_count,
             flags,
         });
-        let (_header, res) = call::<RemoteNodeGetFreePagesArgs, RemoteNodeGetFreePagesRet>(
+        let res = call::<RemoteNodeGetFreePagesArgs, RemoteNodeGetFreePagesRet>(
             self,
             RemoteProcedure::RemoteProcNodeGetFreePages,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeGetFreePagesRet { counts } = res;
         Ok(counts)
     }
@@ -5509,12 +5884,13 @@ pub trait Libvirt: Send + Sized + 'static {
             need_results,
             flags,
         });
-        let (_header, res) = call::<RemoteNetworkGetDhcpLeasesArgs, RemoteNetworkGetDhcpLeasesRet>(
+        let res = call::<RemoteNetworkGetDhcpLeasesArgs, RemoteNetworkGetDhcpLeasesRet>(
             self,
             RemoteProcedure::RemoteProcNetworkGetDhcpLeases,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkGetDhcpLeasesRet { leases, ret } = res;
         Ok((leases, ret))
     }
@@ -5535,13 +5911,14 @@ pub trait Libvirt: Send + Sized + 'static {
                 virttype,
                 flags,
             });
-        let (_header, res) =
+        let res =
             call::<RemoteConnectGetDomainCapabilitiesArgs, RemoteConnectGetDomainCapabilitiesRet>(
                 self,
                 RemoteProcedure::RemoteProcConnectGetDomainCapabilities,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectGetDomainCapabilitiesRet { capabilities } = res;
         Ok(capabilities)
     }
@@ -5554,9 +5931,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_open_graphics_fd));
         let req: Option<RemoteDomainOpenGraphicsFdArgs> =
             Some(RemoteDomainOpenGraphicsFdArgs { dom, idx, flags });
-        let (_header, _res) = call::<RemoteDomainOpenGraphicsFdArgs, ()>(
+        let _res = call::<RemoteDomainOpenGraphicsFdArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainOpenGraphicsFd,
+            false,
             req,
         )?;
         Ok(())
@@ -5570,13 +5948,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_get_all_domain_stats));
         let req: Option<RemoteConnectGetAllDomainStatsArgs> =
             Some(RemoteConnectGetAllDomainStatsArgs { doms, stats, flags });
-        let (_header, res) =
-            call::<RemoteConnectGetAllDomainStatsArgs, RemoteConnectGetAllDomainStatsRet>(
-                self,
-                RemoteProcedure::RemoteProcConnectGetAllDomainStats,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteConnectGetAllDomainStatsArgs, RemoteConnectGetAllDomainStatsRet>(
+            self,
+            RemoteProcedure::RemoteProcConnectGetAllDomainStats,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteConnectGetAllDomainStatsRet { ret_stats } = res;
         Ok(ret_stats)
     }
@@ -5596,9 +5974,10 @@ pub trait Libvirt: Send + Sized + 'static {
             params,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainBlockCopyArgs, ()>(
+        let _res = call::<RemoteDomainBlockCopyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainBlockCopy,
+            false,
             req,
         )?;
         Ok(())
@@ -5606,9 +5985,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_tunable(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_tunable));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackTunable,
+            false,
             req,
         )?;
         Ok(())
@@ -5629,21 +6009,23 @@ pub trait Libvirt: Send + Sized + 'static {
             cell_count,
             flags,
         });
-        let (_header, res) = call::<RemoteNodeAllocPagesArgs, RemoteNodeAllocPagesRet>(
+        let res = call::<RemoteNodeAllocPagesArgs, RemoteNodeAllocPagesRet>(
             self,
             RemoteProcedure::RemoteProcNodeAllocPages,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeAllocPagesRet { ret } = res;
         Ok(ret)
     }
     fn domain_event_callback_agent_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_agent_lifecycle));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackAgentLifecycle,
+            false,
             req,
         )?;
         Ok(())
@@ -5655,12 +6037,13 @@ pub trait Libvirt: Send + Sized + 'static {
     ) -> Result<(Vec<RemoteDomainFsinfo>, u32), Error> {
         trace!("{}", stringify!(domain_get_fsinfo));
         let req: Option<RemoteDomainGetFsinfoArgs> = Some(RemoteDomainGetFsinfoArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetFsinfoArgs, RemoteDomainGetFsinfoRet>(
+        let res = call::<RemoteDomainGetFsinfoArgs, RemoteDomainGetFsinfoRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetFsinfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetFsinfoRet { info, ret } = res;
         Ok((info, ret))
     }
@@ -5672,12 +6055,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_define_xml_flags));
         let req: Option<RemoteDomainDefineXmlFlagsArgs> =
             Some(RemoteDomainDefineXmlFlagsArgs { xml, flags });
-        let (_header, res) = call::<RemoteDomainDefineXmlFlagsArgs, RemoteDomainDefineXmlFlagsRet>(
+        let res = call::<RemoteDomainDefineXmlFlagsArgs, RemoteDomainDefineXmlFlagsRet>(
             self,
             RemoteProcedure::RemoteProcDomainDefineXmlFlags,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainDefineXmlFlagsRet { dom } = res;
         Ok(dom)
     }
@@ -5689,12 +6073,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_iothread_info));
         let req: Option<RemoteDomainGetIothreadInfoArgs> =
             Some(RemoteDomainGetIothreadInfoArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetIothreadInfoArgs, RemoteDomainGetIothreadInfoRet>(
+        let res = call::<RemoteDomainGetIothreadInfoArgs, RemoteDomainGetIothreadInfoRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetIothreadInfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetIothreadInfoRet { info, ret } = res;
         Ok((info, ret))
     }
@@ -5712,9 +6097,10 @@ pub trait Libvirt: Send + Sized + 'static {
             cpumap,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainPinIothreadArgs, ()>(
+        let _res = call::<RemoteDomainPinIothreadArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainPinIothread,
+            false,
             req,
         )?;
         Ok(())
@@ -5728,22 +6114,23 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_interface_addresses));
         let req: Option<RemoteDomainInterfaceAddressesArgs> =
             Some(RemoteDomainInterfaceAddressesArgs { dom, source, flags });
-        let (_header, res) =
-            call::<RemoteDomainInterfaceAddressesArgs, RemoteDomainInterfaceAddressesRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainInterfaceAddresses,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainInterfaceAddressesArgs, RemoteDomainInterfaceAddressesRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainInterfaceAddresses,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainInterfaceAddressesRet { ifaces } = res;
         Ok(ifaces)
     }
     fn domain_event_callback_device_added(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_device_added));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackDeviceAdded,
+            false,
             req,
         )?;
         Ok(())
@@ -5760,9 +6147,10 @@ pub trait Libvirt: Send + Sized + 'static {
             iothread_id,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainAddIothreadArgs, ()>(
+        let _res = call::<RemoteDomainAddIothreadArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainAddIothread,
+            false,
             req,
         )?;
         Ok(())
@@ -5779,9 +6167,10 @@ pub trait Libvirt: Send + Sized + 'static {
             iothread_id,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainDelIothreadArgs, ()>(
+        let _res = call::<RemoteDomainDelIothreadArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainDelIothread,
+            false,
             req,
         )?;
         Ok(())
@@ -5800,9 +6189,10 @@ pub trait Libvirt: Send + Sized + 'static {
             password,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainSetUserPasswordArgs, ()>(
+        let _res = call::<RemoteDomainSetUserPasswordArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetUserPassword,
+            false,
             req,
         )?;
         Ok(())
@@ -5819,21 +6209,23 @@ pub trait Libvirt: Send + Sized + 'static {
             new_name,
             flags,
         });
-        let (_header, res) = call::<RemoteDomainRenameArgs, RemoteDomainRenameRet>(
+        let res = call::<RemoteDomainRenameArgs, RemoteDomainRenameRet>(
             self,
             RemoteProcedure::RemoteProcDomainRename,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainRenameRet { retcode } = res;
         Ok(retcode)
     }
     fn domain_event_callback_migration_iteration(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_migration_iteration));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackMigrationIteration,
+            false,
             req,
         )?;
         Ok(())
@@ -5841,9 +6233,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn connect_register_close_callback(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(connect_register_close_callback));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcConnectRegisterCloseCallback,
+            false,
             req,
         )?;
         Ok(())
@@ -5851,9 +6244,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn connect_unregister_close_callback(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(connect_unregister_close_callback));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcConnectUnregisterCloseCallback,
+            false,
             req,
         )?;
         Ok(())
@@ -5861,9 +6255,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn connect_event_connection_closed(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(connect_event_connection_closed));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcConnectEventConnectionClosed,
+            false,
             req,
         )?;
         Ok(())
@@ -5871,9 +6266,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_job_completed(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_job_completed));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackJobCompleted,
+            false,
             req,
         )?;
         Ok(())
@@ -5886,9 +6282,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_migrate_start_post_copy));
         let req: Option<RemoteDomainMigrateStartPostCopyArgs> =
             Some(RemoteDomainMigrateStartPostCopyArgs { dom, flags });
-        let (_header, _res) = call::<RemoteDomainMigrateStartPostCopyArgs, ()>(
+        let _res = call::<RemoteDomainMigrateStartPostCopyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainMigrateStartPostCopy,
+            false,
             req,
         )?;
         Ok(())
@@ -5901,12 +6298,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_perf_events));
         let req: Option<RemoteDomainGetPerfEventsArgs> =
             Some(RemoteDomainGetPerfEventsArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetPerfEventsArgs, RemoteDomainGetPerfEventsRet>(
+        let res = call::<RemoteDomainGetPerfEventsArgs, RemoteDomainGetPerfEventsRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetPerfEvents,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetPerfEventsRet { params } = res;
         Ok(params)
     }
@@ -5919,9 +6317,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_perf_events));
         let req: Option<RemoteDomainSetPerfEventsArgs> =
             Some(RemoteDomainSetPerfEventsArgs { dom, params, flags });
-        let (_header, _res) = call::<RemoteDomainSetPerfEventsArgs, ()>(
+        let _res = call::<RemoteDomainSetPerfEventsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetPerfEvents,
+            false,
             req,
         )?;
         Ok(())
@@ -5932,9 +6331,10 @@ pub trait Libvirt: Send + Sized + 'static {
             stringify!(domain_event_callback_device_removal_failed)
         );
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackDeviceRemovalFailed,
+            false,
             req,
         )?;
         Ok(())
@@ -5947,15 +6347,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_storage_pool_event_register_any));
         let req: Option<RemoteConnectStoragePoolEventRegisterAnyArgs> =
             Some(RemoteConnectStoragePoolEventRegisterAnyArgs { event_id, pool });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteConnectStoragePoolEventRegisterAnyArgs,
             RemoteConnectStoragePoolEventRegisterAnyRet,
         >(
             self,
             RemoteProcedure::RemoteProcConnectStoragePoolEventRegisterAny,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectStoragePoolEventRegisterAnyRet { callback_id } = res;
         Ok(callback_id)
     }
@@ -5963,9 +6364,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_storage_pool_event_deregister_any));
         let req: Option<RemoteConnectStoragePoolEventDeregisterAnyArgs> =
             Some(RemoteConnectStoragePoolEventDeregisterAnyArgs { callback_id });
-        let (_header, _res) = call::<RemoteConnectStoragePoolEventDeregisterAnyArgs, ()>(
+        let _res = call::<RemoteConnectStoragePoolEventDeregisterAnyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcConnectStoragePoolEventDeregisterAny,
+            false,
             req,
         )?;
         Ok(())
@@ -5973,9 +6375,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn storage_pool_event_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(storage_pool_event_lifecycle));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcStoragePoolEventLifecycle,
+            false,
             req,
         )?;
         Ok(())
@@ -5988,12 +6391,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_guest_vcpus));
         let req: Option<RemoteDomainGetGuestVcpusArgs> =
             Some(RemoteDomainGetGuestVcpusArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetGuestVcpusArgs, RemoteDomainGetGuestVcpusRet>(
+        let res = call::<RemoteDomainGetGuestVcpusArgs, RemoteDomainGetGuestVcpusRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetGuestVcpus,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetGuestVcpusRet { params } = res;
         Ok(params)
     }
@@ -6011,9 +6415,10 @@ pub trait Libvirt: Send + Sized + 'static {
             state,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainSetGuestVcpusArgs, ()>(
+        let _res = call::<RemoteDomainSetGuestVcpusArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetGuestVcpus,
+            false,
             req,
         )?;
         Ok(())
@@ -6021,9 +6426,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn storage_pool_event_refresh(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(storage_pool_event_refresh));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcStoragePoolEventRefresh,
+            false,
             req,
         )?;
         Ok(())
@@ -6036,15 +6442,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_node_device_event_register_any));
         let req: Option<RemoteConnectNodeDeviceEventRegisterAnyArgs> =
             Some(RemoteConnectNodeDeviceEventRegisterAnyArgs { event_id, dev });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteConnectNodeDeviceEventRegisterAnyArgs,
             RemoteConnectNodeDeviceEventRegisterAnyRet,
         >(
             self,
             RemoteProcedure::RemoteProcConnectNodeDeviceEventRegisterAny,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectNodeDeviceEventRegisterAnyRet { callback_id } = res;
         Ok(callback_id)
     }
@@ -6052,9 +6459,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_node_device_event_deregister_any));
         let req: Option<RemoteConnectNodeDeviceEventDeregisterAnyArgs> =
             Some(RemoteConnectNodeDeviceEventDeregisterAnyArgs { callback_id });
-        let (_header, _res) = call::<RemoteConnectNodeDeviceEventDeregisterAnyArgs, ()>(
+        let _res = call::<RemoteConnectNodeDeviceEventDeregisterAnyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcConnectNodeDeviceEventDeregisterAny,
+            false,
             req,
         )?;
         Ok(())
@@ -6062,9 +6470,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn node_device_event_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_event_lifecycle));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceEventLifecycle,
+            false,
             req,
         )?;
         Ok(())
@@ -6072,8 +6481,12 @@ pub trait Libvirt: Send + Sized + 'static {
     fn node_device_event_update(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(node_device_event_update));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcNodeDeviceEventUpdate, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcNodeDeviceEventUpdate,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn storage_vol_get_info_flags(
@@ -6084,13 +6497,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_vol_get_info_flags));
         let req: Option<RemoteStorageVolGetInfoFlagsArgs> =
             Some(RemoteStorageVolGetInfoFlagsArgs { vol, flags });
-        let (_header, res) = call::<
-            RemoteStorageVolGetInfoFlagsArgs,
-            RemoteStorageVolGetInfoFlagsRet,
-        >(
-            self, RemoteProcedure::RemoteProcStorageVolGetInfoFlags, req
+        let res = call::<RemoteStorageVolGetInfoFlagsArgs, RemoteStorageVolGetInfoFlagsRet>(
+            self,
+            RemoteProcedure::RemoteProcStorageVolGetInfoFlags,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStorageVolGetInfoFlagsRet {
             r#type,
             capacity,
@@ -6101,9 +6514,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_callback_metadata_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_callback_metadata_change));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventCallbackMetadataChange,
+            false,
             req,
         )?;
         Ok(())
@@ -6116,15 +6530,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_secret_event_register_any));
         let req: Option<RemoteConnectSecretEventRegisterAnyArgs> =
             Some(RemoteConnectSecretEventRegisterAnyArgs { event_id, secret });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteConnectSecretEventRegisterAnyArgs,
             RemoteConnectSecretEventRegisterAnyRet,
         >(
             self,
             RemoteProcedure::RemoteProcConnectSecretEventRegisterAny,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectSecretEventRegisterAnyRet { callback_id } = res;
         Ok(callback_id)
     }
@@ -6132,9 +6547,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_secret_event_deregister_any));
         let req: Option<RemoteConnectSecretEventDeregisterAnyArgs> =
             Some(RemoteConnectSecretEventDeregisterAnyArgs { callback_id });
-        let (_header, _res) = call::<RemoteConnectSecretEventDeregisterAnyArgs, ()>(
+        let _res = call::<RemoteConnectSecretEventDeregisterAnyArgs, ()>(
             self,
             RemoteProcedure::RemoteProcConnectSecretEventDeregisterAny,
+            false,
             req,
         )?;
         Ok(())
@@ -6142,16 +6558,21 @@ pub trait Libvirt: Send + Sized + 'static {
     fn secret_event_lifecycle(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(secret_event_lifecycle));
         let req: Option<()> = None;
-        let (_header, _res) =
-            call::<(), ()>(self, RemoteProcedure::RemoteProcSecretEventLifecycle, req)?;
+        let _res = call::<(), ()>(
+            self,
+            RemoteProcedure::RemoteProcSecretEventLifecycle,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn secret_event_value_changed(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(secret_event_value_changed));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcSecretEventValueChanged,
+            false,
             req,
         )?;
         Ok(())
@@ -6170,9 +6591,10 @@ pub trait Libvirt: Send + Sized + 'static {
             state,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainSetVcpuArgs, ()>(
+        let _res = call::<RemoteDomainSetVcpuArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetVcpu,
+            false,
             req,
         )?;
         Ok(())
@@ -6180,9 +6602,10 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_block_threshold(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_block_threshold));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventBlockThreshold,
+            false,
             req,
         )?;
         Ok(())
@@ -6202,9 +6625,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 threshold,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainSetBlockThresholdArgs, ()>(
+        let _res = call::<RemoteDomainSetBlockThresholdArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetBlockThreshold,
+            false,
             req,
         )?;
         Ok(())
@@ -6217,13 +6641,14 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_migrate_get_max_downtime));
         let req: Option<RemoteDomainMigrateGetMaxDowntimeArgs> =
             Some(RemoteDomainMigrateGetMaxDowntimeArgs { dom, flags });
-        let (_header, res) =
+        let res =
             call::<RemoteDomainMigrateGetMaxDowntimeArgs, RemoteDomainMigrateGetMaxDowntimeRet>(
                 self,
                 RemoteProcedure::RemoteProcDomainMigrateGetMaxDowntime,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainMigrateGetMaxDowntimeRet { downtime } = res;
         Ok(downtime)
     }
@@ -6235,13 +6660,14 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_managed_save_get_xml_desc));
         let req: Option<RemoteDomainManagedSaveGetXmlDescArgs> =
             Some(RemoteDomainManagedSaveGetXmlDescArgs { dom, flags });
-        let (_header, res) =
+        let res =
             call::<RemoteDomainManagedSaveGetXmlDescArgs, RemoteDomainManagedSaveGetXmlDescRet>(
                 self,
                 RemoteProcedure::RemoteProcDomainManagedSaveGetXmlDesc,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainManagedSaveGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -6254,9 +6680,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_managed_save_define_xml));
         let req: Option<RemoteDomainManagedSaveDefineXmlArgs> =
             Some(RemoteDomainManagedSaveDefineXmlArgs { dom, dxml, flags });
-        let (_header, _res) = call::<RemoteDomainManagedSaveDefineXmlArgs, ()>(
+        let _res = call::<RemoteDomainManagedSaveDefineXmlArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainManagedSaveDefineXml,
+            false,
             req,
         )?;
         Ok(())
@@ -6276,9 +6703,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 action,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainSetLifecycleActionArgs, ()>(
+        let _res = call::<RemoteDomainSetLifecycleActionArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetLifecycleAction,
+            false,
             req,
         )?;
         Ok(())
@@ -6290,15 +6718,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(storage_pool_lookup_by_target_path));
         let req: Option<RemoteStoragePoolLookupByTargetPathArgs> =
             Some(RemoteStoragePoolLookupByTargetPathArgs { path });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteStoragePoolLookupByTargetPathArgs,
             RemoteStoragePoolLookupByTargetPathRet,
         >(
             self,
             RemoteProcedure::RemoteProcStoragePoolLookupByTargetPath,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteStoragePoolLookupByTargetPathRet { pool } = res;
         Ok(pool)
     }
@@ -6311,9 +6740,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_detach_device_alias));
         let req: Option<RemoteDomainDetachDeviceAliasArgs> =
             Some(RemoteDomainDetachDeviceAliasArgs { dom, alias, flags });
-        let (_header, _res) = call::<RemoteDomainDetachDeviceAliasArgs, ()>(
+        let _res = call::<RemoteDomainDetachDeviceAliasArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainDetachDeviceAlias,
+            false,
             req,
         )?;
         Ok(())
@@ -6337,13 +6767,14 @@ pub trait Libvirt: Send + Sized + 'static {
                 xml_cpu,
                 flags,
             });
-        let (_header, res) =
+        let res =
             call::<RemoteConnectCompareHypervisorCpuArgs, RemoteConnectCompareHypervisorCpuRet>(
                 self,
                 RemoteProcedure::RemoteProcConnectCompareHypervisorCpu,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectCompareHypervisorCpuRet { result } = res;
         Ok(result)
     }
@@ -6366,13 +6797,14 @@ pub trait Libvirt: Send + Sized + 'static {
                 xml_cpus,
                 flags,
             });
-        let (_header, res) =
+        let res =
             call::<RemoteConnectBaselineHypervisorCpuArgs, RemoteConnectBaselineHypervisorCpuRet>(
                 self,
                 RemoteProcedure::RemoteProcConnectBaselineHypervisorCpu,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectBaselineHypervisorCpuRet { cpu } = res;
         Ok(cpu)
     }
@@ -6384,12 +6816,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_get_sev_info));
         let req: Option<RemoteNodeGetSevInfoArgs> =
             Some(RemoteNodeGetSevInfoArgs { nparams, flags });
-        let (_header, res) = call::<RemoteNodeGetSevInfoArgs, RemoteNodeGetSevInfoRet>(
+        let res = call::<RemoteNodeGetSevInfoArgs, RemoteNodeGetSevInfoRet>(
             self,
             RemoteProcedure::RemoteProcNodeGetSevInfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeGetSevInfoRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -6401,13 +6834,14 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_launch_security_info));
         let req: Option<RemoteDomainGetLaunchSecurityInfoArgs> =
             Some(RemoteDomainGetLaunchSecurityInfoArgs { dom, flags });
-        let (_header, res) =
+        let res =
             call::<RemoteDomainGetLaunchSecurityInfoArgs, RemoteDomainGetLaunchSecurityInfoRet>(
                 self,
                 RemoteProcedure::RemoteProcDomainGetLaunchSecurityInfo,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetLaunchSecurityInfoRet { params } = res;
         Ok(params)
     }
@@ -6418,15 +6852,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(nwfilter_binding_lookup_by_port_dev));
         let req: Option<RemoteNwfilterBindingLookupByPortDevArgs> =
             Some(RemoteNwfilterBindingLookupByPortDevArgs { name });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteNwfilterBindingLookupByPortDevArgs,
             RemoteNwfilterBindingLookupByPortDevRet,
         >(
             self,
             RemoteProcedure::RemoteProcNwfilterBindingLookupByPortDev,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNwfilterBindingLookupByPortDevRet { nwfilter } = res;
         Ok(nwfilter)
     }
@@ -6438,13 +6873,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(nwfilter_binding_get_xml_desc));
         let req: Option<RemoteNwfilterBindingGetXmlDescArgs> =
             Some(RemoteNwfilterBindingGetXmlDescArgs { nwfilter, flags });
-        let (_header, res) =
-            call::<RemoteNwfilterBindingGetXmlDescArgs, RemoteNwfilterBindingGetXmlDescRet>(
-                self,
-                RemoteProcedure::RemoteProcNwfilterBindingGetXmlDesc,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteNwfilterBindingGetXmlDescArgs, RemoteNwfilterBindingGetXmlDescRet>(
+            self,
+            RemoteProcedure::RemoteProcNwfilterBindingGetXmlDesc,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteNwfilterBindingGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -6456,13 +6891,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(nwfilter_binding_create_xml));
         let req: Option<RemoteNwfilterBindingCreateXmlArgs> =
             Some(RemoteNwfilterBindingCreateXmlArgs { xml, flags });
-        let (_header, res) =
-            call::<RemoteNwfilterBindingCreateXmlArgs, RemoteNwfilterBindingCreateXmlRet>(
-                self,
-                RemoteProcedure::RemoteProcNwfilterBindingCreateXml,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteNwfilterBindingCreateXmlArgs, RemoteNwfilterBindingCreateXmlRet>(
+            self,
+            RemoteProcedure::RemoteProcNwfilterBindingCreateXml,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteNwfilterBindingCreateXmlRet { nwfilter } = res;
         Ok(nwfilter)
     }
@@ -6473,9 +6908,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(nwfilter_binding_delete));
         let req: Option<RemoteNwfilterBindingDeleteArgs> =
             Some(RemoteNwfilterBindingDeleteArgs { nwfilter });
-        let (_header, _res) = call::<RemoteNwfilterBindingDeleteArgs, ()>(
+        let _res = call::<RemoteNwfilterBindingDeleteArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNwfilterBindingDelete,
+            false,
             req,
         )?;
         Ok(())
@@ -6491,15 +6927,16 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteConnectListAllNwfilterBindingsArgs,
             RemoteConnectListAllNwfilterBindingsRet,
         >(
             self,
             RemoteProcedure::RemoteProcConnectListAllNwfilterBindings,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectListAllNwfilterBindingsRet { bindings, ret } = res;
         Ok((bindings, ret))
     }
@@ -6518,9 +6955,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 params,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainSetIothreadParamsArgs, ()>(
+        let _res = call::<RemoteDomainSetIothreadParamsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetIothreadParams,
+            false,
             req,
         )?;
         Ok(())
@@ -6529,15 +6967,16 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_get_storage_pool_capabilities));
         let req: Option<RemoteConnectGetStoragePoolCapabilitiesArgs> =
             Some(RemoteConnectGetStoragePoolCapabilitiesArgs { flags });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteConnectGetStoragePoolCapabilitiesArgs,
             RemoteConnectGetStoragePoolCapabilitiesRet,
         >(
             self,
             RemoteProcedure::RemoteProcConnectGetStoragePoolCapabilities,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteConnectGetStoragePoolCapabilitiesRet { capabilities } = res;
         Ok(capabilities)
     }
@@ -6553,12 +6992,13 @@ pub trait Libvirt: Send + Sized + 'static {
             need_results,
             flags,
         });
-        let (_header, res) = call::<RemoteNetworkListAllPortsArgs, RemoteNetworkListAllPortsRet>(
+        let res = call::<RemoteNetworkListAllPortsArgs, RemoteNetworkListAllPortsRet>(
             self,
             RemoteProcedure::RemoteProcNetworkListAllPorts,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkListAllPortsRet { ports, ret } = res;
         Ok((ports, ret))
     }
@@ -6570,13 +7010,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_port_lookup_by_uuid));
         let req: Option<RemoteNetworkPortLookupByUuidArgs> =
             Some(RemoteNetworkPortLookupByUuidArgs { network, uuid });
-        let (_header, res) =
-            call::<RemoteNetworkPortLookupByUuidArgs, RemoteNetworkPortLookupByUuidRet>(
-                self,
-                RemoteProcedure::RemoteProcNetworkPortLookupByUuid,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteNetworkPortLookupByUuidArgs, RemoteNetworkPortLookupByUuidRet>(
+            self,
+            RemoteProcedure::RemoteProcNetworkPortLookupByUuid,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteNetworkPortLookupByUuidRet { port } = res;
         Ok(port)
     }
@@ -6592,12 +7032,13 @@ pub trait Libvirt: Send + Sized + 'static {
             xml,
             flags,
         });
-        let (_header, res) = call::<RemoteNetworkPortCreateXmlArgs, RemoteNetworkPortCreateXmlRet>(
+        let res = call::<RemoteNetworkPortCreateXmlArgs, RemoteNetworkPortCreateXmlRet>(
             self,
             RemoteProcedure::RemoteProcNetworkPortCreateXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkPortCreateXmlRet { port } = res;
         Ok(port)
     }
@@ -6614,13 +7055,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 nparams,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteNetworkPortGetParametersArgs, RemoteNetworkPortGetParametersRet>(
-                self,
-                RemoteProcedure::RemoteProcNetworkPortGetParameters,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteNetworkPortGetParametersArgs, RemoteNetworkPortGetParametersRet>(
+            self,
+            RemoteProcedure::RemoteProcNetworkPortGetParameters,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteNetworkPortGetParametersRet { params, nparams } = res;
         Ok((params, nparams))
     }
@@ -6637,9 +7078,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 params,
                 flags,
             });
-        let (_header, _res) = call::<RemoteNetworkPortSetParametersArgs, ()>(
+        let _res = call::<RemoteNetworkPortSetParametersArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNetworkPortSetParameters,
+            false,
             req,
         )?;
         Ok(())
@@ -6652,12 +7094,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_port_get_xml_desc));
         let req: Option<RemoteNetworkPortGetXmlDescArgs> =
             Some(RemoteNetworkPortGetXmlDescArgs { port, flags });
-        let (_header, res) = call::<RemoteNetworkPortGetXmlDescArgs, RemoteNetworkPortGetXmlDescRet>(
+        let res = call::<RemoteNetworkPortGetXmlDescArgs, RemoteNetworkPortGetXmlDescRet>(
             self,
             RemoteProcedure::RemoteProcNetworkPortGetXmlDesc,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkPortGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -6669,9 +7112,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_port_delete));
         let req: Option<RemoteNetworkPortDeleteArgs> =
             Some(RemoteNetworkPortDeleteArgs { port, flags });
-        let (_header, _res) = call::<RemoteNetworkPortDeleteArgs, ()>(
+        let _res = call::<RemoteNetworkPortDeleteArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNetworkPortDelete,
+            false,
             req,
         )?;
         Ok(())
@@ -6689,13 +7133,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 xml_desc,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteDomainCheckpointCreateXmlArgs, RemoteDomainCheckpointCreateXmlRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainCheckpointCreateXml,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainCheckpointCreateXmlArgs, RemoteDomainCheckpointCreateXmlRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainCheckpointCreateXml,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainCheckpointCreateXmlRet { checkpoint } = res;
         Ok(checkpoint)
     }
@@ -6707,13 +7151,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_checkpoint_get_xml_desc));
         let req: Option<RemoteDomainCheckpointGetXmlDescArgs> =
             Some(RemoteDomainCheckpointGetXmlDescArgs { checkpoint, flags });
-        let (_header, res) =
-            call::<RemoteDomainCheckpointGetXmlDescArgs, RemoteDomainCheckpointGetXmlDescRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainCheckpointGetXmlDesc,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainCheckpointGetXmlDescArgs, RemoteDomainCheckpointGetXmlDescRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainCheckpointGetXmlDesc,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainCheckpointGetXmlDescRet { xml } = res;
         Ok(xml)
     }
@@ -6730,13 +7174,13 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) =
-            call::<RemoteDomainListAllCheckpointsArgs, RemoteDomainListAllCheckpointsRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainListAllCheckpoints,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainListAllCheckpointsArgs, RemoteDomainListAllCheckpointsRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainListAllCheckpoints,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainListAllCheckpointsRet { checkpoints, ret } = res;
         Ok((checkpoints, ret))
     }
@@ -6753,15 +7197,16 @@ pub trait Libvirt: Send + Sized + 'static {
                 need_results,
                 flags,
             });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteDomainCheckpointListAllChildrenArgs,
             RemoteDomainCheckpointListAllChildrenRet,
         >(
             self,
             RemoteProcedure::RemoteProcDomainCheckpointListAllChildren,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainCheckpointListAllChildrenRet { checkpoints, ret } = res;
         Ok((checkpoints, ret))
     }
@@ -6774,13 +7219,14 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_checkpoint_lookup_by_name));
         let req: Option<RemoteDomainCheckpointLookupByNameArgs> =
             Some(RemoteDomainCheckpointLookupByNameArgs { dom, name, flags });
-        let (_header, res) =
+        let res =
             call::<RemoteDomainCheckpointLookupByNameArgs, RemoteDomainCheckpointLookupByNameRet>(
                 self,
                 RemoteProcedure::RemoteProcDomainCheckpointLookupByName,
+                false,
                 req,
             )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainCheckpointLookupByNameRet { checkpoint } = res;
         Ok(checkpoint)
     }
@@ -6792,13 +7238,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_checkpoint_get_parent));
         let req: Option<RemoteDomainCheckpointGetParentArgs> =
             Some(RemoteDomainCheckpointGetParentArgs { checkpoint, flags });
-        let (_header, res) =
-            call::<RemoteDomainCheckpointGetParentArgs, RemoteDomainCheckpointGetParentRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainCheckpointGetParent,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainCheckpointGetParentArgs, RemoteDomainCheckpointGetParentRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainCheckpointGetParent,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainCheckpointGetParentRet { parent } = res;
         Ok(parent)
     }
@@ -6810,9 +7256,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_checkpoint_delete));
         let req: Option<RemoteDomainCheckpointDeleteArgs> =
             Some(RemoteDomainCheckpointDeleteArgs { checkpoint, flags });
-        let (_header, _res) = call::<RemoteDomainCheckpointDeleteArgs, ()>(
+        let _res = call::<RemoteDomainCheckpointDeleteArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainCheckpointDelete,
+            false,
             req,
         )?;
         Ok(())
@@ -6826,12 +7273,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_guest_info));
         let req: Option<RemoteDomainGetGuestInfoArgs> =
             Some(RemoteDomainGetGuestInfoArgs { dom, types, flags });
-        let (_header, res) = call::<RemoteDomainGetGuestInfoArgs, RemoteDomainGetGuestInfoRet>(
+        let res = call::<RemoteDomainGetGuestInfoArgs, RemoteDomainGetGuestInfoRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetGuestInfo,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetGuestInfoRet { params } = res;
         Ok(params)
     }
@@ -6843,9 +7291,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(connect_set_identity));
         let req: Option<RemoteConnectSetIdentityArgs> =
             Some(RemoteConnectSetIdentityArgs { params, flags });
-        let (_header, _res) = call::<RemoteConnectSetIdentityArgs, ()>(
+        let _res = call::<RemoteConnectSetIdentityArgs, ()>(
             self,
             RemoteProcedure::RemoteProcConnectSetIdentity,
+            false,
             req,
         )?;
         Ok(())
@@ -6863,15 +7312,16 @@ pub trait Libvirt: Send + Sized + 'static {
                 timeout,
                 flags,
             });
-        let (_header, res) = call::<
+        let res = call::<
             RemoteDomainAgentSetResponseTimeoutArgs,
             RemoteDomainAgentSetResponseTimeoutRet,
         >(
             self,
             RemoteProcedure::RemoteProcDomainAgentSetResponseTimeout,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainAgentSetResponseTimeoutRet { result } = res;
         Ok(result)
     }
@@ -6889,9 +7339,10 @@ pub trait Libvirt: Send + Sized + 'static {
             checkpoint_xml,
             flags,
         });
-        let (_header, _res) = call::<RemoteDomainBackupBeginArgs, ()>(
+        let _res = call::<RemoteDomainBackupBeginArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainBackupBegin,
+            false,
             req,
         )?;
         Ok(())
@@ -6904,22 +7355,23 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_backup_get_xml_desc));
         let req: Option<RemoteDomainBackupGetXmlDescArgs> =
             Some(RemoteDomainBackupGetXmlDescArgs { dom, flags });
-        let (_header, res) = call::<
-            RemoteDomainBackupGetXmlDescArgs,
-            RemoteDomainBackupGetXmlDescRet,
-        >(
-            self, RemoteProcedure::RemoteProcDomainBackupGetXmlDesc, req
+        let res = call::<RemoteDomainBackupGetXmlDescArgs, RemoteDomainBackupGetXmlDescRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainBackupGetXmlDesc,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainBackupGetXmlDescRet { xml } = res;
         Ok(xml)
     }
     fn domain_event_memory_failure(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_memory_failure));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventMemoryFailure,
+            false,
             req,
         )?;
         Ok(())
@@ -6933,13 +7385,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_authorized_ssh_keys_get));
         let req: Option<RemoteDomainAuthorizedSshKeysGetArgs> =
             Some(RemoteDomainAuthorizedSshKeysGetArgs { dom, user, flags });
-        let (_header, res) =
-            call::<RemoteDomainAuthorizedSshKeysGetArgs, RemoteDomainAuthorizedSshKeysGetRet>(
-                self,
-                RemoteProcedure::RemoteProcDomainAuthorizedSshKeysGet,
-                req,
-            )?;
-        let res = res.unwrap();
+        let res = call::<RemoteDomainAuthorizedSshKeysGetArgs, RemoteDomainAuthorizedSshKeysGetRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainAuthorizedSshKeysGet,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
         let RemoteDomainAuthorizedSshKeysGetRet { keys } = res;
         Ok(keys)
     }
@@ -6958,9 +7410,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 keys,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainAuthorizedSshKeysSetArgs, ()>(
+        let _res = call::<RemoteDomainAuthorizedSshKeysSetArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainAuthorizedSshKeysSet,
+            false,
             req,
         )?;
         Ok(())
@@ -6973,12 +7426,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_messages));
         let req: Option<RemoteDomainGetMessagesArgs> =
             Some(RemoteDomainGetMessagesArgs { dom, flags });
-        let (_header, res) = call::<RemoteDomainGetMessagesArgs, RemoteDomainGetMessagesRet>(
+        let res = call::<RemoteDomainGetMessagesArgs, RemoteDomainGetMessagesRet>(
             self,
             RemoteProcedure::RemoteProcDomainGetMessages,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetMessagesRet { msgs } = res;
         Ok(msgs)
     }
@@ -6995,9 +7449,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 seconds,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainStartDirtyRateCalcArgs, ()>(
+        let _res = call::<RemoteDomainStartDirtyRateCalcArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainStartDirtyRateCalc,
+            false,
             req,
         )?;
         Ok(())
@@ -7010,12 +7465,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_define_xml));
         let req: Option<RemoteNodeDeviceDefineXmlArgs> =
             Some(RemoteNodeDeviceDefineXmlArgs { xml_desc, flags });
-        let (_header, res) = call::<RemoteNodeDeviceDefineXmlArgs, RemoteNodeDeviceDefineXmlRet>(
+        let res = call::<RemoteNodeDeviceDefineXmlArgs, RemoteNodeDeviceDefineXmlRet>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceDefineXml,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceDefineXmlRet { dev } = res;
         Ok(dev)
     }
@@ -7023,9 +7479,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_undefine));
         let req: Option<RemoteNodeDeviceUndefineArgs> =
             Some(RemoteNodeDeviceUndefineArgs { name, flags });
-        let (_header, _res) = call::<RemoteNodeDeviceUndefineArgs, ()>(
+        let _res = call::<RemoteNodeDeviceUndefineArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceUndefine,
+            false,
             req,
         )?;
         Ok(())
@@ -7034,9 +7491,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_create));
         let req: Option<RemoteNodeDeviceCreateArgs> =
             Some(RemoteNodeDeviceCreateArgs { name, flags });
-        let (_header, _res) = call::<RemoteNodeDeviceCreateArgs, ()>(
+        let _res = call::<RemoteNodeDeviceCreateArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceCreate,
+            false,
             req,
         )?;
         Ok(())
@@ -7049,13 +7507,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(nwfilter_define_xml_flags));
         let req: Option<RemoteNwfilterDefineXmlFlagsArgs> =
             Some(RemoteNwfilterDefineXmlFlagsArgs { xml, flags });
-        let (_header, res) = call::<
-            RemoteNwfilterDefineXmlFlagsArgs,
-            RemoteNwfilterDefineXmlFlagsRet,
-        >(
-            self, RemoteProcedure::RemoteProcNwfilterDefineXmlFlags, req
+        let res = call::<RemoteNwfilterDefineXmlFlagsArgs, RemoteNwfilterDefineXmlFlagsRet>(
+            self,
+            RemoteProcedure::RemoteProcNwfilterDefineXmlFlags,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNwfilterDefineXmlFlagsRet { nwfilter } = res;
         Ok(nwfilter)
     }
@@ -7067,12 +7525,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_define_xml_flags));
         let req: Option<RemoteNetworkDefineXmlFlagsArgs> =
             Some(RemoteNetworkDefineXmlFlagsArgs { xml, flags });
-        let (_header, res) = call::<RemoteNetworkDefineXmlFlagsArgs, RemoteNetworkDefineXmlFlagsRet>(
+        let res = call::<RemoteNetworkDefineXmlFlagsArgs, RemoteNetworkDefineXmlFlagsRet>(
             self,
             RemoteProcedure::RemoteProcNetworkDefineXmlFlags,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkDefineXmlFlagsRet { net } = res;
         Ok(net)
     }
@@ -7080,13 +7539,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_get_autostart));
         let req: Option<RemoteNodeDeviceGetAutostartArgs> =
             Some(RemoteNodeDeviceGetAutostartArgs { name });
-        let (_header, res) = call::<
-            RemoteNodeDeviceGetAutostartArgs,
-            RemoteNodeDeviceGetAutostartRet,
-        >(
-            self, RemoteProcedure::RemoteProcNodeDeviceGetAutostart, req
+        let res = call::<RemoteNodeDeviceGetAutostartArgs, RemoteNodeDeviceGetAutostartRet>(
+            self,
+            RemoteProcedure::RemoteProcNodeDeviceGetAutostart,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceGetAutostartRet { autostart } = res;
         Ok(autostart)
     }
@@ -7094,9 +7553,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_set_autostart));
         let req: Option<RemoteNodeDeviceSetAutostartArgs> =
             Some(RemoteNodeDeviceSetAutostartArgs { name, autostart });
-        let (_header, _res) = call::<RemoteNodeDeviceSetAutostartArgs, ()>(
+        let _res = call::<RemoteNodeDeviceSetAutostartArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceSetAutostart,
+            false,
             req,
         )?;
         Ok(())
@@ -7105,25 +7565,26 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(node_device_is_persistent));
         let req: Option<RemoteNodeDeviceIsPersistentArgs> =
             Some(RemoteNodeDeviceIsPersistentArgs { name });
-        let (_header, res) = call::<
-            RemoteNodeDeviceIsPersistentArgs,
-            RemoteNodeDeviceIsPersistentRet,
-        >(
-            self, RemoteProcedure::RemoteProcNodeDeviceIsPersistent, req
+        let res = call::<RemoteNodeDeviceIsPersistentArgs, RemoteNodeDeviceIsPersistentRet>(
+            self,
+            RemoteProcedure::RemoteProcNodeDeviceIsPersistent,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceIsPersistentRet { persistent } = res;
         Ok(persistent)
     }
     fn node_device_is_active(&mut self, name: String) -> Result<i32, Error> {
         trace!("{}", stringify!(node_device_is_active));
         let req: Option<RemoteNodeDeviceIsActiveArgs> = Some(RemoteNodeDeviceIsActiveArgs { name });
-        let (_header, res) = call::<RemoteNodeDeviceIsActiveArgs, RemoteNodeDeviceIsActiveRet>(
+        let res = call::<RemoteNodeDeviceIsActiveArgs, RemoteNodeDeviceIsActiveRet>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceIsActive,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNodeDeviceIsActiveRet { active } = res;
         Ok(active)
     }
@@ -7135,21 +7596,23 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(network_create_xml_flags));
         let req: Option<RemoteNetworkCreateXmlFlagsArgs> =
             Some(RemoteNetworkCreateXmlFlagsArgs { xml, flags });
-        let (_header, res) = call::<RemoteNetworkCreateXmlFlagsArgs, RemoteNetworkCreateXmlFlagsRet>(
+        let res = call::<RemoteNetworkCreateXmlFlagsArgs, RemoteNetworkCreateXmlFlagsRet>(
             self,
             RemoteProcedure::RemoteProcNetworkCreateXmlFlags,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkCreateXmlFlagsRet { net } = res;
         Ok(net)
     }
     fn domain_event_memory_device_size_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_memory_device_size_change));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventMemoryDeviceSizeChange,
+            false,
             req,
         )?;
         Ok(())
@@ -7163,9 +7626,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_launch_security_state));
         let req: Option<RemoteDomainSetLaunchSecurityStateArgs> =
             Some(RemoteDomainSetLaunchSecurityStateArgs { dom, params, flags });
-        let (_header, _res) = call::<RemoteDomainSetLaunchSecurityStateArgs, ()>(
+        let _res = call::<RemoteDomainSetLaunchSecurityStateArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetLaunchSecurityState,
+            false,
             req,
         )?;
         Ok(())
@@ -7179,9 +7643,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_save_params));
         let req: Option<RemoteDomainSaveParamsArgs> =
             Some(RemoteDomainSaveParamsArgs { dom, params, flags });
-        let (_header, _res) = call::<RemoteDomainSaveParamsArgs, ()>(
+        let _res = call::<RemoteDomainSaveParamsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSaveParams,
+            false,
             req,
         )?;
         Ok(())
@@ -7194,9 +7659,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_restore_params));
         let req: Option<RemoteDomainRestoreParamsArgs> =
             Some(RemoteDomainRestoreParamsArgs { params, flags });
-        let (_header, _res) = call::<RemoteDomainRestoreParamsArgs, ()>(
+        let _res = call::<RemoteDomainRestoreParamsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainRestoreParams,
+            false,
             req,
         )?;
         Ok(())
@@ -7209,9 +7675,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_abort_job_flags));
         let req: Option<RemoteDomainAbortJobFlagsArgs> =
             Some(RemoteDomainAbortJobFlagsArgs { dom, flags });
-        let (_header, _res) = call::<RemoteDomainAbortJobFlagsArgs, ()>(
+        let _res = call::<RemoteDomainAbortJobFlagsArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainAbortJobFlags,
+            false,
             req,
         )?;
         Ok(())
@@ -7225,9 +7692,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_fd_associate));
         let req: Option<RemoteDomainFdAssociateArgs> =
             Some(RemoteDomainFdAssociateArgs { dom, name, flags });
-        let (_header, _res) = call::<RemoteDomainFdAssociateArgs, ()>(
+        let _res = call::<RemoteDomainFdAssociateArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainFdAssociate,
+            false,
             req,
         )?;
         Ok(())
@@ -7250,9 +7718,10 @@ pub trait Libvirt: Send + Sized + 'static {
             uri,
             flags,
         });
-        let (_header, _res) = call::<RemoteNetworkSetMetadataArgs, ()>(
+        let _res = call::<RemoteNetworkSetMetadataArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNetworkSetMetadata,
+            false,
             req,
         )?;
         Ok(())
@@ -7271,21 +7740,23 @@ pub trait Libvirt: Send + Sized + 'static {
             uri,
             flags,
         });
-        let (_header, res) = call::<RemoteNetworkGetMetadataArgs, RemoteNetworkGetMetadataRet>(
+        let res = call::<RemoteNetworkGetMetadataArgs, RemoteNetworkGetMetadataRet>(
             self,
             RemoteProcedure::RemoteProcNetworkGetMetadata,
+            false,
             req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteNetworkGetMetadataRet { metadata } = res;
         Ok(metadata)
     }
     fn network_event_callback_metadata_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(network_event_callback_metadata_change));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcNetworkEventCallbackMetadataChange,
+            false,
             req,
         )?;
         Ok(())
@@ -7302,9 +7773,10 @@ pub trait Libvirt: Send + Sized + 'static {
             xml_desc,
             flags,
         });
-        let (_header, _res) = call::<RemoteNodeDeviceUpdateArgs, ()>(
+        let _res = call::<RemoteNodeDeviceUpdateArgs, ()>(
             self,
             RemoteProcedure::RemoteProcNodeDeviceUpdate,
+            false,
             req,
         )?;
         Ok(())
@@ -7318,9 +7790,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_graphics_reload));
         let req: Option<RemoteDomainGraphicsReloadArgs> =
             Some(RemoteDomainGraphicsReloadArgs { dom, r#type, flags });
-        let (_header, _res) = call::<RemoteDomainGraphicsReloadArgs, ()>(
+        let _res = call::<RemoteDomainGraphicsReloadArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainGraphicsReload,
+            false,
             req,
         )?;
         Ok(())
@@ -7329,13 +7802,13 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_get_autostart_once));
         let req: Option<RemoteDomainGetAutostartOnceArgs> =
             Some(RemoteDomainGetAutostartOnceArgs { dom });
-        let (_header, res) = call::<
-            RemoteDomainGetAutostartOnceArgs,
-            RemoteDomainGetAutostartOnceRet,
-        >(
-            self, RemoteProcedure::RemoteProcDomainGetAutostartOnce, req
+        let res = call::<RemoteDomainGetAutostartOnceArgs, RemoteDomainGetAutostartOnceRet>(
+            self,
+            RemoteProcedure::RemoteProcDomainGetAutostartOnce,
+            false,
+            req,
         )?;
-        let res = res.unwrap();
+        let res = res.body.unwrap();
         let RemoteDomainGetAutostartOnceRet { autostart } = res;
         Ok(autostart)
     }
@@ -7347,9 +7820,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_set_autostart_once));
         let req: Option<RemoteDomainSetAutostartOnceArgs> =
             Some(RemoteDomainSetAutostartOnceArgs { dom, autostart });
-        let (_header, _res) = call::<RemoteDomainSetAutostartOnceArgs, ()>(
+        let _res = call::<RemoteDomainSetAutostartOnceArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetAutostartOnce,
+            false,
             req,
         )?;
         Ok(())
@@ -7369,9 +7843,10 @@ pub trait Libvirt: Send + Sized + 'static {
                 params,
                 flags,
             });
-        let (_header, _res) = call::<RemoteDomainSetThrottleGroupArgs, ()>(
+        let _res = call::<RemoteDomainSetThrottleGroupArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainSetThrottleGroup,
+            false,
             req,
         )?;
         Ok(())
@@ -7385,9 +7860,10 @@ pub trait Libvirt: Send + Sized + 'static {
         trace!("{}", stringify!(domain_del_throttle_group));
         let req: Option<RemoteDomainDelThrottleGroupArgs> =
             Some(RemoteDomainDelThrottleGroupArgs { dom, group, flags });
-        let (_header, _res) = call::<RemoteDomainDelThrottleGroupArgs, ()>(
+        let _res = call::<RemoteDomainDelThrottleGroupArgs, ()>(
             self,
             RemoteProcedure::RemoteProcDomainDelThrottleGroup,
+            false,
             req,
         )?;
         Ok(())
@@ -7395,24 +7871,25 @@ pub trait Libvirt: Send + Sized + 'static {
     fn domain_event_nic_mac_change(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(domain_event_nic_mac_change));
         let req: Option<()> = None;
-        let (_header, _res) = call::<(), ()>(
+        let _res = call::<(), ()>(
             self,
             RemoteProcedure::RemoteProcDomainEventNicMacChange,
+            false,
             req,
         )?;
         Ok(())
     }
     fn connect_event_connection_closed_msg(&mut self) -> Result<i32, Error> {
         trace!("{}", stringify!(connect_event_connection_closed_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteConnectEventConnectionClosedMsg { reason } = res;
         Ok(reason)
     }
     fn domain_event_balloon_change_msg(&mut self) -> Result<(RemoteNonnullDomain, u64), Error> {
         trace!("{}", stringify!(domain_event_balloon_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventBalloonChangeMsg { dom, actual } = res;
         Ok((dom, actual))
     }
@@ -7420,8 +7897,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullDomain, String, i32, i32), Error> {
         trace!("{}", stringify!(domain_event_block_job2_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventBlockJob2Msg {
             callback_id,
             dom,
@@ -7435,8 +7912,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(RemoteNonnullDomain, String, i32, i32), Error> {
         trace!("{}", stringify!(domain_event_block_job_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventBlockJobMsg {
             dom,
             path,
@@ -7449,15 +7926,15 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<RemoteDomainEventBlockThresholdMsg, Error> {
         trace!("{}", stringify!(domain_event_block_threshold_msg));
-        let (_header, res) = msg(self)?;
-        Ok(res.unwrap())
+        let res = msg(self)?;
+        Ok(res.body.unwrap())
     }
     fn domain_event_callback_agent_lifecycle_msg(
         &mut self,
     ) -> Result<(i32, RemoteNonnullDomain, i32, i32), Error> {
         trace!("{}", stringify!(domain_event_callback_agent_lifecycle_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackAgentLifecycleMsg {
             callback_id,
             dom,
@@ -7470,8 +7947,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventBalloonChangeMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_balloon_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackBalloonChangeMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7479,8 +7956,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventBlockJobMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_block_job_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackBlockJobMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7488,8 +7965,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventControlErrorMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_control_error_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackControlErrorMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7497,8 +7974,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullDomain, String), Error> {
         trace!("{}", stringify!(domain_event_callback_device_added_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackDeviceAddedMsg {
             callback_id,
             dom,
@@ -7513,8 +7990,8 @@ pub trait Libvirt: Send + Sized + 'static {
             "{}",
             stringify!(domain_event_callback_device_removal_failed_msg)
         );
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackDeviceRemovalFailedMsg {
             callback_id,
             dom,
@@ -7526,8 +8003,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventDeviceRemovedMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_device_removed_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackDeviceRemovedMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7535,8 +8012,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventDiskChangeMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_disk_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackDiskChangeMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7544,8 +8021,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventGraphicsMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_graphics_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackGraphicsMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7553,8 +8030,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventIoErrorMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_io_error_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackIoErrorMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7562,8 +8039,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventIoErrorReasonMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_io_error_reason_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackIoErrorReasonMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7571,8 +8048,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullDomain, Vec<RemoteTypedParam>), Error> {
         trace!("{}", stringify!(domain_event_callback_job_completed_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackJobCompletedMsg {
             callback_id,
             dom,
@@ -7584,8 +8061,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventLifecycleMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_lifecycle_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackLifecycleMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7593,8 +8070,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullDomain, i32, Option<String>), Error> {
         trace!("{}", stringify!(domain_event_callback_metadata_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackMetadataChangeMsg {
             callback_id,
             dom,
@@ -7610,8 +8087,8 @@ pub trait Libvirt: Send + Sized + 'static {
             "{}",
             stringify!(domain_event_callback_migration_iteration_msg)
         );
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackMigrationIterationMsg {
             callback_id,
             dom,
@@ -7623,8 +8100,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, i32, RemoteDomainEventPmsuspendDiskMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_pmsuspend_disk_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackPmsuspendDiskMsg {
             callback_id,
             reason,
@@ -7636,8 +8113,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, i32, RemoteDomainEventPmsuspendMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_pmsuspend_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackPmsuspendMsg {
             callback_id,
             reason,
@@ -7649,8 +8126,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, i32, RemoteDomainEventPmwakeupMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_pmwakeup_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackPmwakeupMsg {
             callback_id,
             reason,
@@ -7662,8 +8139,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventRebootMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_reboot_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackRebootMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7671,8 +8148,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventRtcChangeMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_rtc_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackRtcChangeMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7680,8 +8157,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventTrayChangeMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_tray_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackTrayChangeMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
@@ -7689,8 +8166,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullDomain, Vec<RemoteTypedParam>), Error> {
         trace!("{}", stringify!(domain_event_callback_tunable_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackTunableMsg {
             callback_id,
             dom,
@@ -7702,41 +8179,41 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteDomainEventWatchdogMsg), Error> {
         trace!("{}", stringify!(domain_event_callback_watchdog_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventCallbackWatchdogMsg { callback_id, msg } = res;
         Ok((callback_id, msg))
     }
     fn domain_event_control_error_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_event_control_error_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventControlErrorMsg { dom } = res;
         Ok(dom)
     }
     fn domain_event_device_removed_msg(&mut self) -> Result<(RemoteNonnullDomain, String), Error> {
         trace!("{}", stringify!(domain_event_device_removed_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventDeviceRemovedMsg { dom, dev_alias } = res;
         Ok((dom, dev_alias))
     }
     fn domain_event_disk_change_msg(&mut self) -> Result<RemoteDomainEventDiskChangeMsg, Error> {
         trace!("{}", stringify!(domain_event_disk_change_msg));
-        let (_header, res) = msg(self)?;
-        Ok(res.unwrap())
+        let res = msg(self)?;
+        Ok(res.body.unwrap())
     }
     fn domain_event_graphics_msg(&mut self) -> Result<RemoteDomainEventGraphicsMsg, Error> {
         trace!("{}", stringify!(domain_event_graphics_msg));
-        let (_header, res) = msg(self)?;
-        Ok(res.unwrap())
+        let res = msg(self)?;
+        Ok(res.body.unwrap())
     }
     fn domain_event_io_error_msg(
         &mut self,
     ) -> Result<(RemoteNonnullDomain, String, String, i32), Error> {
         trace!("{}", stringify!(domain_event_io_error_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventIoErrorMsg {
             dom,
             src_path,
@@ -7749,8 +8226,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(RemoteNonnullDomain, String, String, i32, String), Error> {
         trace!("{}", stringify!(domain_event_io_error_reason_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventIoErrorReasonMsg {
             dom,
             src_path,
@@ -7762,8 +8239,8 @@ pub trait Libvirt: Send + Sized + 'static {
     }
     fn domain_event_lifecycle_msg(&mut self) -> Result<(RemoteNonnullDomain, i32, i32), Error> {
         trace!("{}", stringify!(domain_event_lifecycle_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventLifecycleMsg { dom, event, detail } = res;
         Ok((dom, event, detail))
     }
@@ -7771,8 +8248,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullDomain, String, u64), Error> {
         trace!("{}", stringify!(domain_event_memory_device_size_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventMemoryDeviceSizeChangeMsg {
             callback_id,
             dom,
@@ -7785,8 +8262,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullDomain, i32, i32, u32), Error> {
         trace!("{}", stringify!(domain_event_memory_failure_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventMemoryFailureMsg {
             callback_id,
             dom,
@@ -7800,8 +8277,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullDomain, String, String, String), Error> {
         trace!("{}", stringify!(domain_event_nic_mac_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventNicMacChangeMsg {
             callback_id,
             dom,
@@ -7813,36 +8290,36 @@ pub trait Libvirt: Send + Sized + 'static {
     }
     fn domain_event_pmsuspend_disk_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_event_pmsuspend_disk_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventPmsuspendDiskMsg { dom } = res;
         Ok(dom)
     }
     fn domain_event_pmsuspend_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_event_pmsuspend_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventPmsuspendMsg { dom } = res;
         Ok(dom)
     }
     fn domain_event_pmwakeup_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_event_pmwakeup_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventPmwakeupMsg { dom } = res;
         Ok(dom)
     }
     fn domain_event_reboot_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
         trace!("{}", stringify!(domain_event_reboot_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventRebootMsg { dom } = res;
         Ok(dom)
     }
     fn domain_event_rtc_change_msg(&mut self) -> Result<(RemoteNonnullDomain, i64), Error> {
         trace!("{}", stringify!(domain_event_rtc_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventRtcChangeMsg { dom, offset } = res;
         Ok((dom, offset))
     }
@@ -7850,8 +8327,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(RemoteNonnullDomain, String, i32), Error> {
         trace!("{}", stringify!(domain_event_tray_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventTrayChangeMsg {
             dom,
             dev_alias,
@@ -7861,8 +8338,8 @@ pub trait Libvirt: Send + Sized + 'static {
     }
     fn domain_event_watchdog_msg(&mut self) -> Result<(RemoteNonnullDomain, i32), Error> {
         trace!("{}", stringify!(domain_event_watchdog_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteDomainEventWatchdogMsg { dom, action } = res;
         Ok((dom, action))
     }
@@ -7870,8 +8347,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullNetwork, i32, Option<String>), Error> {
         trace!("{}", stringify!(network_event_callback_metadata_change_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteNetworkEventCallbackMetadataChangeMsg {
             callback_id,
             net,
@@ -7884,8 +8361,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullNetwork, i32, i32), Error> {
         trace!("{}", stringify!(network_event_lifecycle_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteNetworkEventLifecycleMsg {
             callback_id,
             net,
@@ -7898,8 +8375,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullNodeDevice, i32, i32), Error> {
         trace!("{}", stringify!(node_device_event_lifecycle_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteNodeDeviceEventLifecycleMsg {
             callback_id,
             dev,
@@ -7910,8 +8387,8 @@ pub trait Libvirt: Send + Sized + 'static {
     }
     fn node_device_event_update_msg(&mut self) -> Result<(i32, RemoteNonnullNodeDevice), Error> {
         trace!("{}", stringify!(node_device_event_update_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteNodeDeviceEventUpdateMsg { callback_id, dev } = res;
         Ok((callback_id, dev))
     }
@@ -7919,8 +8396,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullSecret, i32, i32), Error> {
         trace!("{}", stringify!(secret_event_lifecycle_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteSecretEventLifecycleMsg {
             callback_id,
             secret,
@@ -7931,8 +8408,8 @@ pub trait Libvirt: Send + Sized + 'static {
     }
     fn secret_event_value_changed_msg(&mut self) -> Result<(i32, RemoteNonnullSecret), Error> {
         trace!("{}", stringify!(secret_event_value_changed_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteSecretEventValueChangedMsg {
             callback_id,
             secret,
@@ -7943,8 +8420,8 @@ pub trait Libvirt: Send + Sized + 'static {
         &mut self,
     ) -> Result<(i32, RemoteNonnullStoragePool, i32, i32), Error> {
         trace!("{}", stringify!(storage_pool_event_lifecycle_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteStoragePoolEventLifecycleMsg {
             callback_id,
             pool,
@@ -7955,15 +8432,32 @@ pub trait Libvirt: Send + Sized + 'static {
     }
     fn storage_pool_event_refresh_msg(&mut self) -> Result<(i32, RemoteNonnullStoragePool), Error> {
         trace!("{}", stringify!(storage_pool_event_refresh_msg));
-        let (_header, res) = msg(self)?;
-        let res = res.unwrap();
+        let res = msg(self)?;
+        let res = res.body.unwrap();
         let RemoteStoragePoolEventRefreshMsg { callback_id, pool } = res;
         Ok((callback_id, pool))
     }
 }
 impl VirNetStreamResponse {
-    pub fn new(inner: Box<dyn ReadWrite>, header: protocol::VirNetMessageHeader) -> Self {
-        VirNetStreamResponse { inner, header }
+    pub fn new(
+        inner: Box<dyn ReadWrite>,
+        channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+        receiver: Receiver<VirNetResponseRaw>,
+        header: protocol::VirNetMessageHeader,
+    ) -> Self {
+        VirNetStreamResponse {
+            inner,
+            channels,
+            receiver,
+            header,
+        }
+    }
+    pub fn fin(&self) {
+        let mut channels = self.channels.lock().unwrap();
+        channels.remove(&self.header.serial);
+    }
+    pub fn download(&mut self) -> Result<Option<VirNetStream>, Error> {
+        download(self)
     }
     pub fn storage_vol_upload_data(&mut self, buf: &[u8]) -> Result<(), Error> {
         trace!("{}", stringify!(storage_vol_upload_data));
@@ -7986,8 +8480,9 @@ impl VirNetStreamResponse {
 fn call<S, D>(
     client: &mut impl Libvirt,
     procedure: RemoteProcedure,
+    stream: bool,
     args: Option<S>,
-) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
+) -> Result<VirNetResponseSet<D>, Error>
 where
     S: Serialize,
     D: DeserializeOwned,
@@ -8010,41 +8505,55 @@ where
         client.remove_channel(serial);
         return Err(e);
     }
-    let res = rx
-        .recv_timeout(Duration::from_secs(180))
-        .map_err(Error::ReceiveChannelError)?;
-    let ret = if let Some(res_body_bytes) = res.body {
-        match deserialize_body(&res.header, res_body_bytes) {
-            Ok(res_body) => match res_body {
-                VirNetResponse::Data(body) => Ok((res.header, Some(body))),
-                _ => unreachable!(),
-            },
-            Err(e) => Err(e),
-        }
-    } else {
-        Ok((res.header, None))
-    };
-    client.remove_channel(serial);
-    ret
+    let ret = read_data::<D>(stream, client.channel_clone(), &rx, serial);
+    ret.map(|(header, body)| VirNetResponseSet {
+        receiver: Some(rx),
+        header,
+        body,
+    })
 }
-fn msg<D>(client: &mut impl Libvirt) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
+fn msg<D>(client: &mut impl Libvirt) -> Result<VirNetResponseSet<D>, Error>
 where
     D: DeserializeOwned,
 {
     let socket = client.inner();
     match recv(socket)? {
-        (header, Some(VirNetResponse::Data(res))) => Ok((header, Some(res))),
-        (header, None) => Ok((header, None)),
+        (header, Some(VirNetResponse::Data(res))) => {
+            let set = VirNetResponseSet {
+                receiver: None,
+                header,
+                body: Some(res),
+            };
+            Ok(set)
+        }
+        (header, None) => {
+            let set = VirNetResponseSet {
+                receiver: None,
+                header,
+                body: None,
+            };
+            Ok(set)
+        }
         _ => unreachable!(),
     }
 }
-fn download(client: &mut impl Libvirt) -> Result<Option<VirNetStream>, Error> {
-    let socket = client.inner();
-    let (_, body) = recv::<()>(socket)?;
-    match body {
-        Some(VirNetResponse::Stream(stream)) => Ok(Some(stream)),
-        None => Ok(None),
-        _ => unreachable!(),
+fn download(response: &mut VirNetStreamResponse) -> Result<Option<VirNetStream>, Error> {
+    let serial = response.header.serial;
+    let res = response
+        .receiver
+        .recv_timeout(Duration::from_secs(180))
+        .map_err(Error::ReceiveChannelError)?;
+    if let Some(res_body_bytes) = res.body {
+        match deserialize_body::<()>(&res.header, res_body_bytes) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Stream(stream) => Ok(Some(stream)),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    } else {
+        response.channels.lock().unwrap().remove(&serial);
+        Ok(None)
     }
 }
 fn upload(
@@ -8095,7 +8604,12 @@ fn upload_completed(
         protocol::VirNetMessageStatus::VirNetOk,
         req,
     )?;
-    let (_header, _res) = recv::<()>(&mut response.inner)?;
+    let (_header, _res) = read_data::<()>(
+        false,
+        Arc::clone(&response.channels),
+        &response.receiver,
+        response.header.serial,
+    )?;
     Ok(())
 }
 fn send<S>(
@@ -8233,6 +8747,34 @@ fn read_res_body(socket: &mut Box<dyn ReadWrite>, size: usize) -> Result<Vec<u8>
         .read_exact(&mut res_body_bytes)
         .map_err(Error::ReceiveError)?;
     Ok(res_body_bytes)
+}
+fn read_data<D>(
+    stream: bool,
+    channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+    rx: &Receiver<VirNetResponseRaw>,
+    serial: u32,
+) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
+where
+    D: DeserializeOwned,
+{
+    let res = rx
+        .recv_timeout(Duration::from_secs(180))
+        .map_err(Error::ReceiveChannelError)?;
+    let ret = if let Some(res_body_bytes) = res.body {
+        match deserialize_body(&res.header, res_body_bytes) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok((res.header, Some(body))),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    } else {
+        Ok((res.header, None))
+    };
+    if !stream {
+        channels.lock().unwrap().remove(&serial);
+    }
+    ret
 }
 fn deserialize_body<D>(
     res_header: &protocol::VirNetMessageHeader,

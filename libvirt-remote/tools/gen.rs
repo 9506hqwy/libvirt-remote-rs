@@ -63,8 +63,13 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             _ => quote! { () },
         };
 
-        let call_proc =
-            quote! { call::<#xdr_req_type, #xdr_res_type>(self, RemoteProcedure::#flag, req)? };
+        let stream_arg = if stream {
+            quote! { true }
+        } else {
+            quote! { false }
+        };
+
+        let call_proc = quote! { call::<#xdr_req_type, #xdr_res_type>(self, RemoteProcedure::#flag, #stream_arg, req)? };
 
         let fn_args = gen_fn_args(&method_name, args.as_deref(), wrapped, &models);
         let res_type = gen_res_type(ret.as_deref(), wrapped, stream, &models);
@@ -110,7 +115,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         #[cfg(target_family = "unix")]
         use std::os::unix::net::UnixStream;
         use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-        use std::sync::mpsc::{Sender, channel};
+        use std::sync::mpsc::{Receiver, Sender, channel};
         use std::sync::{Arc, Mutex};
         use std::thread::{self, JoinHandle};
         use std::time::Duration;
@@ -142,6 +147,8 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
         pub struct VirNetStreamResponse {
             inner: Box<dyn ReadWrite>,
+            channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+            receiver: Receiver<VirNetResponseRaw>,
             header: protocol::VirNetMessageHeader,
         }
 
@@ -156,6 +163,12 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         pub struct VirNetResponseRaw {
             header: protocol::VirNetMessageHeader,
             body: Option<Vec<u8>>,
+        }
+
+        pub struct VirNetResponseSet<D> {
+            receiver: Option<Receiver<VirNetResponseRaw>>,
+            header: protocol::VirNetMessageHeader,
+            body: Option<D>,
         }
 
         pub enum VirNetResponse<D>
@@ -245,6 +258,10 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 let mut channels = self.channels.lock().unwrap();
                 channels.remove(&serial);
             }
+
+            fn channel_clone(&self) -> Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>> {
+                Arc::clone(&self.channels)
+            }
         }
 
         pub trait Libvirt: Send + Sized + 'static {
@@ -264,9 +281,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
             fn remove_channel(&mut self, serial: u32);
 
-            fn download(&mut self) -> Result<Option<VirNetStream>, Error> {
-                download(self)
-            }
+            fn channel_clone(&self) -> Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>;
 
             #(#calls)*
 
@@ -274,8 +289,22 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         }
 
         impl VirNetStreamResponse {
-            pub fn new(inner: Box<dyn ReadWrite>, header: protocol::VirNetMessageHeader) -> Self {
-                VirNetStreamResponse { inner, header }
+            pub fn new(
+                inner: Box<dyn ReadWrite>,
+                channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+                receiver: Receiver<VirNetResponseRaw>,
+                header: protocol::VirNetMessageHeader,
+            ) -> Self {
+                VirNetStreamResponse { inner, channels, receiver, header }
+            }
+
+            pub fn fin(&self) {
+                let mut channels = self.channels.lock().unwrap();
+                channels.remove(&self.header.serial);
+            }
+
+            pub fn download(&mut self) -> Result<Option<VirNetStream>, Error> {
+                download(self)
             }
 
             pub fn storage_vol_upload_data(&mut self, buf: &[u8]) -> Result<(), Error> {
@@ -305,8 +334,9 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
         fn call<S, D>(
             client: &mut impl Libvirt,
             procedure: RemoteProcedure,
+            stream: bool,
             args: Option<S>,
-        ) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
+        ) -> Result<VirNetResponseSet<D>, Error>
         where
             S: Serialize,
             D: DeserializeOwned,
@@ -334,52 +364,62 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 return Err(e);
             }
 
-            let res = rx
-                .recv_timeout(Duration::from_secs(180))
-                .map_err(Error::ReceiveChannelError)?;
+            let ret = read_data::<D>(stream, client.channel_clone(), &rx, serial);
 
-            let ret = if let Some(res_body_bytes) = res.body {
-                match deserialize_body(&res.header, res_body_bytes) {
-                    Ok(res_body) => match res_body {
-                        VirNetResponse::Data(body) => Ok((res.header, Some(body))),
-                        _ => unreachable!(),
-                    },
-                    Err(e) => Err(e),
-                }
-            } else {
-                Ok((res.header, None))
-            };
-
-            client.remove_channel(serial);
-
-            ret
+            ret.map(|(header, body)| VirNetResponseSet {
+                receiver: Some(rx),
+                header,
+                body,
+            })
         }
-
 
         fn msg<D>(
             client: &mut impl Libvirt,
-        ) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
+        ) -> Result<VirNetResponseSet<D>, Error>
         where
             D: DeserializeOwned,
         {
             let socket = client.inner();
             // TODO: event stream support.
             match recv(socket)? {
-                (header, Some(VirNetResponse::Data(res))) => Ok((header, Some(res))),
-                (header, None) => Ok((header, None)),
+                (header, Some(VirNetResponse::Data(res))) => {
+                    let set = VirNetResponseSet {
+                        receiver: None,
+                        header,
+                        body: Some(res),
+                    };
+                    Ok(set)
+                }
+                (header, None) => {
+                    let set = VirNetResponseSet {
+                        receiver: None,
+                        header,
+                        body: None,
+                    };
+                    Ok(set)
+                }
                 _ => unreachable!(),
             }
         }
 
-        fn download(client: &mut impl Libvirt) -> Result<Option<VirNetStream>, Error> {
-            let socket = client.inner();
-            // TODO: multi response support.
-            let (_, body) = recv::<()>(socket)?;
+        fn download(response: &mut VirNetStreamResponse) -> Result<Option<VirNetStream>, Error> {
+            let serial = response.header.serial;
 
-            match body {
-                Some(VirNetResponse::Stream(stream)) => Ok(Some(stream)),
-                None => Ok(None),
-                _ => unreachable!(),
+            let res = response
+                .receiver
+                .recv_timeout(Duration::from_secs(180))
+                .map_err(Error::ReceiveChannelError)?;
+            if let Some(res_body_bytes) = res.body {
+                match deserialize_body::<()>(&res.header, res_body_bytes) {
+                    Ok(res_body) => match res_body {
+                        VirNetResponse::Stream(stream) => Ok(Some(stream)),
+                        _ => unreachable!(),
+                    },
+                    Err(e) => Err(e),
+                }
+            } else {
+                response.channels.lock().unwrap().remove(&serial);
+                Ok(None)
             }
         }
 
@@ -425,6 +465,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             procedure: RemoteProcedure,
         ) -> Result<(), Error> {
             let req: Option<VirNetRequest<()>> = None;
+
             send(
                 &mut response.inner,
                 procedure,
@@ -433,8 +474,14 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 protocol::VirNetMessageStatus::VirNetOk,
                 req,
             )?;
-            // TODO: multi response support.
-            let (_header, _res) = recv::<()>(&mut response.inner)?;
+
+            let (_header, _res) = read_data::<()>(
+                false,
+                Arc::clone(&response.channels),
+                &response.receiver,
+                response.header.serial,
+            )?;
+
             Ok(())
         }
 
@@ -587,6 +634,38 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 .read_exact(&mut res_body_bytes)
                 .map_err(Error::ReceiveError)?;
             Ok(res_body_bytes)
+        }
+
+        fn read_data<D>(
+            stream: bool,
+            channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+            rx: &Receiver<VirNetResponseRaw>,
+            serial: u32,
+        ) -> Result<(protocol::VirNetMessageHeader, Option<D>), Error>
+        where
+            D: DeserializeOwned,
+        {
+            let res = rx
+                .recv_timeout(Duration::from_secs(180))
+                .map_err(Error::ReceiveChannelError)?;
+
+            let ret = if let Some(res_body_bytes) = res.body {
+                match deserialize_body(&res.header, res_body_bytes) {
+                    Ok(res_body) => match res_body {
+                        VirNetResponse::Data(body) => Ok((res.header, Some(body))),
+                        _ => unreachable!(),
+                    },
+                    Err(e) => Err(e),
+                }
+            } else {
+                Ok((res.header, None))
+            };
+
+            if !stream {
+                channels.lock().unwrap().remove(&serial);
+            }
+
+            ret
         }
 
         fn deserialize_body<D>(
@@ -783,16 +862,16 @@ fn gen_proc_stmt(
 
         if wrapped || undeconstructing(model) {
             quote! {
-                let (_header, res) = #proc;
-                Ok(res.unwrap())
+                let res = #proc;
+                Ok(res.body.unwrap())
             }
         } else {
             let model = models.get(model).unwrap();
             let fields = syn_fields_to_sig_fields(model);
 
             let call_stmt = quote! {
-                let (_header, res) = #proc;
-                let res = res.unwrap();
+                let res = #proc;
+                let res = res.body.unwrap();
                 let #model_ident { #(#fields),* } = res;
             };
 
@@ -810,16 +889,18 @@ fn gen_proc_stmt(
         }
     } else if stream {
         quote! {
-            let (header, _res) = #proc;
+            let res = #proc;
             let res = VirNetStreamResponse {
                 inner: self.inner_clone()?,
-                header,
+                channels: self.channel_clone(),
+                receiver: res.receiver.unwrap(),
+                header: res.header,
             };
             Ok(res)
         }
     } else {
         quote! {
-            let (_header, _res) = #proc;
+            let _res = #proc;
             Ok(())
         }
     }
