@@ -8,7 +8,8 @@ The packet encoding and decoding and stub code generation uses [xdr-rs](https://
 
 ## TODO
 
-- `Method calls overlapping` support
+- QEMU protocol support
+- LXD protocol support
 
 ## Examples
 
