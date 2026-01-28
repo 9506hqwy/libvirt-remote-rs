@@ -6,14 +6,13 @@ use std::error::Error;
 use std::fs;
 use std::str::FromStr;
 
-const STREAM_PROCS: [&str; 5] = [
+const STREAM_PROCS: [&str; 7] = [
     "DomainMigratePrepareTunnel",
     "DomainOpenConsole",
     "StorageVolUpload",
     "StorageVolDownload",
-    // TODO:
-    // "DomainScreenshot",
-    // "DomainMigratePrepareTunnel3",
+    "DomainScreenshot",
+    "DomainMigratePrepareTunnel3",
     "DomainOpenChannel",
 ];
 
@@ -148,11 +147,15 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             events: Arc<Mutex<Receiver<VirNetResponseRaw>>>,
         }
 
-        pub struct VirNetStreamResponse {
+        pub struct VirNetStreamResponse<D>
+        where
+            D: DeserializeOwned,
+        {
             inner: Box<dyn ReadWrite>,
             channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
             receiver: Receiver<VirNetResponseRaw>,
             header: protocol::VirNetMessageHeader,
+            body: Option<D>,
         }
 
         pub enum VirNetRequest<S>
@@ -307,19 +310,27 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             #(#calls)*
         }
 
-        impl VirNetStreamResponse {
+        impl<D> VirNetStreamResponse<D>
+        where
+            D: DeserializeOwned,
+        {
             pub fn new(
                 inner: Box<dyn ReadWrite>,
                 channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
                 receiver: Receiver<VirNetResponseRaw>,
                 header: protocol::VirNetMessageHeader,
+                body: Option<D>,
             ) -> Self {
-                VirNetStreamResponse { inner, channels, receiver, header }
+                VirNetStreamResponse { inner, channels, receiver, header, body }
             }
 
             pub fn fin(&self) {
                 let mut channels = self.channels.lock().unwrap();
                 channels.remove(&self.header.serial);
+            }
+
+            pub fn data(&self) -> Option<&D> {
+                self.body.as_ref()
             }
 
             pub fn download(&mut self) -> Result<Option<VirNetStream>, Error> {
@@ -394,7 +405,10 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             })
         }
 
-        fn download(response: &mut VirNetStreamResponse) -> Result<Option<VirNetStream>, Error> {
+        fn download<D>(response: &mut VirNetStreamResponse<D>) -> Result<Option<VirNetStream>, Error>
+        where
+            D: DeserializeOwned,
+        {
             let serial = response.header.serial;
 
             let res = response
@@ -415,11 +429,14 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             }
         }
 
-        fn upload(
-            response: &mut VirNetStreamResponse,
+        fn upload<D>(
+            response: &mut VirNetStreamResponse<D>,
             procedure: RemoteProcedure,
             buf: &[u8],
-        ) -> Result<(), Error> {
+        ) -> Result<(), Error>
+        where
+            D: DeserializeOwned,
+        {
             let bytes = VirNetStream::Raw(buf.to_vec());
             let req: Option<VirNetRequest<()>> = Some(VirNetRequest::Stream(bytes));
             send(
@@ -433,12 +450,15 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             Ok(())
         }
 
-        fn send_hole(
-            response: &mut VirNetStreamResponse,
+        fn send_hole<D>(
+            response: &mut VirNetStreamResponse<D>,
             procedure: RemoteProcedure,
             length: i64,
             flags: u32,
-        ) -> Result<(), Error> {
+        ) -> Result<(), Error>
+        where
+            D: DeserializeOwned,
+        {
             let hole = VirNetStream::Hole(protocol::VirNetStreamHole { length, flags });
             let args: Option<VirNetRequest<()>> = Some(VirNetRequest::Stream(hole));
             send(
@@ -452,10 +472,13 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             Ok(())
         }
 
-        fn upload_completed(
-            response: &mut VirNetStreamResponse,
+        fn upload_completed<D>(
+            response: &mut VirNetStreamResponse<D>,
             procedure: RemoteProcedure,
-        ) -> Result<(), Error> {
+        ) -> Result<(), Error>
+        where
+            D: DeserializeOwned,
+        {
             let req: Option<VirNetRequest<()>> = None;
 
             send(
@@ -778,7 +801,14 @@ fn gen_res_type(
     models: &HashMap<String, syn::ItemStruct>,
 ) -> TokenStream {
     if stream {
-        return quote! { VirNetStreamResponse };
+        let model_ident = match model {
+            Some(model) => {
+                let model_ident = format_ident!("{}", model);
+                quote! { #model_ident }
+            }
+            _ => quote! { () },
+        };
+        return quote! { VirNetStreamResponse<#model_ident> };
     }
 
     if let Some(model) = model {
@@ -842,6 +872,18 @@ fn gen_proc_stmt(
                 let res = #proc;
                 Ok(res.body.unwrap())
             }
+        } else if stream {
+            quote! {
+                let res = #proc;
+                let res = VirNetStreamResponse {
+                    inner: self.inner_clone()?,
+                    channels: self.channel_clone(),
+                    receiver: res.receiver.unwrap(),
+                    header: res.header,
+                    body: res.body,
+                };
+                Ok(res)
+            }
         } else {
             let model = models.get(model).unwrap();
             let fields = syn_fields_to_sig_fields(model);
@@ -872,6 +914,7 @@ fn gen_proc_stmt(
                 channels: self.channel_clone(),
                 receiver: res.receiver.unwrap(),
                 header: res.header,
+                body: None,
             };
             Ok(res)
         }

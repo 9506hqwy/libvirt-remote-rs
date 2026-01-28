@@ -91,7 +91,7 @@ pub fn run(
 }
 
 fn upload_data(
-    stream: &mut VirNetStreamResponse,
+    stream: &mut VirNetStreamResponse<()>,
     reader: &mut impl Read,
     length: usize,
 ) -> Result<(), Error> {

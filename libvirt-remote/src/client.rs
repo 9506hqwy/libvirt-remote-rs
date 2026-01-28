@@ -38,11 +38,15 @@ pub struct Client {
     channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
     events: Arc<Mutex<Receiver<VirNetResponseRaw>>>,
 }
-pub struct VirNetStreamResponse {
+pub struct VirNetStreamResponse<D>
+where
+    D: DeserializeOwned,
+{
     inner: Box<dyn ReadWrite>,
     channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
     receiver: Receiver<VirNetResponseRaw>,
     header: protocol::VirNetMessageHeader,
+    body: Option<D>,
 }
 pub enum VirNetRequest<S>
 where
@@ -2435,7 +2439,7 @@ pub trait Libvirt: Send + Sized + 'static {
         dname: Option<String>,
         bandwidth: u64,
         dom_xml: String,
-    ) -> Result<VirNetStreamResponse, Error> {
+    ) -> Result<VirNetStreamResponse<()>, Error> {
         trace!("{}", stringify!(domain_migrate_prepare_tunnel));
         let req: Option<RemoteDomainMigratePrepareTunnelArgs> =
             Some(RemoteDomainMigratePrepareTunnelArgs {
@@ -2455,6 +2459,7 @@ pub trait Libvirt: Send + Sized + 'static {
             channels: self.channel_clone(),
             receiver: res.receiver.unwrap(),
             header: res.header,
+            body: None,
         };
         Ok(res)
     }
@@ -3258,7 +3263,7 @@ pub trait Libvirt: Send + Sized + 'static {
         dom: RemoteNonnullDomain,
         dev_name: Option<String>,
         flags: u32,
-    ) -> Result<VirNetStreamResponse, Error> {
+    ) -> Result<VirNetStreamResponse<()>, Error> {
         trace!("{}", stringify!(domain_open_console));
         let req: Option<RemoteDomainOpenConsoleArgs> = Some(RemoteDomainOpenConsoleArgs {
             dom,
@@ -3276,6 +3281,7 @@ pub trait Libvirt: Send + Sized + 'static {
             channels: self.channel_clone(),
             receiver: res.receiver.unwrap(),
             header: res.header,
+            body: None,
         };
         Ok(res)
     }
@@ -3389,7 +3395,7 @@ pub trait Libvirt: Send + Sized + 'static {
         offset: u64,
         length: u64,
         flags: u32,
-    ) -> Result<VirNetStreamResponse, Error> {
+    ) -> Result<VirNetStreamResponse<()>, Error> {
         trace!("{}", stringify!(storage_vol_upload));
         let req: Option<RemoteStorageVolUploadArgs> = Some(RemoteStorageVolUploadArgs {
             vol,
@@ -3408,6 +3414,7 @@ pub trait Libvirt: Send + Sized + 'static {
             channels: self.channel_clone(),
             receiver: res.receiver.unwrap(),
             header: res.header,
+            body: None,
         };
         Ok(res)
     }
@@ -3417,7 +3424,7 @@ pub trait Libvirt: Send + Sized + 'static {
         offset: u64,
         length: u64,
         flags: u32,
-    ) -> Result<VirNetStreamResponse, Error> {
+    ) -> Result<VirNetStreamResponse<()>, Error> {
         trace!("{}", stringify!(storage_vol_download));
         let req: Option<RemoteStorageVolDownloadArgs> = Some(RemoteStorageVolDownloadArgs {
             vol,
@@ -3436,6 +3443,7 @@ pub trait Libvirt: Send + Sized + 'static {
             channels: self.channel_clone(),
             receiver: res.receiver.unwrap(),
             header: res.header,
+            body: None,
         };
         Ok(res)
     }
@@ -3455,19 +3463,24 @@ pub trait Libvirt: Send + Sized + 'static {
         dom: RemoteNonnullDomain,
         screen: u32,
         flags: u32,
-    ) -> Result<Option<String>, Error> {
+    ) -> Result<VirNetStreamResponse<RemoteDomainScreenshotRet>, Error> {
         trace!("{}", stringify!(domain_screenshot));
         let req: Option<RemoteDomainScreenshotArgs> =
             Some(RemoteDomainScreenshotArgs { dom, screen, flags });
         let res = call::<RemoteDomainScreenshotArgs, RemoteDomainScreenshotRet>(
             self,
             RemoteProcedure::RemoteProcDomainScreenshot,
-            false,
+            true,
             req,
         )?;
-        let res = res.body.unwrap();
-        let RemoteDomainScreenshotRet { mime } = res;
-        Ok(mime)
+        let res = VirNetStreamResponse {
+            inner: self.inner_clone()?,
+            channels: self.channel_clone(),
+            receiver: res.receiver.unwrap(),
+            header: res.header,
+            body: res.body,
+        };
+        Ok(res)
     }
     fn domain_get_state(
         &mut self,
@@ -3550,7 +3563,7 @@ pub trait Libvirt: Send + Sized + 'static {
         dname: Option<String>,
         bandwidth: u64,
         dom_xml: String,
-    ) -> Result<Vec<u8>, Error> {
+    ) -> Result<VirNetStreamResponse<RemoteDomainMigratePrepareTunnel3Ret>, Error> {
         trace!("{}", stringify!(domain_migrate_prepare_tunnel3));
         let req: Option<RemoteDomainMigratePrepareTunnel3Args> =
             Some(RemoteDomainMigratePrepareTunnel3Args {
@@ -3564,12 +3577,17 @@ pub trait Libvirt: Send + Sized + 'static {
             call::<RemoteDomainMigratePrepareTunnel3Args, RemoteDomainMigratePrepareTunnel3Ret>(
                 self,
                 RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3,
-                false,
+                true,
                 req,
             )?;
-        let res = res.body.unwrap();
-        let RemoteDomainMigratePrepareTunnel3Ret { cookie_out } = res;
-        Ok(cookie_out)
+        let res = VirNetStreamResponse {
+            inner: self.inner_clone()?,
+            channels: self.channel_clone(),
+            receiver: res.receiver.unwrap(),
+            header: res.header,
+            body: res.body,
+        };
+        Ok(res)
     }
     fn domain_migrate_perform3(
         &mut self,
@@ -5129,7 +5147,7 @@ pub trait Libvirt: Send + Sized + 'static {
         dom: RemoteNonnullDomain,
         name: Option<String>,
         flags: u32,
-    ) -> Result<VirNetStreamResponse, Error> {
+    ) -> Result<VirNetStreamResponse<()>, Error> {
         trace!("{}", stringify!(domain_open_channel));
         let req: Option<RemoteDomainOpenChannelArgs> =
             Some(RemoteDomainOpenChannelArgs { dom, name, flags });
@@ -5144,6 +5162,7 @@ pub trait Libvirt: Send + Sized + 'static {
             channels: self.channel_clone(),
             receiver: res.receiver.unwrap(),
             header: res.header,
+            body: None,
         };
         Ok(res)
     }
@@ -7896,23 +7915,31 @@ pub trait Libvirt: Send + Sized + 'static {
         Ok(())
     }
 }
-impl VirNetStreamResponse {
+impl<D> VirNetStreamResponse<D>
+where
+    D: DeserializeOwned,
+{
     pub fn new(
         inner: Box<dyn ReadWrite>,
         channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
         receiver: Receiver<VirNetResponseRaw>,
         header: protocol::VirNetMessageHeader,
+        body: Option<D>,
     ) -> Self {
         VirNetStreamResponse {
             inner,
             channels,
             receiver,
             header,
+            body,
         }
     }
     pub fn fin(&self) {
         let mut channels = self.channels.lock().unwrap();
         channels.remove(&self.header.serial);
+    }
+    pub fn data(&self) -> Option<&D> {
+        self.body.as_ref()
     }
     pub fn download(&mut self) -> Result<Option<VirNetStream>, Error> {
         download(self)
@@ -8712,7 +8739,10 @@ where
         body,
     })
 }
-fn download(response: &mut VirNetStreamResponse) -> Result<Option<VirNetStream>, Error> {
+fn download<D>(response: &mut VirNetStreamResponse<D>) -> Result<Option<VirNetStream>, Error>
+where
+    D: DeserializeOwned,
+{
     let serial = response.header.serial;
     let res = response
         .receiver
@@ -8731,11 +8761,14 @@ fn download(response: &mut VirNetStreamResponse) -> Result<Option<VirNetStream>,
         Ok(None)
     }
 }
-fn upload(
-    response: &mut VirNetStreamResponse,
+fn upload<D>(
+    response: &mut VirNetStreamResponse<D>,
     procedure: RemoteProcedure,
     buf: &[u8],
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+    D: DeserializeOwned,
+{
     let bytes = VirNetStream::Raw(buf.to_vec());
     let req: Option<VirNetRequest<()>> = Some(VirNetRequest::Stream(bytes));
     send(
@@ -8748,12 +8781,15 @@ fn upload(
     )?;
     Ok(())
 }
-fn send_hole(
-    response: &mut VirNetStreamResponse,
+fn send_hole<D>(
+    response: &mut VirNetStreamResponse<D>,
     procedure: RemoteProcedure,
     length: i64,
     flags: u32,
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+    D: DeserializeOwned,
+{
     let hole = VirNetStream::Hole(protocol::VirNetStreamHole { length, flags });
     let args: Option<VirNetRequest<()>> = Some(VirNetRequest::Stream(hole));
     send(
@@ -8766,10 +8802,13 @@ fn send_hole(
     )?;
     Ok(())
 }
-fn upload_completed(
-    response: &mut VirNetStreamResponse,
+fn upload_completed<D>(
+    response: &mut VirNetStreamResponse<D>,
     procedure: RemoteProcedure,
-) -> Result<(), Error> {
+) -> Result<(), Error>
+where
+    D: DeserializeOwned,
+{
     let req: Option<VirNetRequest<()>> = None;
     send(
         &mut response.inner,
