@@ -36,6 +36,7 @@ pub struct Client {
     receiver: Arc<JoinHandle<()>>,
     receiver_run: Arc<AtomicBool>,
     channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+    events: Arc<Mutex<Receiver<VirNetResponseRaw>>>,
 }
 pub struct VirNetStreamResponse {
     inner: Box<dyn ReadWrite>,
@@ -72,13 +73,15 @@ pub enum VirNetStream {
 }
 impl Client {
     pub fn new(socket: impl ReadWrite + 'static) -> Self {
+        let (tx, rx) = channel();
         let receiver_run = Arc::new(AtomicBool::new(true));
         let channels = Arc::new(Mutex::new(HashMap::new()));
+        let events = Arc::new(Mutex::new(rx));
         let t_receiver_run = Arc::clone(&receiver_run);
         let t_socket = socket.clone().unwrap();
         let t_channels = Arc::clone(&channels);
         let receiver = thread::spawn(|| {
-            recv_thread(t_receiver_run, t_socket, t_channels);
+            recv_thread(t_receiver_run, t_socket, t_channels, tx);
         });
         Client {
             inner: Box::new(socket),
@@ -86,6 +89,7 @@ impl Client {
             receiver: Arc::new(receiver),
             receiver_run,
             channels,
+            events,
         }
     }
 }
@@ -96,12 +100,14 @@ impl Libvirt for Client {
         let receiver = Arc::clone(&self.receiver);
         let receiver_run = Arc::clone(&self.receiver_run);
         let channels = Arc::clone(&self.channels);
+        let events = Arc::clone(&self.events);
         Ok(Client {
             inner,
             serial,
             receiver,
             receiver_run,
             channels,
+            events,
         })
     }
     fn fin(self) -> Result<(), Error> {
@@ -136,6 +142,15 @@ impl Libvirt for Client {
     fn channel_clone(&self) -> Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>> {
         Arc::clone(&self.channels)
     }
+    fn get_event(&self, timeout: Duration) -> Result<VirNetResponseRaw, Error> {
+        let raw = self
+            .events
+            .lock()
+            .unwrap()
+            .recv_timeout(timeout)
+            .map_err(Error::ReceiveChannelError)?;
+        Ok(raw)
+    }
 }
 pub trait Libvirt: Send + Sized + 'static {
     fn try_clone(&self) -> Result<Self, Error>;
@@ -147,6 +162,7 @@ pub trait Libvirt: Send + Sized + 'static {
     fn add_channel(&mut self, serial: u32, sender: Sender<VirNetResponseRaw>);
     fn remove_channel(&mut self, serial: u32);
     fn channel_clone(&self) -> Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>;
+    fn get_event(&self, timeout: Duration) -> Result<VirNetResponseRaw, Error>;
     fn connect_open(&mut self, name: Option<String>, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(connect_open));
         let req: Option<RemoteConnectOpenArgs> = Some(RemoteConnectOpenArgs { name, flags });
@@ -7879,564 +7895,6 @@ pub trait Libvirt: Send + Sized + 'static {
         )?;
         Ok(())
     }
-    fn connect_event_connection_closed_msg(&mut self) -> Result<i32, Error> {
-        trace!("{}", stringify!(connect_event_connection_closed_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteConnectEventConnectionClosedMsg { reason } = res;
-        Ok(reason)
-    }
-    fn domain_event_balloon_change_msg(&mut self) -> Result<(RemoteNonnullDomain, u64), Error> {
-        trace!("{}", stringify!(domain_event_balloon_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventBalloonChangeMsg { dom, actual } = res;
-        Ok((dom, actual))
-    }
-    fn domain_event_block_job2_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, String, i32, i32), Error> {
-        trace!("{}", stringify!(domain_event_block_job2_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventBlockJob2Msg {
-            callback_id,
-            dom,
-            dst,
-            r#type,
-            status,
-        } = res;
-        Ok((callback_id, dom, dst, r#type, status))
-    }
-    fn domain_event_block_job_msg(
-        &mut self,
-    ) -> Result<(RemoteNonnullDomain, String, i32, i32), Error> {
-        trace!("{}", stringify!(domain_event_block_job_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventBlockJobMsg {
-            dom,
-            path,
-            r#type,
-            status,
-        } = res;
-        Ok((dom, path, r#type, status))
-    }
-    fn domain_event_block_threshold_msg(
-        &mut self,
-    ) -> Result<RemoteDomainEventBlockThresholdMsg, Error> {
-        trace!("{}", stringify!(domain_event_block_threshold_msg));
-        let res = msg(self)?;
-        Ok(res.body.unwrap())
-    }
-    fn domain_event_callback_agent_lifecycle_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, i32, i32), Error> {
-        trace!("{}", stringify!(domain_event_callback_agent_lifecycle_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackAgentLifecycleMsg {
-            callback_id,
-            dom,
-            state,
-            reason,
-        } = res;
-        Ok((callback_id, dom, state, reason))
-    }
-    fn domain_event_callback_balloon_change_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventBalloonChangeMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_balloon_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackBalloonChangeMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_block_job_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventBlockJobMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_block_job_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackBlockJobMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_control_error_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventControlErrorMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_control_error_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackControlErrorMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_device_added_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, String), Error> {
-        trace!("{}", stringify!(domain_event_callback_device_added_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackDeviceAddedMsg {
-            callback_id,
-            dom,
-            dev_alias,
-        } = res;
-        Ok((callback_id, dom, dev_alias))
-    }
-    fn domain_event_callback_device_removal_failed_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, String), Error> {
-        trace!(
-            "{}",
-            stringify!(domain_event_callback_device_removal_failed_msg)
-        );
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackDeviceRemovalFailedMsg {
-            callback_id,
-            dom,
-            dev_alias,
-        } = res;
-        Ok((callback_id, dom, dev_alias))
-    }
-    fn domain_event_callback_device_removed_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventDeviceRemovedMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_device_removed_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackDeviceRemovedMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_disk_change_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventDiskChangeMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_disk_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackDiskChangeMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_graphics_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventGraphicsMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_graphics_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackGraphicsMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_io_error_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventIoErrorMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_io_error_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackIoErrorMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_io_error_reason_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventIoErrorReasonMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_io_error_reason_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackIoErrorReasonMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_job_completed_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, Vec<RemoteTypedParam>), Error> {
-        trace!("{}", stringify!(domain_event_callback_job_completed_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackJobCompletedMsg {
-            callback_id,
-            dom,
-            params,
-        } = res;
-        Ok((callback_id, dom, params))
-    }
-    fn domain_event_callback_lifecycle_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventLifecycleMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_lifecycle_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackLifecycleMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_metadata_change_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, i32, Option<String>), Error> {
-        trace!("{}", stringify!(domain_event_callback_metadata_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackMetadataChangeMsg {
-            callback_id,
-            dom,
-            r#type,
-            nsuri,
-        } = res;
-        Ok((callback_id, dom, r#type, nsuri))
-    }
-    fn domain_event_callback_migration_iteration_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, i32), Error> {
-        trace!(
-            "{}",
-            stringify!(domain_event_callback_migration_iteration_msg)
-        );
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackMigrationIterationMsg {
-            callback_id,
-            dom,
-            iteration,
-        } = res;
-        Ok((callback_id, dom, iteration))
-    }
-    fn domain_event_callback_pmsuspend_disk_msg(
-        &mut self,
-    ) -> Result<(i32, i32, RemoteDomainEventPmsuspendDiskMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_pmsuspend_disk_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackPmsuspendDiskMsg {
-            callback_id,
-            reason,
-            msg,
-        } = res;
-        Ok((callback_id, reason, msg))
-    }
-    fn domain_event_callback_pmsuspend_msg(
-        &mut self,
-    ) -> Result<(i32, i32, RemoteDomainEventPmsuspendMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_pmsuspend_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackPmsuspendMsg {
-            callback_id,
-            reason,
-            msg,
-        } = res;
-        Ok((callback_id, reason, msg))
-    }
-    fn domain_event_callback_pmwakeup_msg(
-        &mut self,
-    ) -> Result<(i32, i32, RemoteDomainEventPmwakeupMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_pmwakeup_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackPmwakeupMsg {
-            callback_id,
-            reason,
-            msg,
-        } = res;
-        Ok((callback_id, reason, msg))
-    }
-    fn domain_event_callback_reboot_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventRebootMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_reboot_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackRebootMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_rtc_change_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventRtcChangeMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_rtc_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackRtcChangeMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_tray_change_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventTrayChangeMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_tray_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackTrayChangeMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_callback_tunable_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, Vec<RemoteTypedParam>), Error> {
-        trace!("{}", stringify!(domain_event_callback_tunable_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackTunableMsg {
-            callback_id,
-            dom,
-            params,
-        } = res;
-        Ok((callback_id, dom, params))
-    }
-    fn domain_event_callback_watchdog_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteDomainEventWatchdogMsg), Error> {
-        trace!("{}", stringify!(domain_event_callback_watchdog_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventCallbackWatchdogMsg { callback_id, msg } = res;
-        Ok((callback_id, msg))
-    }
-    fn domain_event_control_error_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
-        trace!("{}", stringify!(domain_event_control_error_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventControlErrorMsg { dom } = res;
-        Ok(dom)
-    }
-    fn domain_event_device_removed_msg(&mut self) -> Result<(RemoteNonnullDomain, String), Error> {
-        trace!("{}", stringify!(domain_event_device_removed_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventDeviceRemovedMsg { dom, dev_alias } = res;
-        Ok((dom, dev_alias))
-    }
-    fn domain_event_disk_change_msg(&mut self) -> Result<RemoteDomainEventDiskChangeMsg, Error> {
-        trace!("{}", stringify!(domain_event_disk_change_msg));
-        let res = msg(self)?;
-        Ok(res.body.unwrap())
-    }
-    fn domain_event_graphics_msg(&mut self) -> Result<RemoteDomainEventGraphicsMsg, Error> {
-        trace!("{}", stringify!(domain_event_graphics_msg));
-        let res = msg(self)?;
-        Ok(res.body.unwrap())
-    }
-    fn domain_event_io_error_msg(
-        &mut self,
-    ) -> Result<(RemoteNonnullDomain, String, String, i32), Error> {
-        trace!("{}", stringify!(domain_event_io_error_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventIoErrorMsg {
-            dom,
-            src_path,
-            dev_alias,
-            action,
-        } = res;
-        Ok((dom, src_path, dev_alias, action))
-    }
-    fn domain_event_io_error_reason_msg(
-        &mut self,
-    ) -> Result<(RemoteNonnullDomain, String, String, i32, String), Error> {
-        trace!("{}", stringify!(domain_event_io_error_reason_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventIoErrorReasonMsg {
-            dom,
-            src_path,
-            dev_alias,
-            action,
-            reason,
-        } = res;
-        Ok((dom, src_path, dev_alias, action, reason))
-    }
-    fn domain_event_lifecycle_msg(&mut self) -> Result<(RemoteNonnullDomain, i32, i32), Error> {
-        trace!("{}", stringify!(domain_event_lifecycle_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventLifecycleMsg { dom, event, detail } = res;
-        Ok((dom, event, detail))
-    }
-    fn domain_event_memory_device_size_change_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, String, u64), Error> {
-        trace!("{}", stringify!(domain_event_memory_device_size_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventMemoryDeviceSizeChangeMsg {
-            callback_id,
-            dom,
-            alias,
-            size,
-        } = res;
-        Ok((callback_id, dom, alias, size))
-    }
-    fn domain_event_memory_failure_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, i32, i32, u32), Error> {
-        trace!("{}", stringify!(domain_event_memory_failure_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventMemoryFailureMsg {
-            callback_id,
-            dom,
-            recipient,
-            action,
-            flags,
-        } = res;
-        Ok((callback_id, dom, recipient, action, flags))
-    }
-    fn domain_event_nic_mac_change_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullDomain, String, String, String), Error> {
-        trace!("{}", stringify!(domain_event_nic_mac_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventNicMacChangeMsg {
-            callback_id,
-            dom,
-            alias,
-            old_mac,
-            new_mac,
-        } = res;
-        Ok((callback_id, dom, alias, old_mac, new_mac))
-    }
-    fn domain_event_pmsuspend_disk_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
-        trace!("{}", stringify!(domain_event_pmsuspend_disk_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventPmsuspendDiskMsg { dom } = res;
-        Ok(dom)
-    }
-    fn domain_event_pmsuspend_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
-        trace!("{}", stringify!(domain_event_pmsuspend_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventPmsuspendMsg { dom } = res;
-        Ok(dom)
-    }
-    fn domain_event_pmwakeup_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
-        trace!("{}", stringify!(domain_event_pmwakeup_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventPmwakeupMsg { dom } = res;
-        Ok(dom)
-    }
-    fn domain_event_reboot_msg(&mut self) -> Result<RemoteNonnullDomain, Error> {
-        trace!("{}", stringify!(domain_event_reboot_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventRebootMsg { dom } = res;
-        Ok(dom)
-    }
-    fn domain_event_rtc_change_msg(&mut self) -> Result<(RemoteNonnullDomain, i64), Error> {
-        trace!("{}", stringify!(domain_event_rtc_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventRtcChangeMsg { dom, offset } = res;
-        Ok((dom, offset))
-    }
-    fn domain_event_tray_change_msg(
-        &mut self,
-    ) -> Result<(RemoteNonnullDomain, String, i32), Error> {
-        trace!("{}", stringify!(domain_event_tray_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventTrayChangeMsg {
-            dom,
-            dev_alias,
-            reason,
-        } = res;
-        Ok((dom, dev_alias, reason))
-    }
-    fn domain_event_watchdog_msg(&mut self) -> Result<(RemoteNonnullDomain, i32), Error> {
-        trace!("{}", stringify!(domain_event_watchdog_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteDomainEventWatchdogMsg { dom, action } = res;
-        Ok((dom, action))
-    }
-    fn network_event_callback_metadata_change_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullNetwork, i32, Option<String>), Error> {
-        trace!("{}", stringify!(network_event_callback_metadata_change_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteNetworkEventCallbackMetadataChangeMsg {
-            callback_id,
-            net,
-            r#type,
-            nsuri,
-        } = res;
-        Ok((callback_id, net, r#type, nsuri))
-    }
-    fn network_event_lifecycle_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullNetwork, i32, i32), Error> {
-        trace!("{}", stringify!(network_event_lifecycle_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteNetworkEventLifecycleMsg {
-            callback_id,
-            net,
-            event,
-            detail,
-        } = res;
-        Ok((callback_id, net, event, detail))
-    }
-    fn node_device_event_lifecycle_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullNodeDevice, i32, i32), Error> {
-        trace!("{}", stringify!(node_device_event_lifecycle_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteNodeDeviceEventLifecycleMsg {
-            callback_id,
-            dev,
-            event,
-            detail,
-        } = res;
-        Ok((callback_id, dev, event, detail))
-    }
-    fn node_device_event_update_msg(&mut self) -> Result<(i32, RemoteNonnullNodeDevice), Error> {
-        trace!("{}", stringify!(node_device_event_update_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteNodeDeviceEventUpdateMsg { callback_id, dev } = res;
-        Ok((callback_id, dev))
-    }
-    fn secret_event_lifecycle_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullSecret, i32, i32), Error> {
-        trace!("{}", stringify!(secret_event_lifecycle_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteSecretEventLifecycleMsg {
-            callback_id,
-            secret,
-            event,
-            detail,
-        } = res;
-        Ok((callback_id, secret, event, detail))
-    }
-    fn secret_event_value_changed_msg(&mut self) -> Result<(i32, RemoteNonnullSecret), Error> {
-        trace!("{}", stringify!(secret_event_value_changed_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteSecretEventValueChangedMsg {
-            callback_id,
-            secret,
-        } = res;
-        Ok((callback_id, secret))
-    }
-    fn storage_pool_event_lifecycle_msg(
-        &mut self,
-    ) -> Result<(i32, RemoteNonnullStoragePool, i32, i32), Error> {
-        trace!("{}", stringify!(storage_pool_event_lifecycle_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteStoragePoolEventLifecycleMsg {
-            callback_id,
-            pool,
-            event,
-            detail,
-        } = res;
-        Ok((callback_id, pool, event, detail))
-    }
-    fn storage_pool_event_refresh_msg(&mut self) -> Result<(i32, RemoteNonnullStoragePool), Error> {
-        trace!("{}", stringify!(storage_pool_event_refresh_msg));
-        let res = msg(self)?;
-        let res = res.body.unwrap();
-        let RemoteStoragePoolEventRefreshMsg { callback_id, pool } = res;
-        Ok((callback_id, pool))
-    }
 }
 impl VirNetStreamResponse {
     pub fn new(
@@ -8477,6 +7935,748 @@ impl VirNetStreamResponse {
         upload_completed(self, RemoteProcedure::RemoteProcStorageVolUpload)
     }
 }
+impl TryFrom<VirNetResponseRaw> for RemoteConnectEventConnectionClosedMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventBalloonChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventBlockJob2Msg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventBlockJobMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventBlockThresholdMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackAgentLifecycleMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackBalloonChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackBlockJobMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackControlErrorMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackDeviceAddedMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackDeviceRemovalFailedMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackDeviceRemovedMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackDiskChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackGraphicsMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackIoErrorMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackIoErrorReasonMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackJobCompletedMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackLifecycleMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackMetadataChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackMigrationIterationMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackPmsuspendDiskMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackPmsuspendMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackPmwakeupMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackRebootMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackRtcChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackTrayChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackTunableMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackWatchdogMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventControlErrorMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventDeviceRemovedMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventDiskChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventGraphicsMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventIoErrorMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventIoErrorReasonMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventLifecycleMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventMemoryDeviceSizeChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventMemoryFailureMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventNicMacChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventPmsuspendDiskMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventPmsuspendMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventPmwakeupMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventRebootMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventRtcChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventTrayChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventWatchdogMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteNetworkEventCallbackMetadataChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteNetworkEventLifecycleMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteNodeDeviceEventLifecycleMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteNodeDeviceEventUpdateMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteSecretEventLifecycleMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteSecretEventValueChangedMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteStoragePoolEventLifecycleMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteStoragePoolEventRefreshMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
 fn call<S, D>(
     client: &mut impl Libvirt,
     procedure: RemoteProcedure,
@@ -8511,31 +8711,6 @@ where
         header,
         body,
     })
-}
-fn msg<D>(client: &mut impl Libvirt) -> Result<VirNetResponseSet<D>, Error>
-where
-    D: DeserializeOwned,
-{
-    let socket = client.inner();
-    match recv(socket)? {
-        (header, Some(VirNetResponse::Data(res))) => {
-            let set = VirNetResponseSet {
-                receiver: None,
-                header,
-                body: Some(res),
-            };
-            Ok(set)
-        }
-        (header, None) => {
-            let set = VirNetResponseSet {
-                receiver: None,
-                header,
-                body: None,
-            };
-            Ok(set)
-        }
-        _ => unreachable!(),
-    }
 }
 fn download(response: &mut VirNetStreamResponse) -> Result<Option<VirNetStream>, Error> {
     let serial = response.header.serial;
@@ -8661,26 +8836,11 @@ where
     socket.write_all(&bytes).map_err(Error::SendError)?;
     Ok(bytes.len())
 }
-fn recv<D>(
-    socket: &mut Box<dyn ReadWrite>,
-) -> Result<(protocol::VirNetMessageHeader, Option<VirNetResponse<D>>), Error>
-where
-    D: DeserializeOwned,
-{
-    let res_len = read_pkt_len(socket)?;
-    let res_header = read_res_header(socket)?;
-    let body_len = res_len - 28;
-    if body_len == 0 {
-        return Ok((res_header, None));
-    }
-    let res_body_bytes = read_res_body(socket, body_len)?;
-    let res_body = deserialize_body(&res_header, res_body_bytes)?;
-    Ok((res_header, Some(res_body)))
-}
 fn recv_thread(
     receiver_run: Arc<AtomicBool>,
     socket: Box<dyn ReadWrite>,
     channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+    events: Sender<VirNetResponseRaw>,
 ) {
     trace!("receiver started.");
     let mut socket = socket;
@@ -8694,6 +8854,10 @@ fn recv_thread(
                 };
                 if let Some(tx) = channels.lock().unwrap().get(&serial) {
                     if let Err(e) = tx.send(raw) {
+                        trace!("receiver failed to send {}.", e);
+                    }
+                } else if raw.header.r#type == protocol::VirNetMessageType::VirNetMessage {
+                    if let Err(e) = events.send(raw) {
                         trace!("receiver failed to send {}.", e);
                     }
                 } else {

@@ -2,9 +2,13 @@ use crate::error::Error;
 use crate::locale::Locale;
 use chrono::Utc;
 use clap::{Arg, ArgMatches, Command};
+use libvirt_remote::binding::{
+    RemoteStoragePoolEventLifecycleMsg, RemoteStoragePoolEventRefreshMsg,
+};
 use libvirt_remote::client::Libvirt;
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use std::time::Duration;
 
 static EVENTS: OnceLock<HashMap<&'static str, i32>> = OnceLock::new();
 
@@ -95,7 +99,13 @@ pub fn run(
 }
 
 fn handle_lifecycle_event(client: &mut Box<impl Libvirt>) -> Result<String, Error> {
-    let (_, pool, event, _) = client.storage_pool_event_lifecycle_msg()?;
+    let raw = client.get_event(Duration::from_secs(1800))?;
+    let RemoteStoragePoolEventLifecycleMsg {
+        callback_id: _,
+        pool,
+        event,
+        detail: _,
+    } = raw.try_into()?;
     let id = LIFECYCLE_EVENTS
         .get_or_init(init_lifecycle_events)
         .get(&event)
@@ -107,6 +117,10 @@ fn handle_lifecycle_event(client: &mut Box<impl Libvirt>) -> Result<String, Erro
 }
 
 fn handle_refresh_event(client: &mut Box<impl Libvirt>) -> Result<String, Error> {
-    let (_, pool) = client.storage_pool_event_refresh_msg()?;
+    let raw = client.get_event(Duration::from_secs(1800))?;
+    let RemoteStoragePoolEventRefreshMsg {
+        callback_id: _,
+        pool,
+    } = raw.try_into()?;
     Ok(format!("event 'refresh' for storage pool {}", pool.name))
 }

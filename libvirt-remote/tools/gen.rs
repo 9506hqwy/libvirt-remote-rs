@@ -17,10 +17,7 @@ const STREAM_PROCS: [&str; 5] = [
     "DomainOpenChannel",
 ];
 
-const UN_DECONSTRUCTING: [&str; 7] = [
-    "RemoteDomainEventBlockThresholdMsg",
-    "RemoteDomainEventDiskChangeMsg",
-    "RemoteDomainEventGraphicsMsg",
+const UN_DECONSTRUCTING: [&str; 4] = [
     "RemoteDomainGetJobInfoRet",
     "RemoteDomainInterfaceStatsRet",
     "RemoteDomainMigratePerform3Args",
@@ -86,18 +83,23 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
     }
 
     let mut msgs = vec![];
-    for (name, ret) in parse_msg_method(&models) {
-        let stream = stream_procs(&name);
-        let method_name = format_ident!("{}", snake_case(&name));
-
-        let fn_args = gen_fn_args(&method_name, None, wrapped, &models);
-        let res_type = gen_res_type(Some(&ret), wrapped, stream, &models);
-        let proc_stmt = gen_proc_stmt(quote! { msg(self)? }, Some(&ret), wrapped, stream, &models);
-
+    for (_, ret) in parse_msg_method(&models) {
+        let ret_ident = format_ident!("{}", ret);
         msgs.push(quote! {
-            fn #fn_args -> Result<#res_type, Error> {
-                trace!("{}", stringify!(#method_name));
-                #proc_stmt
+            impl TryFrom<VirNetResponseRaw> for #ret_ident {
+                type Error = Error;
+
+                fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+                    let header = value.header;
+                    let body = value.body.unwrap();
+                    match deserialize_body(&header, body) {
+                        Ok(res_body) => match res_body {
+                            VirNetResponse::Data(body) => Ok(body),
+                            _ => unreachable!(),
+                        },
+                        Err(e) => Err(e),
+                    }
+                }
             }
         });
     }
@@ -143,6 +145,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             receiver: Arc<JoinHandle<()>>,
             receiver_run: Arc<AtomicBool>,
             channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+            events: Arc<Mutex<Receiver<VirNetResponseRaw>>>,
         }
 
         pub struct VirNetStreamResponse {
@@ -186,14 +189,17 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
         impl Client {
             pub fn new(socket: impl ReadWrite + 'static) -> Self {
+                let (tx, rx) = channel();
+
                 let receiver_run = Arc::new(AtomicBool::new(true));
                 let channels = Arc::new(Mutex::new(HashMap::new()));
+                let events = Arc::new(Mutex::new(rx));
 
                 let t_receiver_run = Arc::clone(&receiver_run);
                 let t_socket = socket.clone().unwrap();
                 let t_channels = Arc::clone(&channels);
                 let receiver = thread::spawn(|| {
-                    recv_thread(t_receiver_run, t_socket, t_channels);
+                    recv_thread(t_receiver_run, t_socket, t_channels, tx);
                 });
 
                 Client {
@@ -202,6 +208,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                     receiver: Arc::new(receiver),
                     receiver_run,
                     channels,
+                    events,
                 }
             }
         }
@@ -213,12 +220,14 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 let receiver = Arc::clone(&self.receiver);
                 let receiver_run = Arc::clone(&self.receiver_run);
                 let channels = Arc::clone(&self.channels);
+                let events = Arc::clone(&self.events);
                 Ok(Client {
                     inner,
                     serial,
                     receiver,
                     receiver_run,
                     channels,
+                    events,
                 })
             }
 
@@ -262,6 +271,16 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             fn channel_clone(&self) -> Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>> {
                 Arc::clone(&self.channels)
             }
+
+            fn get_event(&self, timeout: Duration) -> Result<VirNetResponseRaw, Error> {
+                let raw = self
+                    .events
+                    .lock()
+                    .unwrap()
+                    .recv_timeout(timeout)
+                    .map_err(Error::ReceiveChannelError)?;
+                Ok(raw)
+            }
         }
 
         pub trait Libvirt: Send + Sized + 'static {
@@ -283,9 +302,9 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
             fn channel_clone(&self) -> Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>;
 
-            #(#calls)*
+            fn get_event(&self, timeout: Duration) -> Result<VirNetResponseRaw, Error>;
 
-            #(#msgs)*
+            #(#calls)*
         }
 
         impl VirNetStreamResponse {
@@ -331,6 +350,8 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             }
         }
 
+        #(#msgs)*
+
         fn call<S, D>(
             client: &mut impl Libvirt,
             procedure: RemoteProcedure,
@@ -371,35 +392,6 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 header,
                 body,
             })
-        }
-
-        fn msg<D>(
-            client: &mut impl Libvirt,
-        ) -> Result<VirNetResponseSet<D>, Error>
-        where
-            D: DeserializeOwned,
-        {
-            let socket = client.inner();
-            // TODO: event stream support.
-            match recv(socket)? {
-                (header, Some(VirNetResponse::Data(res))) => {
-                    let set = VirNetResponseSet {
-                        receiver: None,
-                        header,
-                        body: Some(res),
-                    };
-                    Ok(set)
-                }
-                (header, None) => {
-                    let set = VirNetResponseSet {
-                        receiver: None,
-                        header,
-                        body: None,
-                    };
-                    Ok(set)
-                }
-                _ => unreachable!(),
-            }
         }
 
         fn download(response: &mut VirNetStreamResponse) -> Result<Option<VirNetStream>, Error> {
@@ -540,30 +532,11 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             Ok(bytes.len())
         }
 
-        fn recv<D>(
-            socket: &mut Box<dyn ReadWrite>,
-        ) -> Result<(protocol::VirNetMessageHeader, Option<VirNetResponse<D>>), Error>
-        where
-            D: DeserializeOwned,
-        {
-            let res_len = read_pkt_len(socket)?;
-            let res_header = read_res_header(socket)?;
-
-            let body_len = res_len - 28;
-            if body_len == 0 {
-                return Ok((res_header, None));
-            }
-
-            let res_body_bytes = read_res_body(socket, body_len)?;
-            let res_body = deserialize_body(&res_header, res_body_bytes)?;
-
-            Ok((res_header, Some(res_body)))
-        }
-
         fn recv_thread(
             receiver_run: Arc<AtomicBool>,
             socket: Box<dyn ReadWrite>,
             channels: Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>,
+            events: Sender<VirNetResponseRaw>,
         ) {
             trace!("receiver started.");
             let mut socket = socket;
@@ -579,6 +552,10 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
                         if let Some(tx) = channels.lock().unwrap().get(&serial) {
                             if let Err(e) = tx.send(raw) {
+                                trace!("receiver failed to send {}.", e);
+                            }
+                        } else if raw.header.r#type == protocol::VirNetMessageType::VirNetMessage {
+                            if let Err(e) = events.send(raw) {
                                 trace!("receiver failed to send {}.", e);
                             }
                         } else {
