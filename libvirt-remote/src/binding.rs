@@ -82,6 +82,10 @@ pub const VIR_TYPED_PARAM_ULLONG: u32 = 4u32;
 pub const VIR_TYPED_PARAM_DOUBLE: u32 = 5u32;
 pub const VIR_TYPED_PARAM_BOOLEAN: u32 = 6u32;
 pub const VIR_TYPED_PARAM_STRING: u32 = 7u32;
+pub const LXC_PROGRAM: u32 = 425984u32;
+pub const LXC_PROTOCOL_VERSION: u32 = 1u32;
+pub const QEMU_PROGRAM: u32 = 536903815u32;
+pub const QEMU_PROTOCOL_VERSION: u32 = 1u32;
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteNonnullDomain {
     pub name: String,
@@ -4197,4 +4201,94 @@ pub enum RemoteProcedure {
     RemoteProcDomainSetThrottleGroup = 451i32,
     RemoteProcDomainDelThrottleGroup = 452i32,
     RemoteProcDomainEventNicMacChange = 453i32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct LxcDomainOpenNamespaceArgs {
+    pub dom: RemoteNonnullDomain,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[repr(i32)]
+#[derive(Default)]
+pub enum LxcProcedure {
+    _Reserved0 = 0i32,
+    #[default]
+    LxcProcDomainOpenNamespace = 1i32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuDomainMonitorCommandArgs {
+    pub dom: RemoteNonnullDomain,
+    pub cmd: String,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuDomainMonitorCommandRet {
+    pub result: String,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuDomainAttachArgs {
+    pub pid_value: u32,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuDomainAttachRet {
+    pub dom: RemoteNonnullDomain,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuDomainAgentCommandArgs {
+    pub dom: RemoteNonnullDomain,
+    pub cmd: String,
+    pub timeout: i32,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuDomainAgentCommandRet {
+    pub result: Option<String>,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuConnectDomainMonitorEventRegisterArgs {
+    pub dom: Option<RemoteNonnullDomain>,
+    pub event: Option<String>,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuConnectDomainMonitorEventRegisterRet {
+    pub callback_id: i32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuConnectDomainMonitorEventDeregisterArgs {
+    pub callback_id: i32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuDomainMonitorEventMsg {
+    pub callback_id: i32,
+    pub dom: RemoteNonnullDomain,
+    pub event: String,
+    pub seconds: i64,
+    pub micros: u32,
+    pub details: Option<String>,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuDomainMonitorCommandWithFilesArgs {
+    pub dom: RemoteNonnullDomain,
+    pub cmd: String,
+    pub flags: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct QemuDomainMonitorCommandWithFilesRet {
+    pub result: String,
+}
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[repr(i32)]
+#[derive(Default)]
+pub enum QemuProcedure {
+    _Reserved0 = 0i32,
+    #[default]
+    QemuProcDomainMonitorCommand = 1i32,
+    QemuProcDomainAttach = 2i32,
+    QemuProcDomainAgentCommand = 3i32,
+    QemuProcConnectDomainMonitorEventRegister = 4i32,
+    QemuProcConnectDomainMonitorEventDeregister = 5i32,
+    QemuProcDomainMonitorEvent = 6i32,
+    QemuProcDomainMonitorCommandWithFiles = 7i32,
 }

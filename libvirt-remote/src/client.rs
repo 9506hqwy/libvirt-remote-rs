@@ -167,12 +167,163 @@ pub trait Libvirt: Send + Sized + 'static {
     fn remove_channel(&mut self, serial: u32);
     fn channel_clone(&self) -> Arc<Mutex<HashMap<u32, Sender<VirNetResponseRaw>>>>;
     fn get_event(&self, timeout: Duration) -> Result<VirNetResponseRaw, Error>;
+    fn domain_open_namespace(&mut self, dom: RemoteNonnullDomain, flags: u32) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_open_namespace));
+        let req: Option<LxcDomainOpenNamespaceArgs> =
+            Some(LxcDomainOpenNamespaceArgs { dom, flags });
+        let _res = call::<LxcDomainOpenNamespaceArgs, ()>(
+            self,
+            LXC_PROGRAM,
+            LXC_PROTOCOL_VERSION,
+            LxcProcedure::LxcProcDomainOpenNamespace as i32,
+            false,
+            req,
+        )?;
+        Ok(())
+    }
+    fn domain_monitor_command(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        cmd: String,
+        flags: u32,
+    ) -> Result<String, Error> {
+        trace!("{}", stringify!(domain_monitor_command));
+        let req: Option<QemuDomainMonitorCommandArgs> =
+            Some(QemuDomainMonitorCommandArgs { dom, cmd, flags });
+        let res = call::<QemuDomainMonitorCommandArgs, QemuDomainMonitorCommandRet>(
+            self,
+            QEMU_PROGRAM,
+            QEMU_PROTOCOL_VERSION,
+            QemuProcedure::QemuProcDomainMonitorCommand as i32,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
+        let QemuDomainMonitorCommandRet { result } = res;
+        Ok(result)
+    }
+    fn domain_attach(&mut self, pid_value: u32, flags: u32) -> Result<RemoteNonnullDomain, Error> {
+        trace!("{}", stringify!(domain_attach));
+        let req: Option<QemuDomainAttachArgs> = Some(QemuDomainAttachArgs { pid_value, flags });
+        let res = call::<QemuDomainAttachArgs, QemuDomainAttachRet>(
+            self,
+            QEMU_PROGRAM,
+            QEMU_PROTOCOL_VERSION,
+            QemuProcedure::QemuProcDomainAttach as i32,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
+        let QemuDomainAttachRet { dom } = res;
+        Ok(dom)
+    }
+    fn domain_agent_command(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        cmd: String,
+        timeout: i32,
+        flags: u32,
+    ) -> Result<Option<String>, Error> {
+        trace!("{}", stringify!(domain_agent_command));
+        let req: Option<QemuDomainAgentCommandArgs> = Some(QemuDomainAgentCommandArgs {
+            dom,
+            cmd,
+            timeout,
+            flags,
+        });
+        let res = call::<QemuDomainAgentCommandArgs, QemuDomainAgentCommandRet>(
+            self,
+            QEMU_PROGRAM,
+            QEMU_PROTOCOL_VERSION,
+            QemuProcedure::QemuProcDomainAgentCommand as i32,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
+        let QemuDomainAgentCommandRet { result } = res;
+        Ok(result)
+    }
+    fn connect_domain_monitor_event_register(
+        &mut self,
+        dom: Option<RemoteNonnullDomain>,
+        event: Option<String>,
+        flags: u32,
+    ) -> Result<i32, Error> {
+        trace!("{}", stringify!(connect_domain_monitor_event_register));
+        let req: Option<QemuConnectDomainMonitorEventRegisterArgs> =
+            Some(QemuConnectDomainMonitorEventRegisterArgs { dom, event, flags });
+        let res = call::<
+            QemuConnectDomainMonitorEventRegisterArgs,
+            QemuConnectDomainMonitorEventRegisterRet,
+        >(
+            self,
+            QEMU_PROGRAM,
+            QEMU_PROTOCOL_VERSION,
+            QemuProcedure::QemuProcConnectDomainMonitorEventRegister as i32,
+            false,
+            req,
+        )?;
+        let res = res.body.unwrap();
+        let QemuConnectDomainMonitorEventRegisterRet { callback_id } = res;
+        Ok(callback_id)
+    }
+    fn connect_domain_monitor_event_deregister(&mut self, callback_id: i32) -> Result<(), Error> {
+        trace!("{}", stringify!(connect_domain_monitor_event_deregister));
+        let req: Option<QemuConnectDomainMonitorEventDeregisterArgs> =
+            Some(QemuConnectDomainMonitorEventDeregisterArgs { callback_id });
+        let _res = call::<QemuConnectDomainMonitorEventDeregisterArgs, ()>(
+            self,
+            QEMU_PROGRAM,
+            QEMU_PROTOCOL_VERSION,
+            QemuProcedure::QemuProcConnectDomainMonitorEventDeregister as i32,
+            false,
+            req,
+        )?;
+        Ok(())
+    }
+    fn domain_monitor_event(&mut self) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_monitor_event));
+        let req: Option<()> = None;
+        let _res = call::<(), ()>(
+            self,
+            QEMU_PROGRAM,
+            QEMU_PROTOCOL_VERSION,
+            QemuProcedure::QemuProcDomainMonitorEvent as i32,
+            false,
+            req,
+        )?;
+        Ok(())
+    }
+    fn domain_monitor_command_with_files(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        cmd: String,
+        flags: u32,
+    ) -> Result<String, Error> {
+        trace!("{}", stringify!(domain_monitor_command_with_files));
+        let req: Option<QemuDomainMonitorCommandWithFilesArgs> =
+            Some(QemuDomainMonitorCommandWithFilesArgs { dom, cmd, flags });
+        let res =
+            call::<QemuDomainMonitorCommandWithFilesArgs, QemuDomainMonitorCommandWithFilesRet>(
+                self,
+                QEMU_PROGRAM,
+                QEMU_PROTOCOL_VERSION,
+                QemuProcedure::QemuProcDomainMonitorCommandWithFiles as i32,
+                false,
+                req,
+            )?;
+        let res = res.body.unwrap();
+        let QemuDomainMonitorCommandWithFilesRet { result } = res;
+        Ok(result)
+    }
     fn connect_open(&mut self, name: Option<String>, flags: u32) -> Result<(), Error> {
         trace!("{}", stringify!(connect_open));
         let req: Option<RemoteConnectOpenArgs> = Some(RemoteConnectOpenArgs { name, flags });
         let _res = call::<RemoteConnectOpenArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcConnectOpen,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectOpen as i32,
             false,
             req,
         )?;
@@ -181,7 +332,14 @@ pub trait Libvirt: Send + Sized + 'static {
     fn connect_close(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(connect_close));
         let req: Option<()> = None;
-        let _res = call::<(), ()>(self, RemoteProcedure::RemoteProcConnectClose, false, req)?;
+        let _res = call::<(), ()>(
+            self,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectClose as i32,
+            false,
+            req,
+        )?;
         Ok(())
     }
     fn connect_get_type(&mut self) -> Result<String, Error> {
@@ -189,7 +347,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectGetTypeRet>(
             self,
-            RemoteProcedure::RemoteProcConnectGetType,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetType as i32,
             false,
             req,
         )?;
@@ -202,7 +362,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectGetVersionRet>(
             self,
-            RemoteProcedure::RemoteProcConnectGetVersion,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetVersion as i32,
             false,
             req,
         )?;
@@ -216,7 +378,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectGetMaxVcpusArgs { r#type });
         let res = call::<RemoteConnectGetMaxVcpusArgs, RemoteConnectGetMaxVcpusRet>(
             self,
-            RemoteProcedure::RemoteProcConnectGetMaxVcpus,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetMaxVcpus as i32,
             false,
             req,
         )?;
@@ -229,7 +393,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteNodeGetInfoRet>(
             self,
-            RemoteProcedure::RemoteProcNodeGetInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeGetInfo as i32,
             false,
             req,
         )?;
@@ -240,7 +406,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectGetCapabilitiesRet>(
             self,
-            RemoteProcedure::RemoteProcConnectGetCapabilities,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetCapabilities as i32,
             false,
             req,
         )?;
@@ -254,7 +422,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainAttachDeviceArgs { dom, xml });
         let _res = call::<RemoteDomainAttachDeviceArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainAttachDevice,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainAttachDevice as i32,
             false,
             req,
         )?;
@@ -265,7 +435,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainCreateArgs> = Some(RemoteDomainCreateArgs { dom });
         let _res = call::<RemoteDomainCreateArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainCreate,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCreate as i32,
             false,
             req,
         )?;
@@ -281,7 +453,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainCreateXmlArgs { xml_desc, flags });
         let res = call::<RemoteDomainCreateXmlArgs, RemoteDomainCreateXmlRet>(
             self,
-            RemoteProcedure::RemoteProcDomainCreateXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCreateXml as i32,
             false,
             req,
         )?;
@@ -294,7 +468,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainDefineXmlArgs> = Some(RemoteDomainDefineXmlArgs { xml });
         let res = call::<RemoteDomainDefineXmlArgs, RemoteDomainDefineXmlRet>(
             self,
-            RemoteProcedure::RemoteProcDomainDefineXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainDefineXml as i32,
             false,
             req,
         )?;
@@ -307,7 +483,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainDestroyArgs> = Some(RemoteDomainDestroyArgs { dom });
         let _res = call::<RemoteDomainDestroyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainDestroy,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainDestroy as i32,
             false,
             req,
         )?;
@@ -319,7 +497,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainDetachDeviceArgs { dom, xml });
         let _res = call::<RemoteDomainDetachDeviceArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainDetachDevice,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainDetachDevice as i32,
             false,
             req,
         )?;
@@ -335,7 +515,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetXmlDescArgs { dom, flags });
         let res = call::<RemoteDomainGetXmlDescArgs, RemoteDomainGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -348,7 +530,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainGetAutostartArgs> = Some(RemoteDomainGetAutostartArgs { dom });
         let res = call::<RemoteDomainGetAutostartArgs, RemoteDomainGetAutostartRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetAutostart,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetAutostart as i32,
             false,
             req,
         )?;
@@ -364,7 +548,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainGetInfoArgs> = Some(RemoteDomainGetInfoArgs { dom });
         let res = call::<RemoteDomainGetInfoArgs, RemoteDomainGetInfoRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetInfo as i32,
             false,
             req,
         )?;
@@ -383,7 +569,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainGetMaxMemoryArgs> = Some(RemoteDomainGetMaxMemoryArgs { dom });
         let res = call::<RemoteDomainGetMaxMemoryArgs, RemoteDomainGetMaxMemoryRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetMaxMemory,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetMaxMemory as i32,
             false,
             req,
         )?;
@@ -396,7 +584,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainGetMaxVcpusArgs> = Some(RemoteDomainGetMaxVcpusArgs { dom });
         let res = call::<RemoteDomainGetMaxVcpusArgs, RemoteDomainGetMaxVcpusRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetMaxVcpus,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetMaxVcpus as i32,
             false,
             req,
         )?;
@@ -409,7 +599,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainGetOsTypeArgs> = Some(RemoteDomainGetOsTypeArgs { dom });
         let res = call::<RemoteDomainGetOsTypeArgs, RemoteDomainGetOsTypeRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetOsType,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetOsType as i32,
             false,
             req,
         )?;
@@ -431,7 +623,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainGetVcpusArgs, RemoteDomainGetVcpusRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetVcpus,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetVcpus as i32,
             false,
             req,
         )?;
@@ -445,7 +639,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectListDefinedDomainsArgs { maxnames });
         let res = call::<RemoteConnectListDefinedDomainsArgs, RemoteConnectListDefinedDomainsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListDefinedDomains,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListDefinedDomains as i32,
             false,
             req,
         )?;
@@ -458,7 +654,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainLookupByIdArgs> = Some(RemoteDomainLookupByIdArgs { id });
         let res = call::<RemoteDomainLookupByIdArgs, RemoteDomainLookupByIdRet>(
             self,
-            RemoteProcedure::RemoteProcDomainLookupById,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainLookupById as i32,
             false,
             req,
         )?;
@@ -471,7 +669,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainLookupByNameArgs> = Some(RemoteDomainLookupByNameArgs { name });
         let res = call::<RemoteDomainLookupByNameArgs, RemoteDomainLookupByNameRet>(
             self,
-            RemoteProcedure::RemoteProcDomainLookupByName,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainLookupByName as i32,
             false,
             req,
         )?;
@@ -487,7 +687,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainLookupByUuidArgs> = Some(RemoteDomainLookupByUuidArgs { uuid });
         let res = call::<RemoteDomainLookupByUuidArgs, RemoteDomainLookupByUuidRet>(
             self,
-            RemoteProcedure::RemoteProcDomainLookupByUuid,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainLookupByUuid as i32,
             false,
             req,
         )?;
@@ -500,7 +702,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectNumOfDefinedDomainsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectNumOfDefinedDomains,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNumOfDefinedDomains as i32,
             false,
             req,
         )?;
@@ -519,7 +723,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainPinVcpuArgs { dom, vcpu, cpumap });
         let _res = call::<RemoteDomainPinVcpuArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainPinVcpu,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainPinVcpu as i32,
             false,
             req,
         )?;
@@ -530,7 +736,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainRebootArgs> = Some(RemoteDomainRebootArgs { dom, flags });
         let _res = call::<RemoteDomainRebootArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainReboot,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainReboot as i32,
             false,
             req,
         )?;
@@ -541,7 +749,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainResumeArgs> = Some(RemoteDomainResumeArgs { dom });
         let _res = call::<RemoteDomainResumeArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainResume,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainResume as i32,
             false,
             req,
         )?;
@@ -557,7 +767,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetAutostartArgs { dom, autostart });
         let _res = call::<RemoteDomainSetAutostartArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetAutostart,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetAutostart as i32,
             false,
             req,
         )?;
@@ -573,7 +785,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetMaxMemoryArgs { dom, memory });
         let _res = call::<RemoteDomainSetMaxMemoryArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetMaxMemory,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetMaxMemory as i32,
             false,
             req,
         )?;
@@ -585,7 +799,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetMemoryArgs { dom, memory });
         let _res = call::<RemoteDomainSetMemoryArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetMemory,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetMemory as i32,
             false,
             req,
         )?;
@@ -596,7 +812,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainSetVcpusArgs> = Some(RemoteDomainSetVcpusArgs { dom, nvcpus });
         let _res = call::<RemoteDomainSetVcpusArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetVcpus,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetVcpus as i32,
             false,
             req,
         )?;
@@ -607,7 +825,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainShutdownArgs> = Some(RemoteDomainShutdownArgs { dom });
         let _res = call::<RemoteDomainShutdownArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainShutdown,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainShutdown as i32,
             false,
             req,
         )?;
@@ -618,7 +838,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainSuspendArgs> = Some(RemoteDomainSuspendArgs { dom });
         let _res = call::<RemoteDomainSuspendArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSuspend,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSuspend as i32,
             false,
             req,
         )?;
@@ -629,7 +851,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainUndefineArgs> = Some(RemoteDomainUndefineArgs { dom });
         let _res = call::<RemoteDomainUndefineArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainUndefine,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainUndefine as i32,
             false,
             req,
         )?;
@@ -641,7 +865,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectListDefinedNetworksArgs { maxnames });
         let res = call::<RemoteConnectListDefinedNetworksArgs, RemoteConnectListDefinedNetworksRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListDefinedNetworks,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListDefinedNetworks as i32,
             false,
             req,
         )?;
@@ -655,7 +881,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectListDomainsArgs { maxids });
         let res = call::<RemoteConnectListDomainsArgs, RemoteConnectListDomainsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListDomains,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListDomains as i32,
             false,
             req,
         )?;
@@ -669,7 +897,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectListNetworksArgs { maxnames });
         let res = call::<RemoteConnectListNetworksArgs, RemoteConnectListNetworksRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListNetworks,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListNetworks as i32,
             false,
             req,
         )?;
@@ -682,7 +912,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNetworkCreateArgs> = Some(RemoteNetworkCreateArgs { net });
         let _res = call::<RemoteNetworkCreateArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNetworkCreate,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkCreate as i32,
             false,
             req,
         )?;
@@ -693,7 +925,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNetworkCreateXmlArgs> = Some(RemoteNetworkCreateXmlArgs { xml });
         let res = call::<RemoteNetworkCreateXmlArgs, RemoteNetworkCreateXmlRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkCreateXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkCreateXml as i32,
             false,
             req,
         )?;
@@ -706,7 +940,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNetworkDefineXmlArgs> = Some(RemoteNetworkDefineXmlArgs { xml });
         let res = call::<RemoteNetworkDefineXmlArgs, RemoteNetworkDefineXmlRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkDefineXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkDefineXml as i32,
             false,
             req,
         )?;
@@ -719,7 +955,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNetworkDestroyArgs> = Some(RemoteNetworkDestroyArgs { net });
         let _res = call::<RemoteNetworkDestroyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNetworkDestroy,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkDestroy as i32,
             false,
             req,
         )?;
@@ -735,7 +973,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkGetXmlDescArgs { net, flags });
         let res = call::<RemoteNetworkGetXmlDescArgs, RemoteNetworkGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -749,7 +989,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkGetAutostartArgs { net });
         let res = call::<RemoteNetworkGetAutostartArgs, RemoteNetworkGetAutostartRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkGetAutostart,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkGetAutostart as i32,
             false,
             req,
         )?;
@@ -763,7 +1005,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkGetBridgeNameArgs { net });
         let res = call::<RemoteNetworkGetBridgeNameArgs, RemoteNetworkGetBridgeNameRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkGetBridgeName,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkGetBridgeName as i32,
             false,
             req,
         )?;
@@ -777,7 +1021,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkLookupByNameArgs { name });
         let res = call::<RemoteNetworkLookupByNameArgs, RemoteNetworkLookupByNameRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkLookupByName,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkLookupByName as i32,
             false,
             req,
         )?;
@@ -794,7 +1040,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkLookupByUuidArgs { uuid });
         let res = call::<RemoteNetworkLookupByUuidArgs, RemoteNetworkLookupByUuidRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkLookupByUuid,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkLookupByUuid as i32,
             false,
             req,
         )?;
@@ -812,7 +1060,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkSetAutostartArgs { net, autostart });
         let _res = call::<RemoteNetworkSetAutostartArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNetworkSetAutostart,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkSetAutostart as i32,
             false,
             req,
         )?;
@@ -823,7 +1073,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNetworkUndefineArgs> = Some(RemoteNetworkUndefineArgs { net });
         let _res = call::<RemoteNetworkUndefineArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNetworkUndefine,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkUndefine as i32,
             false,
             req,
         )?;
@@ -834,7 +1086,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectNumOfDefinedNetworksRet>(
             self,
-            RemoteProcedure::RemoteProcConnectNumOfDefinedNetworks,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNumOfDefinedNetworks as i32,
             false,
             req,
         )?;
@@ -847,7 +1101,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectNumOfDomainsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectNumOfDomains,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNumOfDomains as i32,
             false,
             req,
         )?;
@@ -860,7 +1116,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectNumOfNetworksRet>(
             self,
-            RemoteProcedure::RemoteProcConnectNumOfNetworks,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNumOfNetworks as i32,
             false,
             req,
         )?;
@@ -879,7 +1137,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainCoreDumpArgs { dom, to, flags });
         let _res = call::<RemoteDomainCoreDumpArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainCoreDump,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCoreDump as i32,
             false,
             req,
         )?;
@@ -890,7 +1150,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainRestoreArgs> = Some(RemoteDomainRestoreArgs { from });
         let _res = call::<RemoteDomainRestoreArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainRestore,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainRestore as i32,
             false,
             req,
         )?;
@@ -901,7 +1163,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainSaveArgs> = Some(RemoteDomainSaveArgs { dom, to });
         let _res = call::<RemoteDomainSaveArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSave,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSave as i32,
             false,
             req,
         )?;
@@ -916,7 +1180,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetSchedulerTypeArgs { dom });
         let res = call::<RemoteDomainGetSchedulerTypeArgs, RemoteDomainGetSchedulerTypeRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetSchedulerType,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetSchedulerType as i32,
             false,
             req,
         )?;
@@ -935,7 +1201,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteDomainGetSchedulerParametersArgs, RemoteDomainGetSchedulerParametersRet>(
                 self,
-                RemoteProcedure::RemoteProcDomainGetSchedulerParameters,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcDomainGetSchedulerParameters as i32,
                 false,
                 req,
             )?;
@@ -953,7 +1221,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetSchedulerParametersArgs { dom, params });
         let _res = call::<RemoteDomainSetSchedulerParametersArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetSchedulerParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetSchedulerParameters as i32,
             false,
             req,
         )?;
@@ -964,7 +1234,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectGetHostnameRet>(
             self,
-            RemoteProcedure::RemoteProcConnectGetHostname,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetHostname as i32,
             false,
             req,
         )?;
@@ -978,7 +1250,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectSupportsFeatureArgs { feature });
         let res = call::<RemoteConnectSupportsFeatureArgs, RemoteConnectSupportsFeatureRet>(
             self,
-            RemoteProcedure::RemoteProcConnectSupportsFeature,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectSupportsFeature as i32,
             false,
             req,
         )?;
@@ -1002,7 +1276,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainMigratePrepareArgs, RemoteDomainMigratePrepareRet>(
             self,
-            RemoteProcedure::RemoteProcDomainMigratePrepare,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigratePrepare as i32,
             false,
             req,
         )?;
@@ -1030,7 +1306,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainMigratePerformArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainMigratePerform,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigratePerform as i32,
             false,
             req,
         )?;
@@ -1052,7 +1330,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainMigrateFinishArgs, RemoteDomainMigrateFinishRet>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateFinish,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateFinish as i32,
             false,
             req,
         )?;
@@ -1070,7 +1350,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainBlockStatsArgs { dom, path });
         let res = call::<RemoteDomainBlockStatsArgs, RemoteDomainBlockStatsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainBlockStats,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBlockStats as i32,
             false,
             req,
         )?;
@@ -1094,7 +1376,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainInterfaceStatsArgs { dom, device });
         let res = call::<RemoteDomainInterfaceStatsArgs, RemoteDomainInterfaceStatsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainInterfaceStats,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainInterfaceStats as i32,
             false,
             req,
         )?;
@@ -1103,8 +1387,14 @@ pub trait Libvirt: Send + Sized + 'static {
     fn auth_list(&mut self) -> Result<Vec<RemoteAuthType>, Error> {
         trace!("{}", stringify!(auth_list));
         let req: Option<()> = None;
-        let res =
-            call::<(), RemoteAuthListRet>(self, RemoteProcedure::RemoteProcAuthList, false, req)?;
+        let res = call::<(), RemoteAuthListRet>(
+            self,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcAuthList as i32,
+            false,
+            req,
+        )?;
         let res = res.body.unwrap();
         let RemoteAuthListRet { types } = res;
         Ok(types)
@@ -1114,7 +1404,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteAuthSaslInitRet>(
             self,
-            RemoteProcedure::RemoteProcAuthSaslInit,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcAuthSaslInit as i32,
             false,
             req,
         )?;
@@ -1133,7 +1425,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteAuthSaslStartArgs { mech, nil, data });
         let res = call::<RemoteAuthSaslStartArgs, RemoteAuthSaslStartRet>(
             self,
-            RemoteProcedure::RemoteProcAuthSaslStart,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcAuthSaslStart as i32,
             false,
             req,
         )?;
@@ -1150,7 +1444,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteAuthSaslStepArgs> = Some(RemoteAuthSaslStepArgs { nil, data });
         let res = call::<RemoteAuthSaslStepArgs, RemoteAuthSaslStepRet>(
             self,
-            RemoteProcedure::RemoteProcAuthSaslStep,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcAuthSaslStep as i32,
             false,
             req,
         )?;
@@ -1167,7 +1463,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteAuthPolkitRet>(
             self,
-            RemoteProcedure::RemoteProcAuthPolkit,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcAuthPolkit as i32,
             false,
             req,
         )?;
@@ -1180,7 +1478,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectNumOfStoragePoolsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectNumOfStoragePools,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNumOfStoragePools as i32,
             false,
             req,
         )?;
@@ -1194,7 +1494,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectListStoragePoolsArgs { maxnames });
         let res = call::<RemoteConnectListStoragePoolsArgs, RemoteConnectListStoragePoolsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListStoragePools,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListStoragePools as i32,
             false,
             req,
         )?;
@@ -1207,7 +1509,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectNumOfDefinedStoragePoolsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectNumOfDefinedStoragePools,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNumOfDefinedStoragePools as i32,
             false,
             req,
         )?;
@@ -1224,7 +1528,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteConnectListDefinedStoragePoolsRet,
         >(
             self,
-            RemoteProcedure::RemoteProcConnectListDefinedStoragePools,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListDefinedStoragePools as i32,
             false,
             req,
         )?;
@@ -1250,7 +1556,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteConnectFindStoragePoolSourcesRet,
         >(
             self,
-            RemoteProcedure::RemoteProcConnectFindStoragePoolSources,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectFindStoragePoolSources as i32,
             false,
             req,
         )?;
@@ -1268,7 +1576,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolCreateXmlArgs { xml, flags });
         let res = call::<RemoteStoragePoolCreateXmlArgs, RemoteStoragePoolCreateXmlRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolCreateXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolCreateXml as i32,
             false,
             req,
         )?;
@@ -1286,7 +1596,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolDefineXmlArgs { xml, flags });
         let res = call::<RemoteStoragePoolDefineXmlArgs, RemoteStoragePoolDefineXmlRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolDefineXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolDefineXml as i32,
             false,
             req,
         )?;
@@ -1304,7 +1616,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolCreateArgs { pool, flags });
         let _res = call::<RemoteStoragePoolCreateArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolCreate,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolCreate as i32,
             false,
             req,
         )?;
@@ -1320,7 +1634,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolBuildArgs { pool, flags });
         let _res = call::<RemoteStoragePoolBuildArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolBuild,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolBuild as i32,
             false,
             req,
         )?;
@@ -1331,7 +1647,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteStoragePoolDestroyArgs> = Some(RemoteStoragePoolDestroyArgs { pool });
         let _res = call::<RemoteStoragePoolDestroyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolDestroy,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolDestroy as i32,
             false,
             req,
         )?;
@@ -1347,7 +1665,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolDeleteArgs { pool, flags });
         let _res = call::<RemoteStoragePoolDeleteArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolDelete,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolDelete as i32,
             false,
             req,
         )?;
@@ -1359,7 +1679,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolUndefineArgs { pool });
         let _res = call::<RemoteStoragePoolUndefineArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolUndefine,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolUndefine as i32,
             false,
             req,
         )?;
@@ -1375,7 +1697,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolRefreshArgs { pool, flags });
         let _res = call::<RemoteStoragePoolRefreshArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolRefresh,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolRefresh as i32,
             false,
             req,
         )?;
@@ -1390,7 +1714,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolLookupByNameArgs { name });
         let res = call::<RemoteStoragePoolLookupByNameArgs, RemoteStoragePoolLookupByNameRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolLookupByName,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolLookupByName as i32,
             false,
             req,
         )?;
@@ -1407,7 +1733,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolLookupByUuidArgs { uuid });
         let res = call::<RemoteStoragePoolLookupByUuidArgs, RemoteStoragePoolLookupByUuidRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolLookupByUuid,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolLookupByUuid as i32,
             false,
             req,
         )?;
@@ -1424,7 +1752,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolLookupByVolumeArgs { vol });
         let res = call::<RemoteStoragePoolLookupByVolumeArgs, RemoteStoragePoolLookupByVolumeRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolLookupByVolume,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolLookupByVolume as i32,
             false,
             req,
         )?;
@@ -1440,7 +1770,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteStoragePoolGetInfoArgs> = Some(RemoteStoragePoolGetInfoArgs { pool });
         let res = call::<RemoteStoragePoolGetInfoArgs, RemoteStoragePoolGetInfoRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolGetInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolGetInfo as i32,
             false,
             req,
         )?;
@@ -1463,7 +1795,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolGetXmlDescArgs { pool, flags });
         let res = call::<RemoteStoragePoolGetXmlDescArgs, RemoteStoragePoolGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -1477,7 +1811,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolGetAutostartArgs { pool });
         let res = call::<RemoteStoragePoolGetAutostartArgs, RemoteStoragePoolGetAutostartRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolGetAutostart,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolGetAutostart as i32,
             false,
             req,
         )?;
@@ -1495,7 +1831,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolSetAutostartArgs { pool, autostart });
         let _res = call::<RemoteStoragePoolSetAutostartArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolSetAutostart,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolSetAutostart as i32,
             false,
             req,
         )?;
@@ -1510,7 +1848,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolNumOfVolumesArgs { pool });
         let res = call::<RemoteStoragePoolNumOfVolumesArgs, RemoteStoragePoolNumOfVolumesRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolNumOfVolumes,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolNumOfVolumes as i32,
             false,
             req,
         )?;
@@ -1528,7 +1868,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolListVolumesArgs { pool, maxnames });
         let res = call::<RemoteStoragePoolListVolumesArgs, RemoteStoragePoolListVolumesRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolListVolumes,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolListVolumes as i32,
             false,
             req,
         )?;
@@ -1547,7 +1889,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStorageVolCreateXmlArgs { pool, xml, flags });
         let res = call::<RemoteStorageVolCreateXmlArgs, RemoteStorageVolCreateXmlRet>(
             self,
-            RemoteProcedure::RemoteProcStorageVolCreateXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolCreateXml as i32,
             false,
             req,
         )?;
@@ -1565,7 +1909,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStorageVolDeleteArgs { vol, flags });
         let _res = call::<RemoteStorageVolDeleteArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStorageVolDelete,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolDelete as i32,
             false,
             req,
         )?;
@@ -1581,7 +1927,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStorageVolLookupByNameArgs { pool, name });
         let res = call::<RemoteStorageVolLookupByNameArgs, RemoteStorageVolLookupByNameRet>(
             self,
-            RemoteProcedure::RemoteProcStorageVolLookupByName,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolLookupByName as i32,
             false,
             req,
         )?;
@@ -1595,7 +1943,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStorageVolLookupByKeyArgs { key });
         let res = call::<RemoteStorageVolLookupByKeyArgs, RemoteStorageVolLookupByKeyRet>(
             self,
-            RemoteProcedure::RemoteProcStorageVolLookupByKey,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolLookupByKey as i32,
             false,
             req,
         )?;
@@ -1612,7 +1962,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStorageVolLookupByPathArgs { path });
         let res = call::<RemoteStorageVolLookupByPathArgs, RemoteStorageVolLookupByPathRet>(
             self,
-            RemoteProcedure::RemoteProcStorageVolLookupByPath,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolLookupByPath as i32,
             false,
             req,
         )?;
@@ -1628,7 +1980,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteStorageVolGetInfoArgs> = Some(RemoteStorageVolGetInfoArgs { vol });
         let res = call::<RemoteStorageVolGetInfoArgs, RemoteStorageVolGetInfoRet>(
             self,
-            RemoteProcedure::RemoteProcStorageVolGetInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolGetInfo as i32,
             false,
             req,
         )?;
@@ -1650,7 +2004,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStorageVolGetXmlDescArgs { vol, flags });
         let res = call::<RemoteStorageVolGetXmlDescArgs, RemoteStorageVolGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcStorageVolGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -1663,7 +2019,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteStorageVolGetPathArgs> = Some(RemoteStorageVolGetPathArgs { vol });
         let res = call::<RemoteStorageVolGetPathArgs, RemoteStorageVolGetPathRet>(
             self,
-            RemoteProcedure::RemoteProcStorageVolGetPath,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolGetPath as i32,
             false,
             req,
         )?;
@@ -1684,7 +2042,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteNodeGetCellsFreeMemoryArgs, RemoteNodeGetCellsFreeMemoryRet>(
             self,
-            RemoteProcedure::RemoteProcNodeGetCellsFreeMemory,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeGetCellsFreeMemory as i32,
             false,
             req,
         )?;
@@ -1697,7 +2057,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteNodeGetFreeMemoryRet>(
             self,
-            RemoteProcedure::RemoteProcNodeGetFreeMemory,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeGetFreeMemory as i32,
             false,
             req,
         )?;
@@ -1723,7 +2085,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainBlockPeekArgs, RemoteDomainBlockPeekRet>(
             self,
-            RemoteProcedure::RemoteProcDomainBlockPeek,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBlockPeek as i32,
             false,
             req,
         )?;
@@ -1747,7 +2111,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainMemoryPeekArgs, RemoteDomainMemoryPeekRet>(
             self,
-            RemoteProcedure::RemoteProcDomainMemoryPeek,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMemoryPeek as i32,
             false,
             req,
         )?;
@@ -1760,7 +2126,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectDomainEventRegisterRet>(
             self,
-            RemoteProcedure::RemoteProcConnectDomainEventRegister,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectDomainEventRegister as i32,
             false,
             req,
         )?;
@@ -1773,7 +2141,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectDomainEventDeregisterRet>(
             self,
-            RemoteProcedure::RemoteProcConnectDomainEventDeregister,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectDomainEventDeregister as i32,
             false,
             req,
         )?;
@@ -1786,7 +2156,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventLifecycle,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventLifecycle as i32,
             false,
             req,
         )?;
@@ -1810,7 +2182,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainMigratePrepare2Args, RemoteDomainMigratePrepare2Ret>(
             self,
-            RemoteProcedure::RemoteProcDomainMigratePrepare2,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigratePrepare2 as i32,
             false,
             req,
         )?;
@@ -1836,7 +2210,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainMigrateFinish2Args, RemoteDomainMigrateFinish2Ret>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateFinish2,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateFinish2 as i32,
             false,
             req,
         )?;
@@ -1849,7 +2225,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectGetUriRet>(
             self,
-            RemoteProcedure::RemoteProcConnectGetUri,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetUri as i32,
             false,
             req,
         )?;
@@ -1863,7 +2241,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeNumOfDevicesArgs { cap, flags });
         let res = call::<RemoteNodeNumOfDevicesArgs, RemoteNodeNumOfDevicesRet>(
             self,
-            RemoteProcedure::RemoteProcNodeNumOfDevices,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeNumOfDevices as i32,
             false,
             req,
         )?;
@@ -1885,7 +2265,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteNodeListDevicesArgs, RemoteNodeListDevicesRet>(
             self,
-            RemoteProcedure::RemoteProcNodeListDevices,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeListDevices as i32,
             false,
             req,
         )?;
@@ -1902,7 +2284,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceLookupByNameArgs { name });
         let res = call::<RemoteNodeDeviceLookupByNameArgs, RemoteNodeDeviceLookupByNameRet>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceLookupByName,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceLookupByName as i32,
             false,
             req,
         )?;
@@ -1916,7 +2300,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceGetXmlDescArgs { name, flags });
         let res = call::<RemoteNodeDeviceGetXmlDescArgs, RemoteNodeDeviceGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -1930,7 +2316,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceGetParentArgs { name });
         let res = call::<RemoteNodeDeviceGetParentArgs, RemoteNodeDeviceGetParentRet>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceGetParent,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceGetParent as i32,
             false,
             req,
         )?;
@@ -1944,7 +2332,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceNumOfCapsArgs { name });
         let res = call::<RemoteNodeDeviceNumOfCapsArgs, RemoteNodeDeviceNumOfCapsRet>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceNumOfCaps,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceNumOfCaps as i32,
             false,
             req,
         )?;
@@ -1958,7 +2348,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceListCapsArgs { name, maxnames });
         let res = call::<RemoteNodeDeviceListCapsArgs, RemoteNodeDeviceListCapsRet>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceListCaps,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceListCaps as i32,
             false,
             req,
         )?;
@@ -1971,7 +2363,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNodeDeviceDettachArgs> = Some(RemoteNodeDeviceDettachArgs { name });
         let _res = call::<RemoteNodeDeviceDettachArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceDettach,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceDettach as i32,
             false,
             req,
         )?;
@@ -1982,7 +2376,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNodeDeviceReAttachArgs> = Some(RemoteNodeDeviceReAttachArgs { name });
         let _res = call::<RemoteNodeDeviceReAttachArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceReAttach,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceReAttach as i32,
             false,
             req,
         )?;
@@ -1993,7 +2389,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNodeDeviceResetArgs> = Some(RemoteNodeDeviceResetArgs { name });
         let _res = call::<RemoteNodeDeviceResetArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceReset,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceReset as i32,
             false,
             req,
         )?;
@@ -2008,7 +2406,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetSecurityLabelArgs { dom });
         let res = call::<RemoteDomainGetSecurityLabelArgs, RemoteDomainGetSecurityLabelRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetSecurityLabel,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetSecurityLabel as i32,
             false,
             req,
         )?;
@@ -2021,7 +2421,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteNodeGetSecurityModelRet>(
             self,
-            RemoteProcedure::RemoteProcNodeGetSecurityModel,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeGetSecurityModel as i32,
             false,
             req,
         )?;
@@ -2039,7 +2441,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceCreateXmlArgs { xml_desc, flags });
         let res = call::<RemoteNodeDeviceCreateXmlArgs, RemoteNodeDeviceCreateXmlRet>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceCreateXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceCreateXml as i32,
             false,
             req,
         )?;
@@ -2052,7 +2456,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNodeDeviceDestroyArgs> = Some(RemoteNodeDeviceDestroyArgs { name });
         let _res = call::<RemoteNodeDeviceDestroyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceDestroy,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceDestroy as i32,
             false,
             req,
         )?;
@@ -2075,7 +2481,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteStorageVolCreateXmlFromArgs, RemoteStorageVolCreateXmlFromRet>(
             self,
-            RemoteProcedure::RemoteProcStorageVolCreateXmlFrom,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolCreateXmlFrom as i32,
             false,
             req,
         )?;
@@ -2088,7 +2496,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectNumOfInterfacesRet>(
             self,
-            RemoteProcedure::RemoteProcConnectNumOfInterfaces,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNumOfInterfaces as i32,
             false,
             req,
         )?;
@@ -2102,7 +2512,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectListInterfacesArgs { maxnames });
         let res = call::<RemoteConnectListInterfacesArgs, RemoteConnectListInterfacesRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListInterfaces,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListInterfaces as i32,
             false,
             req,
         )?;
@@ -2116,7 +2528,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteInterfaceLookupByNameArgs { name });
         let res = call::<RemoteInterfaceLookupByNameArgs, RemoteInterfaceLookupByNameRet>(
             self,
-            RemoteProcedure::RemoteProcInterfaceLookupByName,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceLookupByName as i32,
             false,
             req,
         )?;
@@ -2133,7 +2547,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteInterfaceLookupByMacStringArgs { mac });
         let res = call::<RemoteInterfaceLookupByMacStringArgs, RemoteInterfaceLookupByMacStringRet>(
             self,
-            RemoteProcedure::RemoteProcInterfaceLookupByMacString,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceLookupByMacString as i32,
             false,
             req,
         )?;
@@ -2151,7 +2567,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteInterfaceGetXmlDescArgs { iface, flags });
         let res = call::<RemoteInterfaceGetXmlDescArgs, RemoteInterfaceGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcInterfaceGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -2169,7 +2587,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteInterfaceDefineXmlArgs { xml, flags });
         let res = call::<RemoteInterfaceDefineXmlArgs, RemoteInterfaceDefineXmlRet>(
             self,
-            RemoteProcedure::RemoteProcInterfaceDefineXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceDefineXml as i32,
             false,
             req,
         )?;
@@ -2182,7 +2602,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteInterfaceUndefineArgs> = Some(RemoteInterfaceUndefineArgs { iface });
         let _res = call::<RemoteInterfaceUndefineArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcInterfaceUndefine,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceUndefine as i32,
             false,
             req,
         )?;
@@ -2194,7 +2616,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteInterfaceCreateArgs { iface, flags });
         let _res = call::<RemoteInterfaceCreateArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcInterfaceCreate,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceCreate as i32,
             false,
             req,
         )?;
@@ -2210,7 +2634,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteInterfaceDestroyArgs { iface, flags });
         let _res = call::<RemoteInterfaceDestroyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcInterfaceDestroy,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceDestroy as i32,
             false,
             req,
         )?;
@@ -2231,7 +2657,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteConnectDomainXmlFromNativeArgs, RemoteConnectDomainXmlFromNativeRet>(
             self,
-            RemoteProcedure::RemoteProcConnectDomainXmlFromNative,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectDomainXmlFromNative as i32,
             false,
             req,
         )?;
@@ -2254,7 +2682,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteConnectDomainXmlToNativeArgs, RemoteConnectDomainXmlToNativeRet>(
             self,
-            RemoteProcedure::RemoteProcConnectDomainXmlToNative,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectDomainXmlToNative as i32,
             false,
             req,
         )?;
@@ -2267,7 +2697,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectNumOfDefinedInterfacesRet>(
             self,
-            RemoteProcedure::RemoteProcConnectNumOfDefinedInterfaces,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNumOfDefinedInterfaces as i32,
             false,
             req,
         )?;
@@ -2282,7 +2714,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteConnectListDefinedInterfacesArgs, RemoteConnectListDefinedInterfacesRet>(
                 self,
-                RemoteProcedure::RemoteProcConnectListDefinedInterfaces,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcConnectListDefinedInterfaces as i32,
                 false,
                 req,
             )?;
@@ -2295,7 +2729,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectNumOfSecretsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectNumOfSecrets,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNumOfSecrets as i32,
             false,
             req,
         )?;
@@ -2309,7 +2745,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectListSecretsArgs { maxuuids });
         let res = call::<RemoteConnectListSecretsArgs, RemoteConnectListSecretsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListSecrets,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListSecrets as i32,
             false,
             req,
         )?;
@@ -2325,7 +2763,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteSecretLookupByUuidArgs> = Some(RemoteSecretLookupByUuidArgs { uuid });
         let res = call::<RemoteSecretLookupByUuidArgs, RemoteSecretLookupByUuidRet>(
             self,
-            RemoteProcedure::RemoteProcSecretLookupByUuid,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcSecretLookupByUuid as i32,
             false,
             req,
         )?;
@@ -2338,7 +2778,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteSecretDefineXmlArgs> = Some(RemoteSecretDefineXmlArgs { xml, flags });
         let res = call::<RemoteSecretDefineXmlArgs, RemoteSecretDefineXmlRet>(
             self,
-            RemoteProcedure::RemoteProcSecretDefineXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcSecretDefineXml as i32,
             false,
             req,
         )?;
@@ -2356,7 +2798,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteSecretGetXmlDescArgs { secret, flags });
         let res = call::<RemoteSecretGetXmlDescArgs, RemoteSecretGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcSecretGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcSecretGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -2378,7 +2822,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteSecretSetValueArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcSecretSetValue,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcSecretSetValue as i32,
             false,
             req,
         )?;
@@ -2394,7 +2840,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteSecretGetValueArgs { secret, flags });
         let res = call::<RemoteSecretGetValueArgs, RemoteSecretGetValueRet>(
             self,
-            RemoteProcedure::RemoteProcSecretGetValue,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcSecretGetValue as i32,
             false,
             req,
         )?;
@@ -2407,7 +2855,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteSecretUndefineArgs> = Some(RemoteSecretUndefineArgs { secret });
         let _res = call::<RemoteSecretUndefineArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcSecretUndefine,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcSecretUndefine as i32,
             false,
             req,
         )?;
@@ -2425,7 +2875,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteSecretLookupByUsageArgs, RemoteSecretLookupByUsageRet>(
             self,
-            RemoteProcedure::RemoteProcSecretLookupByUsage,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcSecretLookupByUsage as i32,
             false,
             req,
         )?;
@@ -2450,7 +2902,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteDomainMigratePrepareTunnelArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainMigratePrepareTunnel,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigratePrepareTunnel as i32,
             true,
             req,
         )?;
@@ -2468,7 +2922,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectIsSecureRet>(
             self,
-            RemoteProcedure::RemoteProcConnectIsSecure,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectIsSecure as i32,
             false,
             req,
         )?;
@@ -2481,7 +2937,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainIsActiveArgs> = Some(RemoteDomainIsActiveArgs { dom });
         let res = call::<RemoteDomainIsActiveArgs, RemoteDomainIsActiveRet>(
             self,
-            RemoteProcedure::RemoteProcDomainIsActive,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainIsActive as i32,
             false,
             req,
         )?;
@@ -2494,7 +2952,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainIsPersistentArgs> = Some(RemoteDomainIsPersistentArgs { dom });
         let res = call::<RemoteDomainIsPersistentArgs, RemoteDomainIsPersistentRet>(
             self,
-            RemoteProcedure::RemoteProcDomainIsPersistent,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainIsPersistent as i32,
             false,
             req,
         )?;
@@ -2507,7 +2967,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNetworkIsActiveArgs> = Some(RemoteNetworkIsActiveArgs { net });
         let res = call::<RemoteNetworkIsActiveArgs, RemoteNetworkIsActiveRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkIsActive,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkIsActive as i32,
             false,
             req,
         )?;
@@ -2521,7 +2983,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkIsPersistentArgs { net });
         let res = call::<RemoteNetworkIsPersistentArgs, RemoteNetworkIsPersistentRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkIsPersistent,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkIsPersistent as i32,
             false,
             req,
         )?;
@@ -2535,7 +2999,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolIsActiveArgs { pool });
         let res = call::<RemoteStoragePoolIsActiveArgs, RemoteStoragePoolIsActiveRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolIsActive,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolIsActive as i32,
             false,
             req,
         )?;
@@ -2549,7 +3015,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStoragePoolIsPersistentArgs { pool });
         let res = call::<RemoteStoragePoolIsPersistentArgs, RemoteStoragePoolIsPersistentRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolIsPersistent,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolIsPersistent as i32,
             false,
             req,
         )?;
@@ -2562,7 +3030,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteInterfaceIsActiveArgs> = Some(RemoteInterfaceIsActiveArgs { iface });
         let res = call::<RemoteInterfaceIsActiveArgs, RemoteInterfaceIsActiveRet>(
             self,
-            RemoteProcedure::RemoteProcInterfaceIsActive,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceIsActive as i32,
             false,
             req,
         )?;
@@ -2575,7 +3045,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectGetLibVersionRet>(
             self,
-            RemoteProcedure::RemoteProcConnectGetLibVersion,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetLibVersion as i32,
             false,
             req,
         )?;
@@ -2589,7 +3061,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectCompareCpuArgs { xml, flags });
         let res = call::<RemoteConnectCompareCpuArgs, RemoteConnectCompareCpuRet>(
             self,
-            RemoteProcedure::RemoteProcConnectCompareCpu,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectCompareCpu as i32,
             false,
             req,
         )?;
@@ -2611,7 +3085,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainMemoryStatsArgs, RemoteDomainMemoryStatsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainMemoryStats,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMemoryStats as i32,
             false,
             req,
         )?;
@@ -2630,7 +3106,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainAttachDeviceFlagsArgs { dom, xml, flags });
         let _res = call::<RemoteDomainAttachDeviceFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainAttachDeviceFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainAttachDeviceFlags as i32,
             false,
             req,
         )?;
@@ -2647,7 +3125,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainDetachDeviceFlagsArgs { dom, xml, flags });
         let _res = call::<RemoteDomainDetachDeviceFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainDetachDeviceFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainDetachDeviceFlags as i32,
             false,
             req,
         )?;
@@ -2659,7 +3139,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectBaselineCpuArgs { xml_cpus, flags });
         let res = call::<RemoteConnectBaselineCpuArgs, RemoteConnectBaselineCpuRet>(
             self,
-            RemoteProcedure::RemoteProcConnectBaselineCpu,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectBaselineCpu as i32,
             false,
             req,
         )?;
@@ -2675,7 +3157,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainGetJobInfoArgs> = Some(RemoteDomainGetJobInfoArgs { dom });
         let res = call::<RemoteDomainGetJobInfoArgs, RemoteDomainGetJobInfoRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetJobInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetJobInfo as i32,
             false,
             req,
         )?;
@@ -2686,7 +3170,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainAbortJobArgs> = Some(RemoteDomainAbortJobArgs { dom });
         let _res = call::<RemoteDomainAbortJobArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainAbortJob,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainAbortJob as i32,
             false,
             req,
         )?;
@@ -2697,7 +3183,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteStorageVolWipeArgs> = Some(RemoteStorageVolWipeArgs { vol, flags });
         let _res = call::<RemoteStorageVolWipeArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStorageVolWipe,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolWipe as i32,
             false,
             req,
         )?;
@@ -2718,7 +3206,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainMigrateSetMaxDowntimeArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateSetMaxDowntime,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateSetMaxDowntime as i32,
             false,
             req,
         )?;
@@ -2730,7 +3220,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectDomainEventRegisterAnyArgs { event_id });
         let _res = call::<RemoteConnectDomainEventRegisterAnyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcConnectDomainEventRegisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectDomainEventRegisterAny as i32,
             false,
             req,
         )?;
@@ -2742,7 +3234,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectDomainEventDeregisterAnyArgs { event_id });
         let _res = call::<RemoteConnectDomainEventDeregisterAnyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcConnectDomainEventDeregisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectDomainEventDeregisterAny as i32,
             false,
             req,
         )?;
@@ -2753,7 +3247,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventReboot,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventReboot as i32,
             false,
             req,
         )?;
@@ -2764,7 +3260,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventRtcChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventRtcChange as i32,
             false,
             req,
         )?;
@@ -2775,7 +3273,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventWatchdog,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventWatchdog as i32,
             false,
             req,
         )?;
@@ -2786,7 +3286,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventIoError,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventIoError as i32,
             false,
             req,
         )?;
@@ -2797,7 +3299,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventGraphics,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventGraphics as i32,
             false,
             req,
         )?;
@@ -2814,7 +3318,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainUpdateDeviceFlagsArgs { dom, xml, flags });
         let _res = call::<RemoteDomainUpdateDeviceFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainUpdateDeviceFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainUpdateDeviceFlags as i32,
             false,
             req,
         )?;
@@ -2826,7 +3332,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNwfilterLookupByNameArgs { name });
         let res = call::<RemoteNwfilterLookupByNameArgs, RemoteNwfilterLookupByNameRet>(
             self,
-            RemoteProcedure::RemoteProcNwfilterLookupByName,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNwfilterLookupByName as i32,
             false,
             req,
         )?;
@@ -2843,7 +3351,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNwfilterLookupByUuidArgs { uuid });
         let res = call::<RemoteNwfilterLookupByUuidArgs, RemoteNwfilterLookupByUuidRet>(
             self,
-            RemoteProcedure::RemoteProcNwfilterLookupByUuid,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNwfilterLookupByUuid as i32,
             false,
             req,
         )?;
@@ -2861,7 +3371,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNwfilterGetXmlDescArgs { nwfilter, flags });
         let res = call::<RemoteNwfilterGetXmlDescArgs, RemoteNwfilterGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcNwfilterGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNwfilterGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -2874,7 +3386,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let res = call::<(), RemoteConnectNumOfNwfiltersRet>(
             self,
-            RemoteProcedure::RemoteProcConnectNumOfNwfilters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNumOfNwfilters as i32,
             false,
             req,
         )?;
@@ -2888,7 +3402,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectListNwfiltersArgs { maxnames });
         let res = call::<RemoteConnectListNwfiltersArgs, RemoteConnectListNwfiltersRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListNwfilters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListNwfilters as i32,
             false,
             req,
         )?;
@@ -2901,7 +3417,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNwfilterDefineXmlArgs> = Some(RemoteNwfilterDefineXmlArgs { xml });
         let res = call::<RemoteNwfilterDefineXmlArgs, RemoteNwfilterDefineXmlRet>(
             self,
-            RemoteProcedure::RemoteProcNwfilterDefineXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNwfilterDefineXml as i32,
             false,
             req,
         )?;
@@ -2914,7 +3432,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNwfilterUndefineArgs> = Some(RemoteNwfilterUndefineArgs { nwfilter });
         let _res = call::<RemoteNwfilterUndefineArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNwfilterUndefine,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNwfilterUndefine as i32,
             false,
             req,
         )?;
@@ -2926,7 +3446,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainManagedSaveArgs { dom, flags });
         let _res = call::<RemoteDomainManagedSaveArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainManagedSave,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainManagedSave as i32,
             false,
             req,
         )?;
@@ -2942,7 +3464,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainHasManagedSaveImageArgs { dom, flags });
         let res = call::<RemoteDomainHasManagedSaveImageArgs, RemoteDomainHasManagedSaveImageRet>(
             self,
-            RemoteProcedure::RemoteProcDomainHasManagedSaveImage,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainHasManagedSaveImage as i32,
             false,
             req,
         )?;
@@ -2960,7 +3484,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainManagedSaveRemoveArgs { dom, flags });
         let _res = call::<RemoteDomainManagedSaveRemoveArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainManagedSaveRemove,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainManagedSaveRemove as i32,
             false,
             req,
         )?;
@@ -2981,7 +3507,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteDomainSnapshotCreateXmlArgs, RemoteDomainSnapshotCreateXmlRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotCreateXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotCreateXml as i32,
             false,
             req,
         )?;
@@ -2999,7 +3527,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSnapshotGetXmlDescArgs { snap, flags });
         let res = call::<RemoteDomainSnapshotGetXmlDescArgs, RemoteDomainSnapshotGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -3013,7 +3543,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSnapshotNumArgs { dom, flags });
         let res = call::<RemoteDomainSnapshotNumArgs, RemoteDomainSnapshotNumRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotNum,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotNum as i32,
             false,
             req,
         )?;
@@ -3036,7 +3568,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteDomainSnapshotListNamesArgs, RemoteDomainSnapshotListNamesRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotListNames,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotListNames as i32,
             false,
             req,
         )?;
@@ -3055,7 +3589,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSnapshotLookupByNameArgs { dom, name, flags });
         let res = call::<RemoteDomainSnapshotLookupByNameArgs, RemoteDomainSnapshotLookupByNameRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotLookupByName,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotLookupByName as i32,
             false,
             req,
         )?;
@@ -3073,7 +3609,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainHasCurrentSnapshotArgs { dom, flags });
         let res = call::<RemoteDomainHasCurrentSnapshotArgs, RemoteDomainHasCurrentSnapshotRet>(
             self,
-            RemoteProcedure::RemoteProcDomainHasCurrentSnapshot,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainHasCurrentSnapshot as i32,
             false,
             req,
         )?;
@@ -3091,7 +3629,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSnapshotCurrentArgs { dom, flags });
         let res = call::<RemoteDomainSnapshotCurrentArgs, RemoteDomainSnapshotCurrentRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotCurrent,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotCurrent as i32,
             false,
             req,
         )?;
@@ -3109,7 +3649,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainRevertToSnapshotArgs { snap, flags });
         let _res = call::<RemoteDomainRevertToSnapshotArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainRevertToSnapshot,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainRevertToSnapshot as i32,
             false,
             req,
         )?;
@@ -3125,7 +3667,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSnapshotDeleteArgs { snap, flags });
         let _res = call::<RemoteDomainSnapshotDeleteArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotDelete,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotDelete as i32,
             false,
             req,
         )?;
@@ -3142,7 +3686,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetBlockInfoArgs { dom, path, flags });
         let res = call::<RemoteDomainGetBlockInfoArgs, RemoteDomainGetBlockInfoRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetBlockInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetBlockInfo as i32,
             false,
             req,
         )?;
@@ -3159,7 +3705,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventIoErrorReason,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventIoErrorReason as i32,
             false,
             req,
         )?;
@@ -3175,7 +3723,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainCreateWithFlagsArgs { dom, flags });
         let res = call::<RemoteDomainCreateWithFlagsArgs, RemoteDomainCreateWithFlagsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainCreateWithFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCreateWithFlags as i32,
             false,
             req,
         )?;
@@ -3194,7 +3744,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetMemoryParametersArgs { dom, params, flags });
         let _res = call::<RemoteDomainSetMemoryParametersArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetMemoryParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetMemoryParameters as i32,
             false,
             req,
         )?;
@@ -3215,7 +3767,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteDomainGetMemoryParametersArgs, RemoteDomainGetMemoryParametersRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetMemoryParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetMemoryParameters as i32,
             false,
             req,
         )?;
@@ -3234,7 +3788,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetVcpusFlagsArgs { dom, nvcpus, flags });
         let _res = call::<RemoteDomainSetVcpusFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetVcpusFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetVcpusFlags as i32,
             false,
             req,
         )?;
@@ -3250,7 +3806,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetVcpusFlagsArgs { dom, flags });
         let res = call::<RemoteDomainGetVcpusFlagsArgs, RemoteDomainGetVcpusFlagsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetVcpusFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetVcpusFlags as i32,
             false,
             req,
         )?;
@@ -3272,7 +3830,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainOpenConsoleArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainOpenConsole,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainOpenConsole as i32,
             true,
             req,
         )?;
@@ -3290,7 +3850,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainIsUpdatedArgs> = Some(RemoteDomainIsUpdatedArgs { dom });
         let res = call::<RemoteDomainIsUpdatedArgs, RemoteDomainIsUpdatedRet>(
             self,
-            RemoteProcedure::RemoteProcDomainIsUpdated,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainIsUpdated as i32,
             false,
             req,
         )?;
@@ -3303,7 +3865,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteConnectGetSysinfoArgs> = Some(RemoteConnectGetSysinfoArgs { flags });
         let res = call::<RemoteConnectGetSysinfoArgs, RemoteConnectGetSysinfoRet>(
             self,
-            RemoteProcedure::RemoteProcConnectGetSysinfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetSysinfo as i32,
             false,
             req,
         )?;
@@ -3322,7 +3886,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetMemoryFlagsArgs { dom, memory, flags });
         let _res = call::<RemoteDomainSetMemoryFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetMemoryFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetMemoryFlags as i32,
             false,
             req,
         )?;
@@ -3339,7 +3905,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetBlkioParametersArgs { dom, params, flags });
         let _res = call::<RemoteDomainSetBlkioParametersArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetBlkioParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetBlkioParameters as i32,
             false,
             req,
         )?;
@@ -3360,7 +3928,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteDomainGetBlkioParametersArgs, RemoteDomainGetBlkioParametersRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetBlkioParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetBlkioParameters as i32,
             false,
             req,
         )?;
@@ -3383,7 +3953,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainMigrateSetMaxSpeedArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateSetMaxSpeed,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateSetMaxSpeed as i32,
             false,
             req,
         )?;
@@ -3405,7 +3977,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteStorageVolUploadArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStorageVolUpload,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolUpload as i32,
             true,
             req,
         )?;
@@ -3434,7 +4008,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteStorageVolDownloadArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStorageVolDownload,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolDownload as i32,
             true,
             req,
         )?;
@@ -3452,7 +4028,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainInjectNmiArgs> = Some(RemoteDomainInjectNmiArgs { dom, flags });
         let _res = call::<RemoteDomainInjectNmiArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainInjectNmi,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainInjectNmi as i32,
             false,
             req,
         )?;
@@ -3469,7 +4047,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainScreenshotArgs { dom, screen, flags });
         let res = call::<RemoteDomainScreenshotArgs, RemoteDomainScreenshotRet>(
             self,
-            RemoteProcedure::RemoteProcDomainScreenshot,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainScreenshot as i32,
             true,
             req,
         )?;
@@ -3491,7 +4071,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainGetStateArgs> = Some(RemoteDomainGetStateArgs { dom, flags });
         let res = call::<RemoteDomainGetStateArgs, RemoteDomainGetStateRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetState,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetState as i32,
             false,
             req,
         )?;
@@ -3517,7 +4099,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainMigrateBegin3Args, RemoteDomainMigrateBegin3Ret>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateBegin3,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateBegin3 as i32,
             false,
             req,
         )?;
@@ -3545,7 +4129,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainMigratePrepare3Args, RemoteDomainMigratePrepare3Ret>(
             self,
-            RemoteProcedure::RemoteProcDomainMigratePrepare3,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigratePrepare3 as i32,
             false,
             req,
         )?;
@@ -3576,7 +4162,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteDomainMigratePrepareTunnel3Args, RemoteDomainMigratePrepareTunnel3Ret>(
                 self,
-                RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3 as i32,
                 true,
                 req,
             )?;
@@ -3597,7 +4185,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainMigratePerform3Args> = Some(args);
         let res = call::<RemoteDomainMigratePerform3Args, RemoteDomainMigratePerform3Ret>(
             self,
-            RemoteProcedure::RemoteProcDomainMigratePerform3,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigratePerform3 as i32,
             false,
             req,
         )?;
@@ -3625,7 +4215,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainMigrateFinish3Args, RemoteDomainMigrateFinish3Ret>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateFinish3,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateFinish3 as i32,
             false,
             req,
         )?;
@@ -3649,7 +4241,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainMigrateConfirm3Args, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateConfirm3,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateConfirm3 as i32,
             false,
             req,
         )?;
@@ -3666,7 +4260,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetSchedulerParametersFlagsArgs { dom, params, flags });
         let _res = call::<RemoteDomainSetSchedulerParametersFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetSchedulerParametersFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetSchedulerParametersFlags as i32,
             false,
             req,
         )?;
@@ -3678,7 +4274,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteInterfaceChangeBeginArgs { flags });
         let _res = call::<RemoteInterfaceChangeBeginArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcInterfaceChangeBegin,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceChangeBegin as i32,
             false,
             req,
         )?;
@@ -3690,7 +4288,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteInterfaceChangeCommitArgs { flags });
         let _res = call::<RemoteInterfaceChangeCommitArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcInterfaceChangeCommit,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceChangeCommit as i32,
             false,
             req,
         )?;
@@ -3702,7 +4302,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteInterfaceChangeRollbackArgs { flags });
         let _res = call::<RemoteInterfaceChangeRollbackArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcInterfaceChangeRollback,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcInterfaceChangeRollback as i32,
             false,
             req,
         )?;
@@ -3726,7 +4328,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteDomainGetSchedulerParametersFlagsRet,
         >(
             self,
-            RemoteProcedure::RemoteProcDomainGetSchedulerParametersFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetSchedulerParametersFlags as i32,
             false,
             req,
         )?;
@@ -3739,7 +4343,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventControlError,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventControlError as i32,
             false,
             req,
         )?;
@@ -3761,7 +4367,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainPinVcpuFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainPinVcpuFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainPinVcpuFlags as i32,
             false,
             req,
         )?;
@@ -3785,7 +4393,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainSendKeyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSendKey,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSendKey as i32,
             false,
             req,
         )?;
@@ -3805,7 +4415,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteNodeGetCpuStatsArgs, RemoteNodeGetCpuStatsRet>(
             self,
-            RemoteProcedure::RemoteProcNodeGetCpuStats,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeGetCpuStats as i32,
             false,
             req,
         )?;
@@ -3827,7 +4439,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteNodeGetMemoryStatsArgs, RemoteNodeGetMemoryStatsRet>(
             self,
-            RemoteProcedure::RemoteProcNodeGetMemoryStats,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeGetMemoryStats as i32,
             false,
             req,
         )?;
@@ -3845,7 +4459,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetControlInfoArgs { dom, flags });
         let res = call::<RemoteDomainGetControlInfoArgs, RemoteDomainGetControlInfoRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetControlInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetControlInfo as i32,
             false,
             req,
         )?;
@@ -3873,7 +4489,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainGetVcpuPinInfoArgs, RemoteDomainGetVcpuPinInfoRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetVcpuPinInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetVcpuPinInfo as i32,
             false,
             req,
         )?;
@@ -3887,7 +4505,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainUndefineFlagsArgs { dom, flags });
         let _res = call::<RemoteDomainUndefineFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainUndefineFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainUndefineFlags as i32,
             false,
             req,
         )?;
@@ -3909,7 +4529,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainSaveFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSaveFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSaveFlags as i32,
             false,
             req,
         )?;
@@ -3926,7 +4548,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainRestoreFlagsArgs { from, dxml, flags });
         let _res = call::<RemoteDomainRestoreFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainRestoreFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainRestoreFlags as i32,
             false,
             req,
         )?;
@@ -3938,7 +4562,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainDestroyFlagsArgs { dom, flags });
         let _res = call::<RemoteDomainDestroyFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainDestroyFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainDestroyFlags as i32,
             false,
             req,
         )?;
@@ -3954,7 +4580,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSaveImageGetXmlDescArgs { file, flags });
         let res = call::<RemoteDomainSaveImageGetXmlDescArgs, RemoteDomainSaveImageGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSaveImageGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSaveImageGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -3973,7 +4601,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSaveImageDefineXmlArgs { file, dxml, flags });
         let _res = call::<RemoteDomainSaveImageDefineXmlArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSaveImageDefineXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSaveImageDefineXml as i32,
             false,
             req,
         )?;
@@ -3990,7 +4620,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainBlockJobAbortArgs { dom, path, flags });
         let _res = call::<RemoteDomainBlockJobAbortArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainBlockJobAbort,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBlockJobAbort as i32,
             false,
             req,
         )?;
@@ -4007,7 +4639,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetBlockJobInfoArgs { dom, path, flags });
         let res = call::<RemoteDomainGetBlockJobInfoArgs, RemoteDomainGetBlockJobInfoRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetBlockJobInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetBlockJobInfo as i32,
             false,
             req,
         )?;
@@ -4038,7 +4672,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainBlockJobSetSpeedArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainBlockJobSetSpeed,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBlockJobSetSpeed as i32,
             false,
             req,
         )?;
@@ -4060,7 +4696,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainBlockPullArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainBlockPull,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBlockPull as i32,
             false,
             req,
         )?;
@@ -4071,7 +4709,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventBlockJob,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventBlockJob as i32,
             false,
             req,
         )?;
@@ -4087,7 +4727,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainMigrateGetMaxSpeedArgs { dom, flags });
         let res = call::<RemoteDomainMigrateGetMaxSpeedArgs, RemoteDomainMigrateGetMaxSpeedRet>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateGetMaxSpeed,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateGetMaxSpeed as i32,
             false,
             req,
         )?;
@@ -4111,7 +4753,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainBlockStatsFlagsArgs, RemoteDomainBlockStatsFlagsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainBlockStatsFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBlockStatsFlags as i32,
             false,
             req,
         )?;
@@ -4129,7 +4773,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSnapshotGetParentArgs { snap, flags });
         let res = call::<RemoteDomainSnapshotGetParentArgs, RemoteDomainSnapshotGetParentRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotGetParent,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotGetParent as i32,
             false,
             req,
         )?;
@@ -4142,7 +4788,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainResetArgs> = Some(RemoteDomainResetArgs { dom, flags });
         let _res = call::<RemoteDomainResetArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainReset,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainReset as i32,
             false,
             req,
         )?;
@@ -4158,7 +4806,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSnapshotNumChildrenArgs { snap, flags });
         let res = call::<RemoteDomainSnapshotNumChildrenArgs, RemoteDomainSnapshotNumChildrenRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotNumChildren,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotNumChildren as i32,
             false,
             req,
         )?;
@@ -4184,7 +4834,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteDomainSnapshotListChildrenNamesRet,
         >(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotListChildrenNames,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotListChildrenNames as i32,
             false,
             req,
         )?;
@@ -4197,7 +4849,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventDiskChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventDiskChange as i32,
             false,
             req,
         )?;
@@ -4214,7 +4868,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainOpenGraphicsArgs { dom, idx, flags });
         let _res = call::<RemoteDomainOpenGraphicsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainOpenGraphics,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainOpenGraphics as i32,
             false,
             req,
         )?;
@@ -4235,7 +4891,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteNodeSuspendForDurationArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeSuspendForDuration,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeSuspendForDuration as i32,
             false,
             req,
         )?;
@@ -4257,7 +4915,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainBlockResizeArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainBlockResize,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBlockResize as i32,
             false,
             req,
         )?;
@@ -4279,7 +4939,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainSetBlockIoTuneArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetBlockIoTune,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetBlockIoTune as i32,
             false,
             req,
         )?;
@@ -4301,7 +4963,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainGetBlockIoTuneArgs, RemoteDomainGetBlockIoTuneRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetBlockIoTune,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetBlockIoTune as i32,
             false,
             req,
         )?;
@@ -4320,7 +4984,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetNumaParametersArgs { dom, params, flags });
         let _res = call::<RemoteDomainSetNumaParametersArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetNumaParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetNumaParameters as i32,
             false,
             req,
         )?;
@@ -4341,7 +5007,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteDomainGetNumaParametersArgs, RemoteDomainGetNumaParametersRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetNumaParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetNumaParameters as i32,
             false,
             req,
         )?;
@@ -4366,7 +5034,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainSetInterfaceParametersArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetInterfaceParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetInterfaceParameters as i32,
             false,
             req,
         )?;
@@ -4390,7 +5060,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteDomainGetInterfaceParametersArgs, RemoteDomainGetInterfaceParametersRet>(
                 self,
-                RemoteProcedure::RemoteProcDomainGetInterfaceParameters,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcDomainGetInterfaceParameters as i32,
                 false,
                 req,
             )?;
@@ -4404,7 +5076,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainShutdownFlagsArgs { dom, flags });
         let _res = call::<RemoteDomainShutdownFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainShutdownFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainShutdownFlags as i32,
             false,
             req,
         )?;
@@ -4424,7 +5098,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteStorageVolWipePatternArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStorageVolWipePattern,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolWipePattern as i32,
             false,
             req,
         )?;
@@ -4444,7 +5120,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteStorageVolResizeArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcStorageVolResize,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolResize as i32,
             false,
             req,
         )?;
@@ -4467,7 +5145,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainPmSuspendForDurationArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainPmSuspendForDuration,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainPmSuspendForDuration as i32,
             false,
             req,
         )?;
@@ -4491,7 +5171,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainGetCpuStatsArgs, RemoteDomainGetCpuStatsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetCpuStats,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetCpuStats as i32,
             false,
             req,
         )?;
@@ -4513,7 +5195,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainGetDiskErrorsArgs, RemoteDomainGetDiskErrorsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetDiskErrors,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetDiskErrors as i32,
             false,
             req,
         )?;
@@ -4541,7 +5225,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainSetMetadataArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetMetadata,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetMetadata as i32,
             false,
             req,
         )?;
@@ -4563,7 +5249,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainGetMetadataArgs, RemoteDomainGetMetadataRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetMetadata,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetMetadata as i32,
             false,
             req,
         )?;
@@ -4589,7 +5277,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainBlockRebaseArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainBlockRebase,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBlockRebase as i32,
             false,
             req,
         )?;
@@ -4600,7 +5290,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainPmWakeupArgs> = Some(RemoteDomainPmWakeupArgs { dom, flags });
         let _res = call::<RemoteDomainPmWakeupArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainPmWakeup,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainPmWakeup as i32,
             false,
             req,
         )?;
@@ -4611,7 +5303,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventTrayChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventTrayChange as i32,
             false,
             req,
         )?;
@@ -4622,7 +5316,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventPmwakeup,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventPmwakeup as i32,
             false,
             req,
         )?;
@@ -4633,7 +5329,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventPmsuspend,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventPmsuspend as i32,
             false,
             req,
         )?;
@@ -4649,7 +5347,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSnapshotIsCurrentArgs { snap, flags });
         let res = call::<RemoteDomainSnapshotIsCurrentArgs, RemoteDomainSnapshotIsCurrentRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotIsCurrent,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotIsCurrent as i32,
             false,
             req,
         )?;
@@ -4667,7 +5367,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSnapshotHasMetadataArgs { snap, flags });
         let res = call::<RemoteDomainSnapshotHasMetadataArgs, RemoteDomainSnapshotHasMetadataRet>(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotHasMetadata,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotHasMetadata as i32,
             false,
             req,
         )?;
@@ -4687,7 +5389,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteConnectListAllDomainsArgs, RemoteConnectListAllDomainsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListAllDomains,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListAllDomains as i32,
             false,
             req,
         )?;
@@ -4710,7 +5414,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteDomainListAllSnapshotsArgs, RemoteDomainListAllSnapshotsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainListAllSnapshots,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainListAllSnapshots as i32,
             false,
             req,
         )?;
@@ -4736,7 +5442,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteDomainSnapshotListAllChildrenRet,
         >(
             self,
-            RemoteProcedure::RemoteProcDomainSnapshotListAllChildren,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSnapshotListAllChildren as i32,
             false,
             req,
         )?;
@@ -4749,7 +5457,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventBalloonChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventBalloonChange as i32,
             false,
             req,
         )?;
@@ -4765,7 +5475,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetHostnameArgs { dom, flags });
         let res = call::<RemoteDomainGetHostnameArgs, RemoteDomainGetHostnameRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetHostname,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetHostname as i32,
             false,
             req,
         )?;
@@ -4782,7 +5494,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetSecurityLabelListArgs { dom });
         let res = call::<RemoteDomainGetSecurityLabelListArgs, RemoteDomainGetSecurityLabelListRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetSecurityLabelList,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetSecurityLabelList as i32,
             false,
             req,
         )?;
@@ -4801,7 +5515,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainPinEmulatorArgs { dom, cpumap, flags });
         let _res = call::<RemoteDomainPinEmulatorArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainPinEmulator,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainPinEmulator as i32,
             false,
             req,
         )?;
@@ -4818,7 +5534,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetEmulatorPinInfoArgs { dom, maplen, flags });
         let res = call::<RemoteDomainGetEmulatorPinInfoArgs, RemoteDomainGetEmulatorPinInfoRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetEmulatorPinInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetEmulatorPinInfo as i32,
             false,
             req,
         )?;
@@ -4839,7 +5557,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteConnectListAllStoragePoolsArgs, RemoteConnectListAllStoragePoolsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListAllStoragePools,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListAllStoragePools as i32,
             false,
             req,
         )?;
@@ -4862,7 +5582,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteStoragePoolListAllVolumesArgs, RemoteStoragePoolListAllVolumesRet>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolListAllVolumes,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolListAllVolumes as i32,
             false,
             req,
         )?;
@@ -4883,7 +5605,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteConnectListAllNetworksArgs, RemoteConnectListAllNetworksRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListAllNetworks,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListAllNetworks as i32,
             false,
             req,
         )?;
@@ -4904,7 +5628,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteConnectListAllInterfacesArgs, RemoteConnectListAllInterfacesRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListAllInterfaces,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListAllInterfaces as i32,
             false,
             req,
         )?;
@@ -4925,7 +5651,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteConnectListAllNodeDevicesArgs, RemoteConnectListAllNodeDevicesRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListAllNodeDevices,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListAllNodeDevices as i32,
             false,
             req,
         )?;
@@ -4946,7 +5674,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteConnectListAllNwfiltersArgs, RemoteConnectListAllNwfiltersRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListAllNwfilters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListAllNwfilters as i32,
             false,
             req,
         )?;
@@ -4966,7 +5696,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteConnectListAllSecretsArgs, RemoteConnectListAllSecretsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectListAllSecrets,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListAllSecrets as i32,
             false,
             req,
         )?;
@@ -4984,7 +5716,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeSetMemoryParametersArgs { params, flags });
         let _res = call::<RemoteNodeSetMemoryParametersArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeSetMemoryParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeSetMemoryParameters as i32,
             false,
             req,
         )?;
@@ -5000,7 +5734,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeGetMemoryParametersArgs { nparams, flags });
         let res = call::<RemoteNodeGetMemoryParametersArgs, RemoteNodeGetMemoryParametersRet>(
             self,
-            RemoteProcedure::RemoteProcNodeGetMemoryParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeGetMemoryParameters as i32,
             false,
             req,
         )?;
@@ -5028,7 +5764,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainBlockCommitArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainBlockCommit,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBlockCommit as i32,
             false,
             req,
         )?;
@@ -5054,7 +5792,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteNetworkUpdateArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNetworkUpdate,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkUpdate as i32,
             false,
             req,
         )?;
@@ -5065,7 +5805,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventPmsuspendDisk,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventPmsuspendDisk as i32,
             false,
             req,
         )?;
@@ -5085,7 +5827,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteNodeGetCpuMapArgs, RemoteNodeGetCpuMapRet>(
             self,
-            RemoteProcedure::RemoteProcNodeGetCpuMap,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeGetCpuMap as i32,
             false,
             req,
         )?;
@@ -5113,7 +5857,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainFstrimArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainFstrim,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainFstrim as i32,
             false,
             req,
         )?;
@@ -5136,7 +5882,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainSendProcessSignalArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSendProcessSignal,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSendProcessSignal as i32,
             false,
             req,
         )?;
@@ -5153,7 +5901,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainOpenChannelArgs { dom, name, flags });
         let res = call::<RemoteDomainOpenChannelArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainOpenChannel,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainOpenChannel as i32,
             true,
             req,
         )?;
@@ -5180,7 +5930,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteNodeDeviceLookupScsiHostByWwnRet,
         >(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceLookupScsiHostByWwn,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceLookupScsiHostByWwn as i32,
             false,
             req,
         )?;
@@ -5198,7 +5950,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetJobStatsArgs { dom, flags });
         let res = call::<RemoteDomainGetJobStatsArgs, RemoteDomainGetJobStatsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetJobStats,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetJobStats as i32,
             false,
             req,
         )?;
@@ -5219,7 +5973,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteDomainMigrateGetCompressionCacheRet,
         >(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateGetCompressionCache,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateGetCompressionCache as i32,
             false,
             req,
         )?;
@@ -5242,7 +5998,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainMigrateSetCompressionCacheArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateSetCompressionCache,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateSetCompressionCache as i32,
             false,
             req,
         )?;
@@ -5262,7 +6020,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteNodeDeviceDetachFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceDetachFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceDetachFlags as i32,
             false,
             req,
         )?;
@@ -5279,7 +6039,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainMigrateBegin3ParamsArgs { dom, params, flags });
         let res = call::<RemoteDomainMigrateBegin3ParamsArgs, RemoteDomainMigrateBegin3ParamsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateBegin3Params,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateBegin3Params as i32,
             false,
             req,
         )?;
@@ -5303,7 +6065,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteDomainMigratePrepare3ParamsArgs, RemoteDomainMigratePrepare3ParamsRet>(
                 self,
-                RemoteProcedure::RemoteProcDomainMigratePrepare3Params,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcDomainMigratePrepare3Params as i32,
                 false,
                 req,
             )?;
@@ -5332,7 +6096,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteDomainMigratePrepareTunnel3ParamsRet,
         >(
             self,
-            RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3Params,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigratePrepareTunnel3Params as i32,
             false,
             req,
         )?;
@@ -5360,7 +6126,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteDomainMigratePerform3ParamsArgs, RemoteDomainMigratePerform3ParamsRet>(
                 self,
-                RemoteProcedure::RemoteProcDomainMigratePerform3Params,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcDomainMigratePerform3Params as i32,
                 false,
                 req,
             )?;
@@ -5385,7 +6153,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteDomainMigrateFinish3ParamsArgs, RemoteDomainMigrateFinish3ParamsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateFinish3Params,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateFinish3Params as i32,
             false,
             req,
         )?;
@@ -5412,7 +6182,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainMigrateConfirm3ParamsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateConfirm3Params,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateConfirm3Params as i32,
             false,
             req,
         )?;
@@ -5429,7 +6201,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetMemoryStatsPeriodArgs { dom, period, flags });
         let _res = call::<RemoteDomainSetMemoryStatsPeriodArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetMemoryStatsPeriod,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetMemoryStatsPeriod as i32,
             false,
             req,
         )?;
@@ -5445,7 +6219,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainCreateXmlWithFilesArgs { xml_desc, flags });
         let res = call::<RemoteDomainCreateXmlWithFilesArgs, RemoteDomainCreateXmlWithFilesRet>(
             self,
-            RemoteProcedure::RemoteProcDomainCreateXmlWithFiles,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCreateXmlWithFiles as i32,
             false,
             req,
         )?;
@@ -5463,7 +6239,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainCreateWithFilesArgs { dom, flags });
         let res = call::<RemoteDomainCreateWithFilesArgs, RemoteDomainCreateWithFilesRet>(
             self,
-            RemoteProcedure::RemoteProcDomainCreateWithFiles,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCreateWithFiles as i32,
             false,
             req,
         )?;
@@ -5476,7 +6254,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventDeviceRemoved,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventDeviceRemoved as i32,
             false,
             req,
         )?;
@@ -5497,7 +6277,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteConnectGetCpuModelNamesArgs, RemoteConnectGetCpuModelNamesRet>(
             self,
-            RemoteProcedure::RemoteProcConnectGetCpuModelNames,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetCpuModelNames as i32,
             false,
             req,
         )?;
@@ -5518,7 +6300,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteConnectNetworkEventRegisterAnyRet,
         >(
             self,
-            RemoteProcedure::RemoteProcConnectNetworkEventRegisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNetworkEventRegisterAny as i32,
             false,
             req,
         )?;
@@ -5532,7 +6316,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectNetworkEventDeregisterAnyArgs { callback_id });
         let _res = call::<RemoteConnectNetworkEventDeregisterAnyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcConnectNetworkEventDeregisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNetworkEventDeregisterAny as i32,
             false,
             req,
         )?;
@@ -5543,7 +6329,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcNetworkEventLifecycle,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkEventLifecycle as i32,
             false,
             req,
         )?;
@@ -5562,7 +6350,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteConnectDomainEventCallbackRegisterAnyRet,
         >(
             self,
-            RemoteProcedure::RemoteProcConnectDomainEventCallbackRegisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectDomainEventCallbackRegisterAny as i32,
             false,
             req,
         )?;
@@ -5582,7 +6372,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectDomainEventCallbackDeregisterAnyArgs { callback_id });
         let _res = call::<RemoteConnectDomainEventCallbackDeregisterAnyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcConnectDomainEventCallbackDeregisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectDomainEventCallbackDeregisterAny as i32,
             false,
             req,
         )?;
@@ -5593,7 +6385,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackLifecycle,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackLifecycle as i32,
             false,
             req,
         )?;
@@ -5604,7 +6398,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackReboot,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackReboot as i32,
             false,
             req,
         )?;
@@ -5615,7 +6411,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackRtcChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackRtcChange as i32,
             false,
             req,
         )?;
@@ -5626,7 +6424,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackWatchdog,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackWatchdog as i32,
             false,
             req,
         )?;
@@ -5637,7 +6437,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackIoError,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackIoError as i32,
             false,
             req,
         )?;
@@ -5648,7 +6450,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackGraphics,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackGraphics as i32,
             false,
             req,
         )?;
@@ -5659,7 +6463,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackIoErrorReason,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackIoErrorReason as i32,
             false,
             req,
         )?;
@@ -5670,7 +6476,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackControlError,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackControlError as i32,
             false,
             req,
         )?;
@@ -5681,7 +6489,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackBlockJob,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackBlockJob as i32,
             false,
             req,
         )?;
@@ -5692,7 +6502,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackDiskChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackDiskChange as i32,
             false,
             req,
         )?;
@@ -5703,7 +6515,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackTrayChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackTrayChange as i32,
             false,
             req,
         )?;
@@ -5714,7 +6528,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackPmwakeup,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackPmwakeup as i32,
             false,
             req,
         )?;
@@ -5725,7 +6541,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackPmsuspend,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackPmsuspend as i32,
             false,
             req,
         )?;
@@ -5736,7 +6554,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackBalloonChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackBalloonChange as i32,
             false,
             req,
         )?;
@@ -5747,7 +6567,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackPmsuspendDisk,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackPmsuspendDisk as i32,
             false,
             req,
         )?;
@@ -5758,7 +6580,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackDeviceRemoved,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackDeviceRemoved as i32,
             false,
             req,
         )?;
@@ -5781,7 +6605,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainCoreDumpWithFormatArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainCoreDumpWithFormat,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCoreDumpWithFormat as i32,
             false,
             req,
         )?;
@@ -5801,7 +6627,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainFsfreezeArgs, RemoteDomainFsfreezeRet>(
             self,
-            RemoteProcedure::RemoteProcDomainFsfreeze,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainFsfreeze as i32,
             false,
             req,
         )?;
@@ -5823,7 +6651,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainFsthawArgs, RemoteDomainFsthawRet>(
             self,
-            RemoteProcedure::RemoteProcDomainFsthaw,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainFsthaw as i32,
             false,
             req,
         )?;
@@ -5840,7 +6670,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainGetTimeArgs> = Some(RemoteDomainGetTimeArgs { dom, flags });
         let res = call::<RemoteDomainGetTimeArgs, RemoteDomainGetTimeRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetTime,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetTime as i32,
             false,
             req,
         )?;
@@ -5864,7 +6696,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainSetTimeArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetTime,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetTime as i32,
             false,
             req,
         )?;
@@ -5875,7 +6709,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventBlockJob2,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventBlockJob2 as i32,
             false,
             req,
         )?;
@@ -5897,7 +6733,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteNodeGetFreePagesArgs, RemoteNodeGetFreePagesRet>(
             self,
-            RemoteProcedure::RemoteProcNodeGetFreePages,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeGetFreePages as i32,
             false,
             req,
         )?;
@@ -5921,7 +6759,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteNetworkGetDhcpLeasesArgs, RemoteNetworkGetDhcpLeasesRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkGetDhcpLeases,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkGetDhcpLeases as i32,
             false,
             req,
         )?;
@@ -5949,7 +6789,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteConnectGetDomainCapabilitiesArgs, RemoteConnectGetDomainCapabilitiesRet>(
                 self,
-                RemoteProcedure::RemoteProcConnectGetDomainCapabilities,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcConnectGetDomainCapabilities as i32,
                 false,
                 req,
             )?;
@@ -5968,7 +6810,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainOpenGraphicsFdArgs { dom, idx, flags });
         let _res = call::<RemoteDomainOpenGraphicsFdArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainOpenGraphicsFd,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainOpenGraphicsFd as i32,
             false,
             req,
         )?;
@@ -5985,7 +6829,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectGetAllDomainStatsArgs { doms, stats, flags });
         let res = call::<RemoteConnectGetAllDomainStatsArgs, RemoteConnectGetAllDomainStatsRet>(
             self,
-            RemoteProcedure::RemoteProcConnectGetAllDomainStats,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetAllDomainStats as i32,
             false,
             req,
         )?;
@@ -6011,7 +6857,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainBlockCopyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainBlockCopy,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBlockCopy as i32,
             false,
             req,
         )?;
@@ -6022,7 +6870,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackTunable,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackTunable as i32,
             false,
             req,
         )?;
@@ -6046,7 +6896,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteNodeAllocPagesArgs, RemoteNodeAllocPagesRet>(
             self,
-            RemoteProcedure::RemoteProcNodeAllocPages,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeAllocPages as i32,
             false,
             req,
         )?;
@@ -6059,7 +6911,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackAgentLifecycle,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackAgentLifecycle as i32,
             false,
             req,
         )?;
@@ -6074,7 +6928,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteDomainGetFsinfoArgs> = Some(RemoteDomainGetFsinfoArgs { dom, flags });
         let res = call::<RemoteDomainGetFsinfoArgs, RemoteDomainGetFsinfoRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetFsinfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetFsinfo as i32,
             false,
             req,
         )?;
@@ -6092,7 +6948,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainDefineXmlFlagsArgs { xml, flags });
         let res = call::<RemoteDomainDefineXmlFlagsArgs, RemoteDomainDefineXmlFlagsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainDefineXmlFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainDefineXmlFlags as i32,
             false,
             req,
         )?;
@@ -6110,7 +6968,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetIothreadInfoArgs { dom, flags });
         let res = call::<RemoteDomainGetIothreadInfoArgs, RemoteDomainGetIothreadInfoRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetIothreadInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetIothreadInfo as i32,
             false,
             req,
         )?;
@@ -6134,7 +6994,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainPinIothreadArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainPinIothread,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainPinIothread as i32,
             false,
             req,
         )?;
@@ -6151,7 +7013,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainInterfaceAddressesArgs { dom, source, flags });
         let res = call::<RemoteDomainInterfaceAddressesArgs, RemoteDomainInterfaceAddressesRet>(
             self,
-            RemoteProcedure::RemoteProcDomainInterfaceAddresses,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainInterfaceAddresses as i32,
             false,
             req,
         )?;
@@ -6164,7 +7028,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackDeviceAdded,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackDeviceAdded as i32,
             false,
             req,
         )?;
@@ -6184,7 +7050,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainAddIothreadArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainAddIothread,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainAddIothread as i32,
             false,
             req,
         )?;
@@ -6204,7 +7072,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainDelIothreadArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainDelIothread,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainDelIothread as i32,
             false,
             req,
         )?;
@@ -6226,7 +7096,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainSetUserPasswordArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetUserPassword,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetUserPassword as i32,
             false,
             req,
         )?;
@@ -6246,7 +7118,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteDomainRenameArgs, RemoteDomainRenameRet>(
             self,
-            RemoteProcedure::RemoteProcDomainRename,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainRename as i32,
             false,
             req,
         )?;
@@ -6259,7 +7133,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackMigrationIteration,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackMigrationIteration as i32,
             false,
             req,
         )?;
@@ -6270,7 +7146,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcConnectRegisterCloseCallback,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectRegisterCloseCallback as i32,
             false,
             req,
         )?;
@@ -6281,7 +7159,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcConnectUnregisterCloseCallback,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectUnregisterCloseCallback as i32,
             false,
             req,
         )?;
@@ -6292,7 +7172,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcConnectEventConnectionClosed,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectEventConnectionClosed as i32,
             false,
             req,
         )?;
@@ -6303,7 +7185,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackJobCompleted,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackJobCompleted as i32,
             false,
             req,
         )?;
@@ -6319,7 +7203,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainMigrateStartPostCopyArgs { dom, flags });
         let _res = call::<RemoteDomainMigrateStartPostCopyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainMigrateStartPostCopy,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainMigrateStartPostCopy as i32,
             false,
             req,
         )?;
@@ -6335,7 +7221,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetPerfEventsArgs { dom, flags });
         let res = call::<RemoteDomainGetPerfEventsArgs, RemoteDomainGetPerfEventsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetPerfEvents,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetPerfEvents as i32,
             false,
             req,
         )?;
@@ -6354,7 +7242,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetPerfEventsArgs { dom, params, flags });
         let _res = call::<RemoteDomainSetPerfEventsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetPerfEvents,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetPerfEvents as i32,
             false,
             req,
         )?;
@@ -6368,7 +7258,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackDeviceRemovalFailed,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackDeviceRemovalFailed as i32,
             false,
             req,
         )?;
@@ -6387,7 +7279,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteConnectStoragePoolEventRegisterAnyRet,
         >(
             self,
-            RemoteProcedure::RemoteProcConnectStoragePoolEventRegisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectStoragePoolEventRegisterAny as i32,
             false,
             req,
         )?;
@@ -6401,7 +7295,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectStoragePoolEventDeregisterAnyArgs { callback_id });
         let _res = call::<RemoteConnectStoragePoolEventDeregisterAnyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcConnectStoragePoolEventDeregisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectStoragePoolEventDeregisterAny as i32,
             false,
             req,
         )?;
@@ -6412,7 +7308,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolEventLifecycle,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolEventLifecycle as i32,
             false,
             req,
         )?;
@@ -6428,7 +7326,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetGuestVcpusArgs { dom, flags });
         let res = call::<RemoteDomainGetGuestVcpusArgs, RemoteDomainGetGuestVcpusRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetGuestVcpus,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetGuestVcpus as i32,
             false,
             req,
         )?;
@@ -6452,7 +7352,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainSetGuestVcpusArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetGuestVcpus,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetGuestVcpus as i32,
             false,
             req,
         )?;
@@ -6463,7 +7365,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcStoragePoolEventRefresh,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolEventRefresh as i32,
             false,
             req,
         )?;
@@ -6482,7 +7386,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteConnectNodeDeviceEventRegisterAnyRet,
         >(
             self,
-            RemoteProcedure::RemoteProcConnectNodeDeviceEventRegisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNodeDeviceEventRegisterAny as i32,
             false,
             req,
         )?;
@@ -6496,7 +7402,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectNodeDeviceEventDeregisterAnyArgs { callback_id });
         let _res = call::<RemoteConnectNodeDeviceEventDeregisterAnyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcConnectNodeDeviceEventDeregisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectNodeDeviceEventDeregisterAny as i32,
             false,
             req,
         )?;
@@ -6507,7 +7415,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceEventLifecycle,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceEventLifecycle as i32,
             false,
             req,
         )?;
@@ -6518,7 +7428,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceEventUpdate,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceEventUpdate as i32,
             false,
             req,
         )?;
@@ -6534,7 +7446,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteStorageVolGetInfoFlagsArgs { vol, flags });
         let res = call::<RemoteStorageVolGetInfoFlagsArgs, RemoteStorageVolGetInfoFlagsRet>(
             self,
-            RemoteProcedure::RemoteProcStorageVolGetInfoFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStorageVolGetInfoFlags as i32,
             false,
             req,
         )?;
@@ -6551,7 +7465,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventCallbackMetadataChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackMetadataChange as i32,
             false,
             req,
         )?;
@@ -6570,7 +7486,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteConnectSecretEventRegisterAnyRet,
         >(
             self,
-            RemoteProcedure::RemoteProcConnectSecretEventRegisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectSecretEventRegisterAny as i32,
             false,
             req,
         )?;
@@ -6584,7 +7502,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectSecretEventDeregisterAnyArgs { callback_id });
         let _res = call::<RemoteConnectSecretEventDeregisterAnyArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcConnectSecretEventDeregisterAny,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectSecretEventDeregisterAny as i32,
             false,
             req,
         )?;
@@ -6595,7 +7515,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcSecretEventLifecycle,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcSecretEventLifecycle as i32,
             false,
             req,
         )?;
@@ -6606,7 +7528,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcSecretEventValueChanged,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcSecretEventValueChanged as i32,
             false,
             req,
         )?;
@@ -6628,7 +7552,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainSetVcpuArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetVcpu,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetVcpu as i32,
             false,
             req,
         )?;
@@ -6639,7 +7565,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventBlockThreshold,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventBlockThreshold as i32,
             false,
             req,
         )?;
@@ -6662,7 +7590,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainSetBlockThresholdArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetBlockThreshold,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetBlockThreshold as i32,
             false,
             req,
         )?;
@@ -6679,7 +7609,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteDomainMigrateGetMaxDowntimeArgs, RemoteDomainMigrateGetMaxDowntimeRet>(
                 self,
-                RemoteProcedure::RemoteProcDomainMigrateGetMaxDowntime,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcDomainMigrateGetMaxDowntime as i32,
                 false,
                 req,
             )?;
@@ -6698,7 +7630,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteDomainManagedSaveGetXmlDescArgs, RemoteDomainManagedSaveGetXmlDescRet>(
                 self,
-                RemoteProcedure::RemoteProcDomainManagedSaveGetXmlDesc,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcDomainManagedSaveGetXmlDesc as i32,
                 false,
                 req,
             )?;
@@ -6717,7 +7651,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainManagedSaveDefineXmlArgs { dom, dxml, flags });
         let _res = call::<RemoteDomainManagedSaveDefineXmlArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainManagedSaveDefineXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainManagedSaveDefineXml as i32,
             false,
             req,
         )?;
@@ -6740,7 +7676,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainSetLifecycleActionArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetLifecycleAction,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetLifecycleAction as i32,
             false,
             req,
         )?;
@@ -6758,7 +7696,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteStoragePoolLookupByTargetPathRet,
         >(
             self,
-            RemoteProcedure::RemoteProcStoragePoolLookupByTargetPath,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcStoragePoolLookupByTargetPath as i32,
             false,
             req,
         )?;
@@ -6777,7 +7717,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainDetachDeviceAliasArgs { dom, alias, flags });
         let _res = call::<RemoteDomainDetachDeviceAliasArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainDetachDeviceAlias,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainDetachDeviceAlias as i32,
             false,
             req,
         )?;
@@ -6805,7 +7747,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteConnectCompareHypervisorCpuArgs, RemoteConnectCompareHypervisorCpuRet>(
                 self,
-                RemoteProcedure::RemoteProcConnectCompareHypervisorCpu,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcConnectCompareHypervisorCpu as i32,
                 false,
                 req,
             )?;
@@ -6835,7 +7779,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteConnectBaselineHypervisorCpuArgs, RemoteConnectBaselineHypervisorCpuRet>(
                 self,
-                RemoteProcedure::RemoteProcConnectBaselineHypervisorCpu,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcConnectBaselineHypervisorCpu as i32,
                 false,
                 req,
             )?;
@@ -6853,7 +7799,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeGetSevInfoArgs { nparams, flags });
         let res = call::<RemoteNodeGetSevInfoArgs, RemoteNodeGetSevInfoRet>(
             self,
-            RemoteProcedure::RemoteProcNodeGetSevInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeGetSevInfo as i32,
             false,
             req,
         )?;
@@ -6872,7 +7820,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteDomainGetLaunchSecurityInfoArgs, RemoteDomainGetLaunchSecurityInfoRet>(
                 self,
-                RemoteProcedure::RemoteProcDomainGetLaunchSecurityInfo,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcDomainGetLaunchSecurityInfo as i32,
                 false,
                 req,
             )?;
@@ -6892,7 +7842,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteNwfilterBindingLookupByPortDevRet,
         >(
             self,
-            RemoteProcedure::RemoteProcNwfilterBindingLookupByPortDev,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNwfilterBindingLookupByPortDev as i32,
             false,
             req,
         )?;
@@ -6910,7 +7862,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNwfilterBindingGetXmlDescArgs { nwfilter, flags });
         let res = call::<RemoteNwfilterBindingGetXmlDescArgs, RemoteNwfilterBindingGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcNwfilterBindingGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNwfilterBindingGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -6928,7 +7882,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNwfilterBindingCreateXmlArgs { xml, flags });
         let res = call::<RemoteNwfilterBindingCreateXmlArgs, RemoteNwfilterBindingCreateXmlRet>(
             self,
-            RemoteProcedure::RemoteProcNwfilterBindingCreateXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNwfilterBindingCreateXml as i32,
             false,
             req,
         )?;
@@ -6945,7 +7901,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNwfilterBindingDeleteArgs { nwfilter });
         let _res = call::<RemoteNwfilterBindingDeleteArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNwfilterBindingDelete,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNwfilterBindingDelete as i32,
             false,
             req,
         )?;
@@ -6967,7 +7925,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteConnectListAllNwfilterBindingsRet,
         >(
             self,
-            RemoteProcedure::RemoteProcConnectListAllNwfilterBindings,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectListAllNwfilterBindings as i32,
             false,
             req,
         )?;
@@ -6992,7 +7952,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainSetIothreadParamsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetIothreadParams,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetIothreadParams as i32,
             false,
             req,
         )?;
@@ -7007,7 +7969,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteConnectGetStoragePoolCapabilitiesRet,
         >(
             self,
-            RemoteProcedure::RemoteProcConnectGetStoragePoolCapabilities,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectGetStoragePoolCapabilities as i32,
             false,
             req,
         )?;
@@ -7029,7 +7993,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteNetworkListAllPortsArgs, RemoteNetworkListAllPortsRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkListAllPorts,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkListAllPorts as i32,
             false,
             req,
         )?;
@@ -7047,7 +8013,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkPortLookupByUuidArgs { network, uuid });
         let res = call::<RemoteNetworkPortLookupByUuidArgs, RemoteNetworkPortLookupByUuidRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkPortLookupByUuid,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkPortLookupByUuid as i32,
             false,
             req,
         )?;
@@ -7069,7 +8037,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteNetworkPortCreateXmlArgs, RemoteNetworkPortCreateXmlRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkPortCreateXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkPortCreateXml as i32,
             false,
             req,
         )?;
@@ -7092,7 +8062,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteNetworkPortGetParametersArgs, RemoteNetworkPortGetParametersRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkPortGetParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkPortGetParameters as i32,
             false,
             req,
         )?;
@@ -7115,7 +8087,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteNetworkPortSetParametersArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNetworkPortSetParameters,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkPortSetParameters as i32,
             false,
             req,
         )?;
@@ -7131,7 +8105,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkPortGetXmlDescArgs { port, flags });
         let res = call::<RemoteNetworkPortGetXmlDescArgs, RemoteNetworkPortGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkPortGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkPortGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -7149,7 +8125,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkPortDeleteArgs { port, flags });
         let _res = call::<RemoteNetworkPortDeleteArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNetworkPortDelete,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkPortDelete as i32,
             false,
             req,
         )?;
@@ -7170,7 +8148,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteDomainCheckpointCreateXmlArgs, RemoteDomainCheckpointCreateXmlRet>(
             self,
-            RemoteProcedure::RemoteProcDomainCheckpointCreateXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCheckpointCreateXml as i32,
             false,
             req,
         )?;
@@ -7188,7 +8168,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainCheckpointGetXmlDescArgs { checkpoint, flags });
         let res = call::<RemoteDomainCheckpointGetXmlDescArgs, RemoteDomainCheckpointGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcDomainCheckpointGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCheckpointGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -7211,7 +8193,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let res = call::<RemoteDomainListAllCheckpointsArgs, RemoteDomainListAllCheckpointsRet>(
             self,
-            RemoteProcedure::RemoteProcDomainListAllCheckpoints,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainListAllCheckpoints as i32,
             false,
             req,
         )?;
@@ -7237,7 +8221,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteDomainCheckpointListAllChildrenRet,
         >(
             self,
-            RemoteProcedure::RemoteProcDomainCheckpointListAllChildren,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCheckpointListAllChildren as i32,
             false,
             req,
         )?;
@@ -7257,7 +8243,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let res =
             call::<RemoteDomainCheckpointLookupByNameArgs, RemoteDomainCheckpointLookupByNameRet>(
                 self,
-                RemoteProcedure::RemoteProcDomainCheckpointLookupByName,
+                REMOTE_PROGRAM,
+                REMOTE_PROTOCOL_VERSION,
+                RemoteProcedure::RemoteProcDomainCheckpointLookupByName as i32,
                 false,
                 req,
             )?;
@@ -7275,7 +8263,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainCheckpointGetParentArgs { checkpoint, flags });
         let res = call::<RemoteDomainCheckpointGetParentArgs, RemoteDomainCheckpointGetParentRet>(
             self,
-            RemoteProcedure::RemoteProcDomainCheckpointGetParent,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCheckpointGetParent as i32,
             false,
             req,
         )?;
@@ -7293,7 +8283,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainCheckpointDeleteArgs { checkpoint, flags });
         let _res = call::<RemoteDomainCheckpointDeleteArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainCheckpointDelete,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainCheckpointDelete as i32,
             false,
             req,
         )?;
@@ -7310,7 +8302,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetGuestInfoArgs { dom, types, flags });
         let res = call::<RemoteDomainGetGuestInfoArgs, RemoteDomainGetGuestInfoRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetGuestInfo,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetGuestInfo as i32,
             false,
             req,
         )?;
@@ -7328,7 +8322,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteConnectSetIdentityArgs { params, flags });
         let _res = call::<RemoteConnectSetIdentityArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcConnectSetIdentity,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcConnectSetIdentity as i32,
             false,
             req,
         )?;
@@ -7352,7 +8348,9 @@ pub trait Libvirt: Send + Sized + 'static {
             RemoteDomainAgentSetResponseTimeoutRet,
         >(
             self,
-            RemoteProcedure::RemoteProcDomainAgentSetResponseTimeout,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainAgentSetResponseTimeout as i32,
             false,
             req,
         )?;
@@ -7376,7 +8374,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteDomainBackupBeginArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainBackupBegin,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBackupBegin as i32,
             false,
             req,
         )?;
@@ -7392,7 +8392,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainBackupGetXmlDescArgs { dom, flags });
         let res = call::<RemoteDomainBackupGetXmlDescArgs, RemoteDomainBackupGetXmlDescRet>(
             self,
-            RemoteProcedure::RemoteProcDomainBackupGetXmlDesc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainBackupGetXmlDesc as i32,
             false,
             req,
         )?;
@@ -7405,7 +8407,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventMemoryFailure,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventMemoryFailure as i32,
             false,
             req,
         )?;
@@ -7422,7 +8426,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainAuthorizedSshKeysGetArgs { dom, user, flags });
         let res = call::<RemoteDomainAuthorizedSshKeysGetArgs, RemoteDomainAuthorizedSshKeysGetRet>(
             self,
-            RemoteProcedure::RemoteProcDomainAuthorizedSshKeysGet,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainAuthorizedSshKeysGet as i32,
             false,
             req,
         )?;
@@ -7447,7 +8453,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainAuthorizedSshKeysSetArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainAuthorizedSshKeysSet,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainAuthorizedSshKeysSet as i32,
             false,
             req,
         )?;
@@ -7463,7 +8471,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetMessagesArgs { dom, flags });
         let res = call::<RemoteDomainGetMessagesArgs, RemoteDomainGetMessagesRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetMessages,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetMessages as i32,
             false,
             req,
         )?;
@@ -7486,7 +8496,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainStartDirtyRateCalcArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainStartDirtyRateCalc,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainStartDirtyRateCalc as i32,
             false,
             req,
         )?;
@@ -7502,7 +8514,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceDefineXmlArgs { xml_desc, flags });
         let res = call::<RemoteNodeDeviceDefineXmlArgs, RemoteNodeDeviceDefineXmlRet>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceDefineXml,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceDefineXml as i32,
             false,
             req,
         )?;
@@ -7516,7 +8530,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceUndefineArgs { name, flags });
         let _res = call::<RemoteNodeDeviceUndefineArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceUndefine,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceUndefine as i32,
             false,
             req,
         )?;
@@ -7528,7 +8544,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceCreateArgs { name, flags });
         let _res = call::<RemoteNodeDeviceCreateArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceCreate,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceCreate as i32,
             false,
             req,
         )?;
@@ -7544,7 +8562,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNwfilterDefineXmlFlagsArgs { xml, flags });
         let res = call::<RemoteNwfilterDefineXmlFlagsArgs, RemoteNwfilterDefineXmlFlagsRet>(
             self,
-            RemoteProcedure::RemoteProcNwfilterDefineXmlFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNwfilterDefineXmlFlags as i32,
             false,
             req,
         )?;
@@ -7562,7 +8582,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkDefineXmlFlagsArgs { xml, flags });
         let res = call::<RemoteNetworkDefineXmlFlagsArgs, RemoteNetworkDefineXmlFlagsRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkDefineXmlFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkDefineXmlFlags as i32,
             false,
             req,
         )?;
@@ -7576,7 +8598,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceGetAutostartArgs { name });
         let res = call::<RemoteNodeDeviceGetAutostartArgs, RemoteNodeDeviceGetAutostartRet>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceGetAutostart,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceGetAutostart as i32,
             false,
             req,
         )?;
@@ -7590,7 +8614,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceSetAutostartArgs { name, autostart });
         let _res = call::<RemoteNodeDeviceSetAutostartArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceSetAutostart,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceSetAutostart as i32,
             false,
             req,
         )?;
@@ -7602,7 +8628,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNodeDeviceIsPersistentArgs { name });
         let res = call::<RemoteNodeDeviceIsPersistentArgs, RemoteNodeDeviceIsPersistentRet>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceIsPersistent,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceIsPersistent as i32,
             false,
             req,
         )?;
@@ -7615,7 +8643,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<RemoteNodeDeviceIsActiveArgs> = Some(RemoteNodeDeviceIsActiveArgs { name });
         let res = call::<RemoteNodeDeviceIsActiveArgs, RemoteNodeDeviceIsActiveRet>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceIsActive,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceIsActive as i32,
             false,
             req,
         )?;
@@ -7633,7 +8663,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteNetworkCreateXmlFlagsArgs { xml, flags });
         let res = call::<RemoteNetworkCreateXmlFlagsArgs, RemoteNetworkCreateXmlFlagsRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkCreateXmlFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkCreateXmlFlags as i32,
             false,
             req,
         )?;
@@ -7646,7 +8678,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventMemoryDeviceSizeChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventMemoryDeviceSizeChange as i32,
             false,
             req,
         )?;
@@ -7663,7 +8697,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetLaunchSecurityStateArgs { dom, params, flags });
         let _res = call::<RemoteDomainSetLaunchSecurityStateArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetLaunchSecurityState,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetLaunchSecurityState as i32,
             false,
             req,
         )?;
@@ -7680,7 +8716,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSaveParamsArgs { dom, params, flags });
         let _res = call::<RemoteDomainSaveParamsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSaveParams,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSaveParams as i32,
             false,
             req,
         )?;
@@ -7696,7 +8734,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainRestoreParamsArgs { params, flags });
         let _res = call::<RemoteDomainRestoreParamsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainRestoreParams,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainRestoreParams as i32,
             false,
             req,
         )?;
@@ -7712,7 +8752,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainAbortJobFlagsArgs { dom, flags });
         let _res = call::<RemoteDomainAbortJobFlagsArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainAbortJobFlags,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainAbortJobFlags as i32,
             false,
             req,
         )?;
@@ -7729,7 +8771,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainFdAssociateArgs { dom, name, flags });
         let _res = call::<RemoteDomainFdAssociateArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainFdAssociate,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainFdAssociate as i32,
             false,
             req,
         )?;
@@ -7755,7 +8799,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteNetworkSetMetadataArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNetworkSetMetadata,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkSetMetadata as i32,
             false,
             req,
         )?;
@@ -7777,7 +8823,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let res = call::<RemoteNetworkGetMetadataArgs, RemoteNetworkGetMetadataRet>(
             self,
-            RemoteProcedure::RemoteProcNetworkGetMetadata,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkGetMetadata as i32,
             false,
             req,
         )?;
@@ -7790,7 +8838,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcNetworkEventCallbackMetadataChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNetworkEventCallbackMetadataChange as i32,
             false,
             req,
         )?;
@@ -7810,7 +8860,9 @@ pub trait Libvirt: Send + Sized + 'static {
         });
         let _res = call::<RemoteNodeDeviceUpdateArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcNodeDeviceUpdate,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcNodeDeviceUpdate as i32,
             false,
             req,
         )?;
@@ -7827,7 +8879,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGraphicsReloadArgs { dom, r#type, flags });
         let _res = call::<RemoteDomainGraphicsReloadArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainGraphicsReload,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGraphicsReload as i32,
             false,
             req,
         )?;
@@ -7839,7 +8893,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainGetAutostartOnceArgs { dom });
         let res = call::<RemoteDomainGetAutostartOnceArgs, RemoteDomainGetAutostartOnceRet>(
             self,
-            RemoteProcedure::RemoteProcDomainGetAutostartOnce,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainGetAutostartOnce as i32,
             false,
             req,
         )?;
@@ -7857,7 +8913,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainSetAutostartOnceArgs { dom, autostart });
         let _res = call::<RemoteDomainSetAutostartOnceArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetAutostartOnce,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetAutostartOnce as i32,
             false,
             req,
         )?;
@@ -7880,7 +8938,9 @@ pub trait Libvirt: Send + Sized + 'static {
             });
         let _res = call::<RemoteDomainSetThrottleGroupArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainSetThrottleGroup,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainSetThrottleGroup as i32,
             false,
             req,
         )?;
@@ -7897,7 +8957,9 @@ pub trait Libvirt: Send + Sized + 'static {
             Some(RemoteDomainDelThrottleGroupArgs { dom, group, flags });
         let _res = call::<RemoteDomainDelThrottleGroupArgs, ()>(
             self,
-            RemoteProcedure::RemoteProcDomainDelThrottleGroup,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainDelThrottleGroup as i32,
             false,
             req,
         )?;
@@ -7908,7 +8970,9 @@ pub trait Libvirt: Send + Sized + 'static {
         let req: Option<()> = None;
         let _res = call::<(), ()>(
             self,
-            RemoteProcedure::RemoteProcDomainEventNicMacChange,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventNicMacChange as i32,
             false,
             req,
         )?;
@@ -7960,6 +9024,20 @@ where
     pub fn storage_vol_upload_complete(&mut self) -> Result<(), Error> {
         trace!("{}", stringify!(storage_vol_upload_complete));
         upload_completed(self, RemoteProcedure::RemoteProcStorageVolUpload)
+    }
+}
+impl TryFrom<VirNetResponseRaw> for QemuDomainMonitorEventMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
     }
 }
 impl TryFrom<VirNetResponseRaw> for RemoteConnectEventConnectionClosedMsg {
@@ -8706,7 +9784,9 @@ impl TryFrom<VirNetResponseRaw> for RemoteStoragePoolEventRefreshMsg {
 }
 fn call<S, D>(
     client: &mut impl Libvirt,
-    procedure: RemoteProcedure,
+    program: u32,
+    version: u32,
+    procedure: i32,
     stream: bool,
     args: Option<S>,
 ) -> Result<VirNetResponseSet<D>, Error>
@@ -8723,6 +9803,8 @@ where
     let socket = client.inner();
     if let Err(e) = send(
         socket,
+        program,
+        version,
         procedure,
         protocol::VirNetMessageType::VirNetCall,
         serial,
@@ -8773,7 +9855,9 @@ where
     let req: Option<VirNetRequest<()>> = Some(VirNetRequest::Stream(bytes));
     send(
         &mut response.inner,
-        procedure,
+        response.header.prog,
+        response.header.vers,
+        procedure as i32,
         protocol::VirNetMessageType::VirNetStream,
         response.header.serial,
         protocol::VirNetMessageStatus::VirNetContinue,
@@ -8794,7 +9878,9 @@ where
     let args: Option<VirNetRequest<()>> = Some(VirNetRequest::Stream(hole));
     send(
         &mut response.inner,
-        procedure,
+        response.header.prog,
+        response.header.vers,
+        procedure as i32,
         protocol::VirNetMessageType::VirNetStreamHole,
         response.header.serial,
         protocol::VirNetMessageStatus::VirNetContinue,
@@ -8812,7 +9898,9 @@ where
     let req: Option<VirNetRequest<()>> = None;
     send(
         &mut response.inner,
-        procedure,
+        response.header.prog,
+        response.header.vers,
+        procedure as i32,
         protocol::VirNetMessageType::VirNetStream,
         response.header.serial,
         protocol::VirNetMessageStatus::VirNetOk,
@@ -8826,9 +9914,12 @@ where
     )?;
     Ok(())
 }
+#[allow(clippy::too_many_arguments)]
 fn send<S>(
     socket: &mut Box<dyn ReadWrite>,
-    procedure: RemoteProcedure,
+    program: u32,
+    version: u32,
+    procedure: i32,
     req_type: protocol::VirNetMessageType,
     req_serial: u32,
     req_status: protocol::VirNetMessageStatus,
@@ -8839,9 +9930,9 @@ where
 {
     let mut req_len: u32 = 4;
     let req_header = protocol::VirNetMessageHeader {
-        prog: REMOTE_PROGRAM,
-        vers: REMOTE_PROTOCOL_VERSION,
-        proc: procedure as i32,
+        prog: program,
+        vers: version,
+        proc: procedure,
         r#type: req_type,
         serial: req_serial,
         status: req_status,

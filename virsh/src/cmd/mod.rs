@@ -3,6 +3,7 @@ mod destroy;
 mod iface_list;
 mod nodeinfo;
 mod pool_event;
+mod qemu_agent_command;
 mod start;
 mod version;
 mod vol_download;
@@ -41,6 +42,7 @@ pub fn app() -> Command {
         .subcommand(iface_list::cmd())
         .subcommand(nodeinfo::cmd())
         .subcommand(pool_event::cmd())
+        .subcommand(qemu_agent_command::cmd())
         .subcommand(start::cmd())
         .subcommand(version::cmd())
         .subcommand(vol_download::cmd())
@@ -58,6 +60,7 @@ pub fn run(
         Some(("iface-list", args)) => iface_list::run(client, locale, args),
         Some(("nodeinfo", _)) => nodeinfo::run(client, locale),
         Some(("pool-event", args)) => pool_event::run(client, locale, args),
+        Some(("qemu-agent-command", args)) => qemu_agent_command::run(client, locale, args),
         Some(("start", args)) => start::run(client, locale, args),
         Some(("version", _)) => version::run(client, locale),
         Some(("vol-download", args)) => vol_download::run(client, locale, args),

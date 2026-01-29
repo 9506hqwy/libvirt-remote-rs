@@ -6,11 +6,6 @@ This library uses [libvirt RPC infrastructure](https://libvirt.org/kbase/interna
 to communicate libvirt server.
 The packet encoding and decoding and stub code generation uses [xdr-rs](https://github.com/9506hqwy/xdr-rs) crate.
 
-## TODO
-
-- QEMU protocol support
-- LXD protocol support
-
 ## Examples
 
 see [virsh](./virsh) directory.

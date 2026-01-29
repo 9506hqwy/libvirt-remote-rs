@@ -5,6 +5,8 @@ set -eu
 VERSION="v12.0.0"
 TOOL_VERSION="0.4.0"
 PROTO_URL="https://raw.githubusercontent.com/libvirt/libvirt/${VERSION}/src/rpc/virnetprotocol.x"
+LXC_URL="https://raw.githubusercontent.com/libvirt/libvirt/${VERSION}/src/remote/lxc_protocol.x"
+QEMU_URL="https://raw.githubusercontent.com/libvirt/libvirt/${VERSION}/src/remote/qemu_protocol.x"
 REMOTE_URL="https://raw.githubusercontent.com/libvirt/libvirt/${VERSION}/src/remote/remote_protocol.x"
 RPCGEN_BIN="https://github.com/9506hqwy/xdr-rs/releases/download/${TOOL_VERSION}/rpcgen-${TOOL_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
 
@@ -24,6 +26,8 @@ EOF
 "${WORKDIR}/rpcgen" "${WORKDIR}/virnetprotocol.x" > libvirt-remote/src/protocol.rs
 rustfmt libvirt-remote/src/protocol.rs
 
+curl -sSL -o "${WORKDIR}/lxc_protocol.x" ${LXC_URL}
+curl -sSL -o "${WORKDIR}/qemu_protocol.x" ${QEMU_URL}
 curl -sSL -o "${WORKDIR}/remote_protocol.x" ${REMOTE_URL}
 cat - << EOF >> "${WORKDIR}/remote_protocol.x"
 const VIR_SECURITY_MODEL_BUFLEN = 256;
@@ -38,6 +42,8 @@ const VIR_TYPED_PARAM_DOUBLE = 5;
 const VIR_TYPED_PARAM_BOOLEAN = 6;
 const VIR_TYPED_PARAM_STRING = 7;
 EOF
+cat "${WORKDIR}/lxc_protocol.x" >> "${WORKDIR}/remote_protocol.x"
+cat "${WORKDIR}/qemu_protocol.x" >> "${WORKDIR}/remote_protocol.x"
 "${WORKDIR}/rpcgen" "${WORKDIR}/remote_protocol.x" > libvirt-remote/src/binding.rs
 rustfmt libvirt-remote/src/binding.rs
 

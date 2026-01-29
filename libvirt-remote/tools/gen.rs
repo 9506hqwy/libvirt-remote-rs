@@ -23,6 +23,13 @@ const UN_DECONSTRUCTING: [&str; 4] = [
     "RemoteNodeGetInfoRet",
 ];
 
+struct Procedure {
+    lxc: syn::ItemEnum,
+    qemu: syn::ItemEnum,
+    remote: syn::ItemEnum,
+    models: HashMap<String, syn::ItemStruct>,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let path = env::args().nth(1).ok_or("Not specify file path")?;
     let contents = fs::read_to_string(path)?;
@@ -35,73 +42,25 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>> {
-    let (procedures, models) = parse_file(stream)?;
+    let Procedure {
+        lxc: lxc_procedures,
+        qemu: qemu_procedures,
+        remote: remote_procedures,
+        models,
+    } = parse_file(stream)?;
 
-    let mut calls = vec![];
-    for (name, args, ret) in parse_call_method(&procedures, &models) {
-        let stream = stream_procs(&name);
-        let method_name = format_ident!("{}", snake_case(&name));
-        let flag = format_ident!("RemoteProc{}", &name);
+    let mut calls = get_call_methods(wrapped, "Lxc", &lxc_procedures, &models);
+    calls.extend(get_call_methods(wrapped, "Qemu", &qemu_procedures, &models));
+    calls.extend(get_call_methods(
+        wrapped,
+        "Remote",
+        &remote_procedures,
+        &models,
+    ));
 
-        let xdr_req_type = match args.as_deref() {
-            Some(model) => {
-                let model_ident = format_ident!("{}", model);
-                quote! { #model_ident }
-            }
-            _ => quote! { () },
-        };
-
-        let xdr_res_type = match ret.as_deref() {
-            Some(model) => {
-                let model_ident = format_ident!("{}", model);
-                quote! { #model_ident }
-            }
-            _ => quote! { () },
-        };
-
-        let stream_arg = if stream {
-            quote! { true }
-        } else {
-            quote! { false }
-        };
-
-        let call_proc = quote! { call::<#xdr_req_type, #xdr_res_type>(self, RemoteProcedure::#flag, #stream_arg, req)? };
-
-        let fn_args = gen_fn_args(&method_name, args.as_deref(), wrapped, &models);
-        let res_type = gen_res_type(ret.as_deref(), wrapped, stream, &models);
-        let req_stmt = gen_req_stmt(args.as_deref(), wrapped, &models);
-        let proc_stmt = gen_proc_stmt(call_proc, ret.as_deref(), wrapped, stream, &models);
-
-        calls.push(quote! {
-            fn #fn_args -> Result<#res_type, Error> {
-                trace!("{}", stringify!(#method_name));
-                #req_stmt
-                #proc_stmt
-            }
-        });
-    }
-
-    let mut msgs = vec![];
-    for (_, ret) in parse_msg_method(&models) {
-        let ret_ident = format_ident!("{}", ret);
-        msgs.push(quote! {
-            impl TryFrom<VirNetResponseRaw> for #ret_ident {
-                type Error = Error;
-
-                fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
-                    let header = value.header;
-                    let body = value.body.unwrap();
-                    match deserialize_body(&header, body) {
-                        Ok(res_body) => match res_body {
-                            VirNetResponse::Data(body) => Ok(body),
-                            _ => unreachable!(),
-                        },
-                        Err(e) => Err(e),
-                    }
-                }
-            }
-        });
-    }
+    let mut msgs = get_msg_method("Lxc", &models);
+    msgs.extend(get_msg_method("Qemu", &models));
+    msgs.extend(get_msg_method("Remote", &models));
 
     let client = quote! {
         use crate::binding::*;
@@ -365,7 +324,9 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
         fn call<S, D>(
             client: &mut impl Libvirt,
-            procedure: RemoteProcedure,
+            program: u32,
+            version: u32,
+            procedure: i32,
             stream: bool,
             args: Option<S>,
         ) -> Result<VirNetResponseSet<D>, Error>
@@ -386,6 +347,8 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
             if let Err(e) = send(
                 socket,
+                program,
+                version,
                 procedure,
                 protocol::VirNetMessageType::VirNetCall,
                 serial,
@@ -441,7 +404,9 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             let req: Option<VirNetRequest<()>> = Some(VirNetRequest::Stream(bytes));
             send(
                 &mut response.inner,
-                procedure,
+                response.header.prog,
+                response.header.vers,
+                procedure as i32,
                 protocol::VirNetMessageType::VirNetStream,
                 response.header.serial,
                 protocol::VirNetMessageStatus::VirNetContinue,
@@ -463,7 +428,9 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             let args: Option<VirNetRequest<()>> = Some(VirNetRequest::Stream(hole));
             send(
                 &mut response.inner,
-                procedure,
+                response.header.prog,
+                response.header.vers,
+                procedure as i32,
                 protocol::VirNetMessageType::VirNetStreamHole,
                 response.header.serial,
                 protocol::VirNetMessageStatus::VirNetContinue,
@@ -483,7 +450,9 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
             send(
                 &mut response.inner,
-                procedure,
+                response.header.prog,
+                response.header.vers,
+                procedure as i32,
                 protocol::VirNetMessageType::VirNetStream,
                 response.header.serial,
                 protocol::VirNetMessageStatus::VirNetOk,
@@ -500,9 +469,12 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             Ok(())
         }
 
+        #[allow(clippy::too_many_arguments)]
         fn send<S>(
             socket: &mut Box<dyn ReadWrite>,
-            procedure: RemoteProcedure,
+            program: u32,
+            version: u32,
+            procedure: i32,
             req_type: protocol::VirNetMessageType,
             req_serial: u32,
             req_status: protocol::VirNetMessageStatus,
@@ -514,9 +486,9 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             let mut req_len: u32 = 4;
 
             let req_header = protocol::VirNetMessageHeader {
-                prog: REMOTE_PROGRAM,
-                vers: REMOTE_PROTOCOL_VERSION,
-                proc: procedure as i32,
+                prog: program,
+                vers: version,
+                proc: procedure,
                 r#type: req_type,
                 serial: req_serial,
                 status: req_status,
@@ -706,45 +678,156 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
     Ok(client.to_string())
 }
 
-fn parse_file(
-    stream: TokenStream,
-) -> Result<(syn::ItemEnum, HashMap<String, syn::ItemStruct>), Box<dyn Error>> {
+fn parse_file(stream: TokenStream) -> Result<Procedure, Box<dyn Error>> {
     let file: syn::File = syn::parse2(stream)?;
 
     let mut models = HashMap::new();
-    let mut procedures = None;
+    let mut lxc_procedures = None;
+    let mut qemu_procedures = None;
+    let mut remote_procedures = None;
     for item in &file.items {
         if let syn::Item::Struct(model) = item {
             models.insert(format!("{}", model.ident), model.clone());
         }
 
         if let syn::Item::Enum(e) = item {
-            if e.ident == "RemoteProcedure" {
-                procedures = Some(e);
+            if e.ident == "LxcProcedure" {
+                lxc_procedures = Some(e);
+            } else if e.ident == "QemuProcedure" {
+                qemu_procedures = Some(e);
+            } else if e.ident == "RemoteProcedure" {
+                remote_procedures = Some(e);
             }
         }
     }
 
-    let procedures = procedures.ok_or("Not found `RemoteProcedure`.")?.clone();
+    let lxc_procedures = lxc_procedures.ok_or("Not found `lxcProcedure`.")?.clone();
 
-    Ok((procedures, models))
+    let qemu_procedures = qemu_procedures.ok_or("Not found `QemuProcedure`.")?.clone();
+
+    let remote_procedures = remote_procedures
+        .ok_or("Not found `RemoteProcedure`.")?
+        .clone();
+
+    Ok(Procedure {
+        lxc: lxc_procedures,
+        qemu: qemu_procedures,
+        remote: remote_procedures,
+        models,
+    })
+}
+
+fn get_call_methods(
+    wrapped: bool,
+    prefix: &str,
+    procedures: &syn::ItemEnum,
+    models: &HashMap<String, syn::ItemStruct>,
+) -> Vec<TokenStream> {
+    let mut calls = vec![];
+
+    let program = format_ident!("{}_PROGRAM", prefix.to_uppercase());
+
+    let proto_version = format_ident!("{}_PROTOCOL_VERSION", prefix.to_uppercase());
+
+    let procedure = format_ident!("{}Procedure", prefix);
+
+    for (name, args, ret) in parse_call_method(prefix, procedures, models) {
+        let stream = stream_procs(&name);
+        let method_name = format_ident!("{}", snake_case(&name));
+        let flag = format_ident!("{}Proc{}", prefix, &name);
+
+        let xdr_req_type = match args.as_deref() {
+            Some(model) => {
+                let model_ident = format_ident!("{}", model);
+                quote! { #model_ident }
+            }
+            _ => quote! { () },
+        };
+
+        let xdr_res_type = match ret.as_deref() {
+            Some(model) => {
+                let model_ident = format_ident!("{}", model);
+                quote! { #model_ident }
+            }
+            _ => quote! { () },
+        };
+
+        let stream_arg = if stream {
+            quote! { true }
+        } else {
+            quote! { false }
+        };
+
+        let call_proc = quote! {
+            call::<#xdr_req_type, #xdr_res_type>(
+                self,
+                #program,
+                #proto_version,
+                #procedure::#flag as i32,
+                #stream_arg,
+                req,
+            )?
+        };
+
+        let fn_args = gen_fn_args(&method_name, args.as_deref(), wrapped, models);
+        let res_type = gen_res_type(ret.as_deref(), wrapped, stream, models);
+        let req_stmt = gen_req_stmt(args.as_deref(), wrapped, models);
+        let proc_stmt = gen_proc_stmt(call_proc, ret.as_deref(), wrapped, stream, models);
+
+        calls.push(quote! {
+            fn #fn_args -> Result<#res_type, Error> {
+                trace!("{}", stringify!(#method_name));
+                #req_stmt
+                #proc_stmt
+            }
+        });
+    }
+
+    calls
+}
+
+fn get_msg_method(prefix: &str, models: &HashMap<String, syn::ItemStruct>) -> Vec<TokenStream> {
+    let mut msgs = vec![];
+    for (_, ret) in parse_msg_method(prefix, models) {
+        let ret_ident = format_ident!("{}", ret);
+        msgs.push(quote! {
+            impl TryFrom<VirNetResponseRaw> for #ret_ident {
+                type Error = Error;
+
+                fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+                    let header = value.header;
+                    let body = value.body.unwrap();
+                    match deserialize_body(&header, body) {
+                        Ok(res_body) => match res_body {
+                            VirNetResponse::Data(body) => Ok(body),
+                            _ => unreachable!(),
+                        },
+                        Err(e) => Err(e),
+                    }
+                }
+            }
+        });
+    }
+
+    msgs
 }
 
 fn parse_call_method(
+    prefix: &str,
     procedures: &syn::ItemEnum,
     models: &HashMap<String, syn::ItemStruct>,
 ) -> Vec<(String, Option<String>, Option<String>)> {
     let mut procs = vec![];
     for procedure in &procedures.variants {
         let method_str = format!("{}", procedure.ident);
-        if let Some(method) = method_str.strip_prefix("RemoteProc") {
+        if let Some(method) = method_str.strip_prefix(&format!("{prefix}Proc")) {
             let method_args = models
                 .keys()
-                .find(|&m| m == &format!("Remote{method}Args"))
+                .find(|&m| m == &format!("{prefix}{method}Args"))
                 .cloned();
             let method_ret = models
                 .keys()
-                .find(|&m| m == &format!("Remote{method}Ret"))
+                .find(|&m| m == &format!("{prefix}{method}Ret"))
                 .cloned();
             procs.push((method.to_string(), method_args, method_ret));
         }
@@ -752,15 +835,22 @@ fn parse_call_method(
     procs
 }
 
-fn parse_msg_method(models: &HashMap<String, syn::ItemStruct>) -> Vec<(String, String)> {
+fn parse_msg_method(
+    prefix: &str,
+    models: &HashMap<String, syn::ItemStruct>,
+) -> Vec<(String, String)> {
     let mut procs = vec![];
     for model in models.keys() {
+        if !model.starts_with(prefix) {
+            continue;
+        }
+
         if !model.ends_with("Msg") {
             continue;
         }
 
         procs.push((
-            model.strip_prefix("Remote").unwrap().to_string(),
+            model.strip_prefix(prefix).unwrap().to_string(),
             model.to_string(),
         ));
     }
