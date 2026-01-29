@@ -296,27 +296,19 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 download(self)
             }
 
-            pub fn storage_vol_upload_data(&mut self, buf: &[u8]) -> Result<(), Error> {
-                trace!("{}", stringify!(storage_vol_upload_data));
-                upload(self, RemoteProcedure::RemoteProcStorageVolUpload, buf)
+            pub fn upload_data(&mut self, buf: &[u8]) -> Result<(), Error> {
+                trace!("{}", stringify!(upload_data));
+                upload(self, buf)
             }
 
-            pub fn storage_vol_upload_hole(&mut self, length: i64, flags: u32) -> Result<(), Error> {
-                trace!("{}", stringify!(storage_vol_upload_hole));
-                send_hole(
-                    self,
-                    RemoteProcedure::RemoteProcStorageVolUpload,
-                    length,
-                    flags,
-                )
+            pub fn upload_hole(&mut self, length: i64, flags: u32) -> Result<(), Error> {
+                trace!("{}", stringify!(upload_hole));
+                send_hole(self, length, flags)
             }
 
-            pub fn storage_vol_upload_complete(&mut self) -> Result<(), Error> {
-                trace!("{}", stringify!(storage_vol_upload_complete));
-                upload_completed(
-                    self,
-                    RemoteProcedure::RemoteProcStorageVolUpload,
-                )
+            pub fn upload_complete(&mut self) -> Result<(), Error> {
+                trace!("{}", stringify!(upload_complete));
+                upload_completed(self)
             }
         }
 
@@ -392,11 +384,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             }
         }
 
-        fn upload<D>(
-            response: &mut VirNetStreamResponse<D>,
-            procedure: RemoteProcedure,
-            buf: &[u8],
-        ) -> Result<(), Error>
+        fn upload<D>(response: &mut VirNetStreamResponse<D>, buf: &[u8]) -> Result<(), Error>
         where
             D: DeserializeOwned,
         {
@@ -406,7 +394,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 &mut response.inner,
                 response.header.prog,
                 response.header.vers,
-                procedure as i32,
+                response.header.proc,
                 protocol::VirNetMessageType::VirNetStream,
                 response.header.serial,
                 protocol::VirNetMessageStatus::VirNetContinue,
@@ -417,7 +405,6 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
 
         fn send_hole<D>(
             response: &mut VirNetStreamResponse<D>,
-            procedure: RemoteProcedure,
             length: i64,
             flags: u32,
         ) -> Result<(), Error>
@@ -430,7 +417,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 &mut response.inner,
                 response.header.prog,
                 response.header.vers,
-                procedure as i32,
+                response.header.proc,
                 protocol::VirNetMessageType::VirNetStreamHole,
                 response.header.serial,
                 protocol::VirNetMessageStatus::VirNetContinue,
@@ -439,10 +426,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
             Ok(())
         }
 
-        fn upload_completed<D>(
-            response: &mut VirNetStreamResponse<D>,
-            procedure: RemoteProcedure,
-        ) -> Result<(), Error>
+        fn upload_completed<D>(response: &mut VirNetStreamResponse<D>) -> Result<(), Error>
         where
             D: DeserializeOwned,
         {
@@ -452,7 +436,7 @@ fn gen_code(stream: TokenStream, wrapped: bool) -> Result<String, Box<dyn Error>
                 &mut response.inner,
                 response.header.prog,
                 response.header.vers,
-                procedure as i32,
+                response.header.proc,
                 protocol::VirNetMessageType::VirNetStream,
                 response.header.serial,
                 protocol::VirNetMessageStatus::VirNetOk,

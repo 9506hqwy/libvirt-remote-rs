@@ -73,7 +73,7 @@ pub fn run(
         for (sparse_type, length) in ranges {
             match sparse_type {
                 SparseType::Hole => {
-                    stream.storage_vol_upload_hole(length as i64, 0)?;
+                    stream.upload_hole(length as i64, 0)?;
                     f.seek(SeekFrom::Current(length as i64))?;
                 }
                 SparseType::Data => {
@@ -83,7 +83,7 @@ pub fn run(
         }
     }
 
-    stream.storage_vol_upload_complete()?;
+    stream.upload_complete()?;
 
     stream.fin();
 
@@ -112,7 +112,7 @@ fn upload_data(
 
         remain -= size;
 
-        stream.storage_vol_upload_data(&buf[..size])?;
+        stream.upload_data(&buf[..size])?;
     }
 
     Ok(())
