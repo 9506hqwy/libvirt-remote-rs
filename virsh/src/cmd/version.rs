@@ -60,48 +60,40 @@ pub fn run(client: &mut Box<impl Libvirt>, locale: &Locale) -> Result<(), Error>
     let hv_ver: Option<String> = hv_ver_rx.recv().unwrap();
     let lib_ver: Option<String> = lib_ver_rx.recv().unwrap();
 
-    if lib_ver.is_some() {
+    if let Some(lib_ver) = lib_ver.as_ref() {
         println!(
             "{}",
-            locale.format_message(
-                "FormatCompiledLibrary",
-                vec![("version", lib_ver.as_ref().unwrap())]
-            ),
+            locale.format_message("FormatCompiledLibrary", vec![("version", lib_ver)]),
         );
     }
 
-    if lib_ver.is_some() {
+    if let Some(lib_ver) = lib_ver.as_ref() {
         println!(
             "{}",
-            locale.format_message(
-                "FormatUsingLibrary",
-                vec![("version", lib_ver.as_ref().unwrap())]
-            )
+            locale.format_message("FormatUsingLibrary", vec![("version", lib_ver)])
         );
     }
 
-    if hv_type.is_some() && lib_ver.is_some() {
+    if let Some(hv_type) = hv_type.as_ref()
+        && let Some(lib_ver) = lib_ver.as_ref()
+    {
         println!(
             "{}",
             locale.format_message(
                 "FormatUsingAPI",
-                vec![
-                    ("type", hv_type.as_ref().unwrap()),
-                    ("version", lib_ver.as_ref().unwrap())
-                ]
+                vec![("type", hv_type), ("version", lib_ver)]
             ),
         );
     }
 
-    if hv_type.is_some() && hv_ver.is_some() {
+    if let Some(hv_type) = hv_type.as_ref()
+        && let Some(hv_ver) = hv_ver.as_ref()
+    {
         println!(
             "{}",
             locale.format_message(
                 "FormatRunningHypervisor",
-                vec![
-                    ("type", hv_type.as_ref().unwrap()),
-                    ("version", hv_ver.as_ref().unwrap())
-                ]
+                vec![("type", hv_type), ("version", hv_ver)]
             ),
         );
     }
