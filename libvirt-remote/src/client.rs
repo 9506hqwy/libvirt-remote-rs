@@ -8978,6 +8978,32 @@ pub trait Libvirt: Send + Sized + 'static {
         )?;
         Ok(())
     }
+    fn domain_event_vcpu_removed(&mut self) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_event_vcpu_removed));
+        let req: Option<()> = None;
+        let _res = call::<(), ()>(
+            self,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventVcpuRemoved as i32,
+            false,
+            req,
+        )?;
+        Ok(())
+    }
+    fn domain_event_callback_channel_lifecycle(&mut self) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_event_callback_channel_lifecycle));
+        let req: Option<()> = None;
+        let _res = call::<(), ()>(
+            self,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainEventCallbackChannelLifecycle as i32,
+            false,
+            req,
+        )?;
+        Ok(())
+    }
 }
 impl<D> VirNetStreamResponse<D>
 where
@@ -9134,6 +9160,20 @@ impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackBalloonChangeMsg {
     }
 }
 impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackBlockJobMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventCallbackChannelLifecycleMsg {
     type Error = Error;
     fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
         let header = value.header;
@@ -9638,6 +9678,20 @@ impl TryFrom<VirNetResponseRaw> for RemoteDomainEventRtcChangeMsg {
     }
 }
 impl TryFrom<VirNetResponseRaw> for RemoteDomainEventTrayChangeMsg {
+    type Error = Error;
+    fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
+        let header = value.header;
+        let body = value.body.unwrap();
+        match deserialize_body(&header, body) {
+            Ok(res_body) => match res_body {
+                VirNetResponse::Data(body) => Ok(body),
+                _ => unreachable!(),
+            },
+            Err(e) => Err(e),
+        }
+    }
+}
+impl TryFrom<VirNetResponseRaw> for RemoteDomainEventVcpuRemovedMsg {
     type Error = Error;
     fn try_from(value: VirNetResponseRaw) -> Result<Self, Self::Error> {
         let header = value.header;

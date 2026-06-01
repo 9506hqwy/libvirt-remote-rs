@@ -3716,6 +3716,12 @@ pub struct RemoteDomainEventMemoryDeviceSizeChangeMsg {
     pub size: u64,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainEventVcpuRemovedMsg {
+    pub callback_id: i32,
+    pub dom: RemoteNonnullDomain,
+    pub vcpuid: u32,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RemoteDomainFdAssociateArgs {
     pub dom: RemoteNonnullDomain,
     pub name: String,
@@ -3741,6 +3747,14 @@ pub struct RemoteDomainEventNicMacChangeMsg {
     pub alias: String,
     pub old_mac: String,
     pub new_mac: String,
+}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainEventCallbackChannelLifecycleMsg {
+    pub callback_id: i32,
+    pub dom: RemoteNonnullDomain,
+    pub channel_name: String,
+    pub state: i32,
+    pub reason: i32,
 }
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[repr(i32)]
@@ -4201,6 +4215,8 @@ pub enum RemoteProcedure {
     RemoteProcDomainSetThrottleGroup = 451i32,
     RemoteProcDomainDelThrottleGroup = 452i32,
     RemoteProcDomainEventNicMacChange = 453i32,
+    RemoteProcDomainEventVcpuRemoved = 454i32,
+    RemoteProcDomainEventCallbackChannelLifecycle = 455i32,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct LxcDomainOpenNamespaceArgs {
