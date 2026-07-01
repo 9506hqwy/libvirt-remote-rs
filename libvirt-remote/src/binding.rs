@@ -68,6 +68,7 @@ pub const REMOTE_DOMAIN_GUEST_INFO_PARAMS_MAX: u32 = 2048u32;
 pub const REMOTE_NETWORK_PORT_PARAMETERS_MAX: u32 = 16u32;
 pub const REMOTE_DOMAIN_AUTHORIZED_SSH_KEYS_MAX: u32 = 2048u32;
 pub const REMOTE_DOMAIN_MESSAGES_MAX: u32 = 2048u32;
+pub const REMOTE_DOMAIN_ANNOUNCE_INTERFACE_PARAMS_MAX: u32 = 16u32;
 pub const REMOTE_DOMAIN_EVENT_GRAPHICS_IDENTITY_MAX: u32 = 20u32;
 pub const REMOTE_PROGRAM: u32 = 536903814u32;
 pub const REMOTE_PROTOCOL_VERSION: u32 = 1u32;
@@ -3756,6 +3757,13 @@ pub struct RemoteDomainEventCallbackChannelLifecycleMsg {
     pub state: i32,
     pub reason: i32,
 }
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct RemoteDomainAnnounceInterfaceArgs {
+    pub dom: RemoteNonnullDomain,
+    pub device: Option<String>,
+    pub params: Vec<RemoteTypedParam>,
+    pub flags: u32,
+}
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[repr(i32)]
 #[derive(Default)]
@@ -4217,6 +4225,7 @@ pub enum RemoteProcedure {
     RemoteProcDomainEventNicMacChange = 453i32,
     RemoteProcDomainEventVcpuRemoved = 454i32,
     RemoteProcDomainEventCallbackChannelLifecycle = 455i32,
+    RemoteProcDomainAnnounceInterface = 456i32,
 }
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct LxcDomainOpenNamespaceArgs {

@@ -9004,6 +9004,31 @@ pub trait Libvirt: Send + Sized + 'static {
         )?;
         Ok(())
     }
+    fn domain_announce_interface(
+        &mut self,
+        dom: RemoteNonnullDomain,
+        device: Option<String>,
+        params: Vec<RemoteTypedParam>,
+        flags: u32,
+    ) -> Result<(), Error> {
+        trace!("{}", stringify!(domain_announce_interface));
+        let req: Option<RemoteDomainAnnounceInterfaceArgs> =
+            Some(RemoteDomainAnnounceInterfaceArgs {
+                dom,
+                device,
+                params,
+                flags,
+            });
+        let _res = call::<RemoteDomainAnnounceInterfaceArgs, ()>(
+            self,
+            REMOTE_PROGRAM,
+            REMOTE_PROTOCOL_VERSION,
+            RemoteProcedure::RemoteProcDomainAnnounceInterface as i32,
+            false,
+            req,
+        )?;
+        Ok(())
+    }
 }
 impl<D> VirNetStreamResponse<D>
 where
