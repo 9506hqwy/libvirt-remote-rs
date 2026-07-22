@@ -42,7 +42,7 @@ fn connect(uri: Url, readonly: bool) -> Result<Box<impl Libvirt>, Error> {
     }?;
 
     let name = format!("{}://{}", schemes[0], uri.path());
-    trace!("connecting {} readonly={}", &name, readonly);
+    trace!("connecting {} readonly={}", name, readonly);
 
     authenticate(&mut client)?;
 
@@ -59,7 +59,7 @@ fn connect_tcp(uri: &Url) -> Result<Box<Client>, Error> {
             .unwrap_or_else(|| "127.0.0.1".to_string()),
         uri.port().unwrap_or(16509)
     );
-    trace!("connecting: {}", &host);
+    trace!("connecting: {}", host);
     let stream = TcpStream::connect(host)?;
     Ok(Box::new(Client::new(stream)))
 }
@@ -70,7 +70,7 @@ fn connect_unix(uri: &Url) -> Result<Box<Client>, Error> {
         Some((_, v)) => v.into_owned(),
         _ => "/var/run/libvirt/libvirt-sock".to_string(),
     };
-    trace!("connecting: {}", &socket);
+    trace!("connecting: {}", socket);
     let stream = UnixStream::connect(&socket)?;
     Ok(Box::new(Client::new(stream)))
 }
